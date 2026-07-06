@@ -5,11 +5,22 @@ import { authenticate } from "../shopify.server";
 import { processDueTasksForShop } from "../services/scheduler.server";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-  await processDueTasksForShop({ admin, shop: session.shop });
+  try {
+    const { admin, session } = await authenticate.admin(request);
 
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+    console.log("Authenticated:", session.shop);
+
+    await processDueTasksForShop({
+      admin,
+      shop: session.shop,
+    });
+
+    // eslint-disable-next-line no-undef
+    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  } catch (error) {
+    console.error("AUTH ERROR:", error);
+    throw error;
+  }
 };
 
 export default function App() {
