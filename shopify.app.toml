@@ -26,7 +26,7 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://https://algovent-007-price-flex-bulk-price-editor.onrender.com/auth/callback" ]
+redirect_urls = [ "https://algovent-007-price-flex-bulk-price-editor.onrender.com/auth/callback" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
