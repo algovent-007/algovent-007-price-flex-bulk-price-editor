@@ -2,7 +2,7 @@
 
 client_id = "764cc873c1b23c366c3d61896baff0e5"
 name = "Price Flex - Bulk Price editor"
-application_url = "https://priceflex.algovent.com/app"
+application_url = "https://algovent-007-price-flex-bulk-price-editor.onrender.com"
 embedded = true
 
 [build]
@@ -26,7 +26,7 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://priceflex.algovent.com/app" ]
+redirect_urls = [ "https://https://algovent-007-price-flex-bulk-price-editor.onrender.com/auth/callback" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
