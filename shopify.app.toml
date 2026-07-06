@@ -53,6 +53,6 @@ name = "Description"
 type = "multi_line_text_field"
 
 [app_proxy]
-url = "https://priceflex.algovent.com/proxy"
+url = "https://algovent-007-price-flex-bulk-price-editor.onrender.com/proxy"
 subpath = "priceflex"
 prefix = "apps"
