@@ -12,21 +12,28 @@ automatically_update_urls_on_dev = true
 api_version = "2026-04"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
-
-  [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
   topics = [ "app/uninstalled" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_channels,write_channels,write_checkouts,read_checkouts,read_price_rules,write_price_rules,read_discounts,write_discounts,read_gift_cards,write_gift_cards,write_inventory,read_inventory,write_inventory_shipments,read_inventory_shipments,write_inventory_shipments_received_items,read_inventory_shipments_received_items,write_inventory_transfers,read_inventory_transfers,read_locales,write_locales,write_locations,read_locations,read_markets,write_markets,read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_online_store_pages,write_online_store_pages,write_order_edits,read_order_edits,read_orders,write_orders,read_product_feeds,write_product_feeds,read_product_listings,write_product_listings,read_products,write_products,read_publications,write_publications,read_shipping,write_shipping,read_content,write_content,write_theme_code,read_themes,write_themes,read_translations,write_translations,customer_read_markets,customer_read_metaobjects,customer_read_orders,customer_write_orders,unauthenticated_write_bulk_operations,unauthenticated_read_bulk_operations,unauthenticated_read_bundles,unauthenticated_read_customer_tags,unauthenticated_read_metaobjects,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_tags,unauthenticated_read_content"
+scopes = "customer_read_markets,customer_read_metaobjects,customer_read_orders,customer_write_orders,read_channels,read_checkouts,read_content,read_discounts,read_gift_cards,read_inventory,read_inventory_shipments,read_inventory_shipments_received_items,read_inventory_transfers,read_locales,read_locations,read_markets,read_metaobject_definitions,read_metaobjects,read_online_store_navigation,read_online_store_pages,read_order_edits,read_orders,read_price_rules,read_product_feeds,read_product_listings,read_products,read_publications,read_shipping,read_themes,read_translations,unauthenticated_read_bulk_operations,unauthenticated_read_bundles,unauthenticated_read_content,unauthenticated_read_customer_tags,unauthenticated_read_metaobjects,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_tags,unauthenticated_write_bulk_operations,write_channels,write_checkouts,write_content,write_discounts,write_gift_cards,write_inventory,write_inventory_shipments,write_inventory_shipments_received_items,write_inventory_transfers,write_locales,write_locations,write_markets,write_metaobject_definitions,write_metaobjects,write_online_store_navigation,write_online_store_pages,write_order_edits,write_orders,write_price_rules,write_product_feeds,write_product_listings,write_products,write_publications,write_shipping,write_theme_code,write_themes,write_translations"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://algovent-007-price-flex-bulk-price-editor.onrender.com/auth/callback" ]
+redirect_urls = [
+  "https://algovent-007-price-flex-bulk-price-editor.onrender.com/auth/callback"
+]
+
+[app_proxy]
+url = "https://algovent-007-price-flex-bulk-price-editor.onrender.com/proxy"
+subpath = "priceflex"
+prefix = "apps"
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
@@ -51,8 +58,3 @@ required = true
 [metaobjects.app.example.fields.description]
 name = "Description"
 type = "multi_line_text_field"
-
-[app_proxy]
-url = "https://algovent-007-price-flex-bulk-price-editor.onrender.com/proxy"
-subpath = "priceflex"
-prefix = "apps"
