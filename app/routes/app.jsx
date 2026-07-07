@@ -18,7 +18,22 @@ export const loader = async ({ request }) => {
     // eslint-disable-next-line no-undef
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };
   } catch (error) {
-    console.error("AUTH ERROR:", error);
+    if (error instanceof Response) {
+      console.error("===== SHOPIFY AUTH ERROR =====");
+      console.error("Status:", error.status);
+      console.error("Status Text:", error.statusText);
+      console.error("Headers:", Object.fromEntries(error.headers.entries()));
+
+      try {
+        const body = await error.text();
+        console.error("Body:", body);
+      } catch (e) {
+        console.error("Couldn't read response body");
+      }
+    } else {
+      console.error(error);
+    }
+
     throw error;
   }
 };
