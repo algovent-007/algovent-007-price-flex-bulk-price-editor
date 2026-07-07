@@ -18,6 +18,12 @@ export function isTaskTerminal(status) {
   return ["completed", "failed", "cancelled", "rolled_back"].includes(status);
 }
 
+function getProgressFillColor(status) {
+  if (status === "failed") return "var(--p-color-bg-fill-critical)";
+  if (status === "cancelled") return "var(--p-color-bg-fill-caution)";
+  return "var(--p-color-bg-fill-success)";
+}
+
 export default function TaskProgressCard({ task }) {
   if (!task) return null;
 
@@ -51,7 +57,10 @@ export default function TaskProgressCard({ task }) {
           <s-text color="subdued">
             {progressValue}% complete
           </s-text>
-          <div
+          <s-box
+            background="subdued"
+            borderRadius="base"
+            overflow="hidden"
             role="progressbar"
             aria-valuenow={progressValue}
             aria-valuemin="0"
@@ -60,23 +69,20 @@ export default function TaskProgressCard({ task }) {
             style={{
               width: "100%",
               height: "8px",
-              background: "#E3E3E3",
-              borderRadius: "999px",
-              overflow: "hidden",
             }}
           >
             <div
               style={{
                 width: `${progressValue}%`,
                 height: "100%",
-                background: task.status === "failed" ? "#D72C0D" : "#008060",
+                background: getProgressFillColor(task.status),
                 transition: "width 200ms ease",
               }}
             />
-          </div>
+          </s-box>
         </s-stack>
 
-        <s-grid gridTemplateColumns="repeat(4, 1fr)" gap="base">
+        <s-grid gridTemplateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap="base">
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="small-100">
               <s-text color="subdued">Products processed</s-text>

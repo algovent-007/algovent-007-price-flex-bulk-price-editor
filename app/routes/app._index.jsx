@@ -5,6 +5,9 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import TaskProgressCard, { isTaskTerminal } from "../components/TaskProgressCard";
 
+const EXECUTING_TASK_STATUSES = ["running"];
+const FINISHED_TASK_STATUSES = ["completed", "failed", "cancelled", "rolled_back"];
+
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
@@ -12,12 +15,16 @@ export const loader = async ({ request }) => {
 
   const activeTask = taskId
     ? await prisma.task.findFirst({
-        where: { id: taskId, shop: session.shop },
+        where: {
+          id: taskId,
+          shop: session.shop,
+          status: { in: EXECUTING_TASK_STATUSES },
+        },
       })
     : await prisma.task.findFirst({
         where: {
           shop: session.shop,
-          status: { in: ["running", "scheduled"] },
+          status: { in: EXECUTING_TASK_STATUSES },
         },
         orderBy: { createdAt: "desc" },
       });
@@ -25,7 +32,7 @@ export const loader = async ({ request }) => {
   const lastCompletedTask = await prisma.task.findFirst({
     where: {
       shop: session.shop,
-      status: { in: ["completed", "failed", "cancelled"] },
+      status: { in: FINISHED_TASK_STATUSES },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -51,8 +58,11 @@ export default function Index() {
   useEffect(() => {
     if (activeTask?.id) {
       localStorage.setItem("price_flex_active_task_id", activeTask.id);
+    } else if (taskId) {
+      localStorage.removeItem("price_flex_active_task_id");
+      navigate("/app", { replace: true });
     }
-  }, [activeTask?.id]);
+  }, [activeTask?.id, navigate, taskId]);
 
   useEffect(() => {
     if (!shouldPoll) return undefined;

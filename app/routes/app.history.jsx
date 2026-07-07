@@ -316,31 +316,38 @@ export default function TasksHistory() {
                       </s-button>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-stack direction="inline" gap="small" alignItems="center">
-                        <s-button
-                          variant="secondary"
-                          onClick={() => openDetailsModal(task)}
-                          disabled={!canViewTaskConfiguration(actionData)}
+                      <s-box minInlineSize="220px">
+                        <s-stack
+                          direction="inline"
+                          gap="small-100"
+                          alignItems="center"
+                          style={{ flexWrap: "nowrap" }}
                         >
-                          View
-                        </s-button>
-                        <s-button
-                          variant="secondary"
-                          onClick={() => handleCopy(task, actionData)}
-                          disabled={!canCopyTask(actionData)}
-                        >
-                          Copy
-                        </s-button>
-                        <s-button
-                          tone="critical"
-                          variant="secondary"
-                          onClick={() => handleRollback(task)}
-                          disabled={!canRollback(task, actionData, logs) || isRollingBack}
-                          loading={isRollingBack}
-                        >
-                          Rollback
-                        </s-button>
-                      </s-stack>
+                          <s-button
+                            variant="secondary"
+                            onClick={() => openDetailsModal(task)}
+                            disabled={!canViewTaskConfiguration(actionData)}
+                          >
+                            View
+                          </s-button>
+                          <s-button
+                            variant="secondary"
+                            onClick={() => handleCopy(task, actionData)}
+                            disabled={!canCopyTask(actionData)}
+                          >
+                            Copy
+                          </s-button>
+                          <s-button
+                            tone="critical"
+                            variant="secondary"
+                            onClick={() => handleRollback(task)}
+                            disabled={!canRollback(task, actionData, logs) || isRollingBack}
+                            loading={isRollingBack}
+                          >
+                            Rollback
+                          </s-button>
+                        </s-stack>
+                      </s-box>
                     </s-table-cell>
                   </s-table-row>
                 );

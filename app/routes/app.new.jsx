@@ -367,7 +367,7 @@ export default function NewTask() {
   const { collections } = useLoaderData();
 
   // Section 1 States
-  const [editType, setEditType] = useState("conditions");
+  const [editType, setEditType] = useState("all");
   const [matchType, setMatchType] = useState("all");
   const [conditions, setConditions] = useState([
     { field: "title", operator: "equals", value: "" }
@@ -381,28 +381,28 @@ export default function NewTask() {
   // Section 2 States
   const [changePrice, setChangePrice] = useState("1");
   const [percentType, setPercentType] = useState("1");
-  const [percentValue, setPercentValue] = useState("0");
+  const [percentValue, setPercentValue] = useState("");
   const [fixedType, setFixedType] = useState("3");
-  const [fixedValue, setFixedValue] = useState("0");
+  const [fixedValue, setFixedValue] = useState("");
   const [roundCents, setRoundCents] = useState("1");
   const [comparePriceType, setComparePriceType] = useState("6");
   const [costPriceType, setCostPriceType] = useState("6");
-  const [fixedPriceAmount, setFixedPriceAmount] = useState("35");
+  const [fixedPriceAmount, setFixedPriceAmount] = useState("");
   const [priceFormula, setPriceFormula] = useState("price * 1.1");
   const [comparePriceFormula, setComparePriceFormula] = useState("price * 1.2");
 
   const [comparePercentType, setComparePercentType] = useState("1");
-  const [comparePercentValue, setComparePercentValue] = useState("0");
+  const [comparePercentValue, setComparePercentValue] = useState("");
   const [compareFixedType, setCompareFixedType] = useState("3");
-  const [compareFixedValue, setCompareFixedValue] = useState("0");
-  const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState("0");
+  const [compareFixedValue, setCompareFixedValue] = useState("");
+  const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState("");
   const [compareRoundCents, setCompareRoundCents] = useState("1");
 
   const [costPercentType, setCostPercentType] = useState("1");
-  const [costPercentValue, setCostPercentValue] = useState("0");
+  const [costPercentValue, setCostPercentValue] = useState("");
   const [costFixedType, setCostFixedType] = useState("3");
-  const [costFixedValue, setCostFixedValue] = useState("0");
-  const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("0");
+  const [costFixedValue, setCostFixedValue] = useState("");
+  const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
   const [costRoundCents, setCostRoundCents] = useState("1");
 
   // Section 3 States

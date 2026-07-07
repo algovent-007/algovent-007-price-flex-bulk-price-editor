@@ -164,7 +164,6 @@ export default function TaskConfigurationForm({
             <s-choice value="collection">All products in a collection</s-choice>
             <s-choice value="csv-all">All products in a CSV</s-choice>
             <s-choice value="csv-direct">Direct Edit with CSV</s-choice>
-            <s-choice value="markets">Products based on market(s)</s-choice>
           </s-choice-list>
 
           {editType === "conditions" && (
@@ -196,7 +195,7 @@ export default function TaskConfigurationForm({
             />
           )}
 
-          {editType === "csv-all" && (
+          {(editType === "csv-all" || editType === "csv-direct") && (
             <CsvUploadCard
               readOnly={readOnly}
               csvFileInputRef={csvFileInputRef}
@@ -210,6 +209,7 @@ export default function TaskConfigurationForm({
 
           {editType !== "conditions" &&
             editType !== "csv-all" &&
+            editType !== "csv-direct" &&
             editType !== "collection" && (
               <s-stack direction="block" gap="base">
                 {!readOnly && (
@@ -240,8 +240,6 @@ export default function TaskConfigurationForm({
             <s-option value="2">Based on Current Compare Price</s-option>
             <s-option value="3">Based on Cost per Item</s-option>
             <s-option value="5">With Fixed Amount</s-option>
-            <s-option value="8">Based On Formula</s-option>
-            <s-option value="9">Reset Fixed Price</s-option>
             <s-option value="6">No Change</s-option>
           </s-select>
 
@@ -265,6 +263,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={percentValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={readOnly ? undefined : (e) => setPercentValue(e.target.value)}
                     ></s-text-field>
@@ -291,6 +290,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={fixedValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={readOnly ? undefined : (e) => setFixedValue(e.target.value)}
                     ></s-text-field>
@@ -308,29 +308,12 @@ export default function TaskConfigurationForm({
                   label="Fixed price amount"
                   type="number"
                   value={fixedPriceAmount}
+                  placeholder="Enter amount"
                   disabled={readOnly}
                   onInput={readOnly ? undefined : (e) => setFixedPriceAmount(e.target.value)}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
-            </s-box>
-          )}
-
-          {changePrice === "8" && (
-            <s-box paddingBlockStart="large">
-              <div>
-                <s-text-field
-                  label="Price formula"
-                  value={priceFormula}
-                  disabled={readOnly}
-                  onInput={readOnly ? undefined : (e) => setPriceFormula(e.target.value)}
-                  placeholder="price * 1.1 + cost * 0.2"
-                ></s-text-field>
-                <s-text color="subdued">
-                  Use variables: <strong>price</strong>, <strong>compare</strong>,{" "}
-                  <strong>cost</strong>
-                </s-text>
-              </div>
             </s-box>
           )}
 
@@ -399,6 +382,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={comparePercentValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={
                         readOnly ? undefined : (e) => setComparePercentValue(e.target.value)
@@ -429,6 +413,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={compareFixedValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={
                         readOnly ? undefined : (e) => setCompareFixedValue(e.target.value)
@@ -448,6 +433,7 @@ export default function TaskConfigurationForm({
                   label="Fixed compare price amount"
                   type="number"
                   value={compareFixedPriceAmount}
+                  placeholder="Enter amount"
                   disabled={readOnly}
                   onInput={
                     readOnly ? undefined : (e) => setCompareFixedPriceAmount(e.target.value)
@@ -544,6 +530,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={costPercentValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={
                         readOnly ? undefined : (e) => setCostPercentValue(e.target.value)
@@ -572,6 +559,7 @@ export default function TaskConfigurationForm({
                       label="Value"
                       type="number"
                       value={costFixedValue}
+                      placeholder="Enter value"
                       disabled={readOnly}
                       onInput={
                         readOnly ? undefined : (e) => setCostFixedValue(e.target.value)
@@ -591,6 +579,7 @@ export default function TaskConfigurationForm({
                   label="Fixed cost price amount"
                   type="number"
                   value={costFixedPriceAmount}
+                  placeholder="Enter amount"
                   disabled={readOnly}
                   onInput={
                     readOnly ? undefined : (e) => setCostFixedPriceAmount(e.target.value)

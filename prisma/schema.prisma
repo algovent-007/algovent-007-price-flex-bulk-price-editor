@@ -45,3 +45,11 @@ model Task {
   shop           String?
   actionDetails  String
 }
+
+model ShopSettings {
+  shop      String   @id
+  name      String?
+  email     String?
+  timezone  String?
+  updatedAt DateTime @updatedAt
+}
