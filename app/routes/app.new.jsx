@@ -15,7 +15,11 @@ import {
   formatTime12Hour,
   parseDateString,
 } from "../utils/schedule";
-import { buildProductQuery, executePriceEditTask } from "../services/task-runner.server";
+import {
+  buildProductQuery,
+  executePriceEditTask,
+  filterProductsByConditions,
+} from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { PLACEHOLDER_IMAGE, buildVariantDisplayTitle } from "../components/new-task/constants";
@@ -111,7 +115,12 @@ export const action = async ({ request }) => {
         }
       );
 
-      const products = data.products?.nodes || [];
+      const products = filterProductsByConditions(
+        data.products?.nodes || [],
+        editType,
+        matchType,
+        conditionsStr
+      );
       return Response.json({ success: true, products });
     } catch (err) {
       console.error("Error fetching products from Shopify:", err);
@@ -411,7 +420,7 @@ export default function NewTask() {
   const [addTagsActive, setAddTagsActive] = useState(true);
   const [removeTagsActive, setRemoveTagsActive] = useState(true);
   const [tagToAddInput, setTagToAddInput] = useState("");
-  const [tagsToAdd, setTagsToAdd] = useState(["price-change-job-active"]);
+  const [tagsToAdd, setTagsToAdd] = useState([]);
   const [tagToRemoveInput, setTagToRemoveInput] = useState("");
   const [tagsToRemove, setTagsToRemove] = useState([]);
 

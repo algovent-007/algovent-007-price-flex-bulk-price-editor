@@ -45,7 +45,7 @@ export function getDefaultTaskConfigState(taskName = "") {
     addTagsActive: true,
     removeTagsActive: true,
     tagToAddInput: "",
-    tagsToAdd: ["price-change-job-active"],
+    tagsToAdd: [],
     tagToRemoveInput: "",
     tagsToRemove: [],
     scheduleType: "now",

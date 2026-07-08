@@ -1,6 +1,61 @@
 import prisma from "../db.server";
 import { calculateVariantPricing, formatPrice } from "../utils/pricing";
 
+function parseConditions(conditionsStr) {
+  if (!conditionsStr) return [];
+
+  try {
+    const parsed = JSON.parse(conditionsStr);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error("Error parsing conditions:", e);
+    return [];
+  }
+}
+
+function normalizeConditionValue(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function matchesTitleCondition(title, condition) {
+  const normalizedTitle = normalizeConditionValue(title);
+  const value = normalizeConditionValue(condition.value);
+
+  if (!value) return true;
+
+  if (condition.operator === "not_equals") return normalizedTitle !== value;
+  if (condition.operator === "contains") return normalizedTitle.includes(value);
+  if (condition.operator === "starts_with") return normalizedTitle.startsWith(value);
+  if (condition.operator === "ends_with") return normalizedTitle.endsWith(value);
+
+  return normalizedTitle === value;
+}
+
+export function filterProductsByConditions(products, editType, matchType, conditionsStr) {
+  if (editType !== "conditions") return products;
+
+  const conditions = parseConditions(conditionsStr).filter((condition) =>
+    String(condition.value ?? "").trim()
+  );
+  const titleConditions = conditions.filter((condition) => condition.field === "title");
+
+  if (titleConditions.length === 0) return products;
+
+  // For mixed "any" groups, Shopify handles the OR query. Local filtering would incorrectly
+  // remove products that matched a non-title condition.
+  if (matchType === "any" && titleConditions.length !== conditions.length) {
+    return products;
+  }
+
+  return products.filter((product) => {
+    const matches = titleConditions.map((condition) =>
+      matchesTitleCondition(product.title, condition)
+    );
+
+    return matchType === "any" ? matches.some(Boolean) : matches.every(Boolean);
+  });
+}
+
 export function buildProductQuery(editType, matchType, conditionsStr, collectionId) {
   if (editType === "collection" && collectionId) {
     const numericId = String(collectionId).split("/").pop();
@@ -12,7 +67,7 @@ export function buildProductQuery(editType, matchType, conditionsStr, collection
   }
 
   try {
-    const conditions = JSON.parse(conditionsStr);
+    const conditions = parseConditions(conditionsStr);
     const parts = [];
 
     for (const cond of conditions) {
@@ -28,12 +83,16 @@ export function buildProductQuery(editType, matchType, conditionsStr, collection
       else if (field === "tag") shopifyField = "tag";
       else if (field === "status") shopifyField = "status";
 
+      if (field === "title" && operator === "not_equals") {
+        continue;
+      }
+
       let part = "";
       if (operator === "equals") part = `${shopifyField}:${value}`;
       else if (operator === "not_equals") part = `NOT ${shopifyField}:${value}`;
-      else if (operator === "contains") part = `${shopifyField}:*${value}*`;
+      else if (operator === "contains") part = `${shopifyField}:${value}`;
       else if (operator === "starts_with") part = `${shopifyField}:${value}*`;
-      else if (operator === "ends_with") part = `${shopifyField}:*${value}`;
+      else if (operator === "ends_with") part = `${shopifyField}:${value}`;
       else part = `${shopifyField}:${value}`;
 
       parts.push(part);
@@ -160,7 +219,12 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
       { query: queryStr || null }
     );
 
-    const products = data.products?.nodes || [];
+    const products = filterProductsByConditions(
+      data.products?.nodes || [],
+      editType,
+      matchType,
+      conditionsStr
+    );
     totalProductsCount = products.length;
 
     const buildProgressMeta = (error = null, failureCount = 0) => ({
