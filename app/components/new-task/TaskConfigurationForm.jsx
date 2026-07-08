@@ -48,13 +48,6 @@ export default function TaskConfigurationForm({
     costFixedValue,
     costFixedPriceAmount,
     costRoundCents,
-    examplePrice,
-    exampleCompare,
-    exampleCost,
-    calcPrice,
-    calcCompare,
-    calcCost,
-    calcWarnings,
     addTagsActive,
     removeTagsActive,
     tagToAddInput,
@@ -106,10 +99,6 @@ export default function TaskConfigurationForm({
     setCostFixedValue,
     setCostFixedPriceAmount,
     setCostRoundCents,
-    setExamplePrice,
-    setExampleCompare,
-    setExampleCost,
-    runCalculations,
     setAddTagsActive,
     setRemoveTagsActive,
     setTagToAddInput,
@@ -617,76 +606,6 @@ export default function TaskConfigurationForm({
               be set to 0 when the edit task is executed.
             </s-banner>
           </s-box>
-        </s-stack>
-      </s-section>
-
-      {/* Section 3: Check Example Calculations */}
-      <s-section heading="3. Check example calculations">
-        <s-stack direction="block" gap="base">
-          <s-table variant="auto">
-            <s-table-header-row>
-              <s-table-header listSlot="primary">Field</s-table-header>
-              <s-table-header listSlot="labeled">Current Value</s-table-header>
-              <s-table-header listSlot="labeled">New Value</s-table-header>
-              <s-table-header listSlot="labeled">Calculated Result</s-table-header>
-            </s-table-header-row>
-
-            <s-table-body>
-              <s-table-row>
-                <s-table-cell>Product Price</s-table-cell>
-                <s-table-cell>
-                  <s-text-field
-                    type="number"
-                    value={examplePrice}
-                    disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setExamplePrice(e.target.value)}
-                    label="Current Product Price"
-                    labelAccessibilityVisibility="exclusive"
-                  ></s-text-field>
-                </s-table-cell>
-                <s-table-cell>New Product Price</s-table-cell>
-                <s-table-cell>{calcPrice}</s-table-cell>
-              </s-table-row>
-
-              <s-table-row>
-                <s-table-cell>Compare-at Price</s-table-cell>
-                <s-table-cell>
-                  <s-text-field
-                    type="number"
-                    value={exampleCompare}
-                    disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setExampleCompare(e.target.value)}
-                    label="Current Compare-at Price"
-                    labelAccessibilityVisibility="exclusive"
-                  ></s-text-field>
-                </s-table-cell>
-                <s-table-cell>New Compare-at Price</s-table-cell>
-                <s-table-cell>{calcCompare}</s-table-cell>
-              </s-table-row>
-
-              <s-table-row>
-                <s-table-cell>Cost per Item</s-table-cell>
-                <s-table-cell>
-                  <s-text-field
-                    type="number"
-                    value={exampleCost}
-                    disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setExampleCost(e.target.value)}
-                    label="Current Cost per Item"
-                    labelAccessibilityVisibility="exclusive"
-                  ></s-text-field>
-                </s-table-cell>
-                <s-table-cell>New Cost per Item</s-table-cell>
-                <s-table-cell>{calcCost}</s-table-cell>
-              </s-table-row>
-            </s-table-body>
-          </s-table>
-
-          {calcWarnings.length > 0 && (
-            <s-banner tone="warning">{calcWarnings.join(" ")}</s-banner>
-          )}
-
-          {!readOnly && <s-button onClick={runCalculations}>Check Calculations</s-button>}
         </s-stack>
       </s-section>
 

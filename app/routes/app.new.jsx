@@ -4,7 +4,6 @@ import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import {
-  calculateExamplePricing,
   calculateVariantPricing,
   validatePricingConfig,
 } from "../utils/pricing";
@@ -405,15 +404,6 @@ export default function NewTask() {
   const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
   const [costRoundCents, setCostRoundCents] = useState("1");
 
-  // Section 3 States
-  const [examplePrice, setExamplePrice] = useState("22.99");
-  const [exampleCompare, setExampleCompare] = useState("24.99");
-  const [exampleCost, setExampleCost] = useState("12.50");
-
-  const [calcPrice, setCalcPrice] = useState("33.90");
-  const [calcCompare, setCalcCompare] = useState("36.90");
-  const [calcCost, setCalcCost] = useState("24.50");
-  const [calcWarnings, setCalcWarnings] = useState([]);
   const [pricingValidationError, setPricingValidationError] = useState("");
 
   // Section 4 States
@@ -665,73 +655,6 @@ export default function NewTask() {
     fetcher.submit(payload, { method: "POST" });
   };
 
-  const runCalculations = useCallback(() => {
-    const result = calculateExamplePricing({
-      changePrice,
-      percentType,
-      percentValue,
-      fixedType,
-      fixedValue,
-      fixedPriceAmount,
-      roundCents,
-      priceFormula,
-      comparePriceType,
-      comparePercentType,
-      comparePercentValue,
-      compareFixedType,
-      compareFixedValue,
-      compareFixedPriceAmount,
-      compareRoundCents,
-      comparePriceFormula,
-      costPriceType,
-      costPercentType,
-      costPercentValue,
-      costFixedType,
-      costFixedValue,
-      costFixedPriceAmount,
-      costRoundCents,
-      examplePrice,
-      exampleCompare,
-      exampleCost,
-    });
-
-    setCalcPrice(result.calcPrice);
-    setCalcCompare(result.calcCompare);
-    setCalcCost(result.calcCost);
-    setCalcWarnings(result.warnings);
-  }, [
-    changePrice,
-    percentType,
-    percentValue,
-    fixedType,
-    fixedValue,
-    fixedPriceAmount,
-    roundCents,
-    priceFormula,
-    comparePriceType,
-    comparePercentType,
-    comparePercentValue,
-    compareFixedType,
-    compareFixedValue,
-    compareFixedPriceAmount,
-    compareRoundCents,
-    comparePriceFormula,
-    costPriceType,
-    costPercentType,
-    costPercentValue,
-    costFixedType,
-    costFixedValue,
-    costFixedPriceAmount,
-    costRoundCents,
-    examplePrice,
-    exampleCompare,
-    exampleCost,
-  ]);
-
-  useEffect(() => {
-    runCalculations();
-  }, [runCalculations]);
-
   const previewVariants = useMemo(() => {
     if (!productsList.length) return [];
 
@@ -788,6 +711,12 @@ export default function NewTask() {
           imageUrl: variant.image?.url || product.featuredImage?.url || PLACEHOLDER_IMAGE,
           currentPrice: originalPrice,
           newPrice: result.newPrice,
+          hasCompare,
+          currentCompare: originalCompare,
+          newCompare: result.newCompare,
+          hasCost,
+          currentCost: originalCost,
+          newCost: result.newCost,
         });
       }
     }
@@ -918,13 +847,6 @@ export default function NewTask() {
           costFixedValue,
           costFixedPriceAmount,
           costRoundCents,
-          examplePrice,
-          exampleCompare,
-          exampleCost,
-          calcPrice,
-          calcCompare,
-          calcCost,
-          calcWarnings,
           addTagsActive,
           removeTagsActive,
           tagToAddInput,
@@ -975,10 +897,6 @@ export default function NewTask() {
           setCostFixedValue,
           setCostFixedPriceAmount,
           setCostRoundCents,
-          setExamplePrice,
-          setExampleCompare,
-          setExampleCost,
-          runCalculations,
           setAddTagsActive,
           setRemoveTagsActive,
           setTagToAddInput,

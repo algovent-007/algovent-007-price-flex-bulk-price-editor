@@ -8,7 +8,6 @@ import TaskLogsTable from "../components/TaskLogsTable";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
 import { buildTaskConfigState, canViewTaskConfiguration } from "../utils/task-config";
-import { calculateExamplePricing } from "../utils/pricing";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -80,47 +79,6 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: err.message });
   }
 };
-
-function enrichTaskConfigWithCalculations(config) {
-  if (!config) return null;
-
-  const result = calculateExamplePricing({
-    changePrice: config.changePrice,
-    percentType: config.percentType,
-    percentValue: config.percentValue,
-    fixedType: config.fixedType,
-    fixedValue: config.fixedValue,
-    fixedPriceAmount: config.fixedPriceAmount,
-    roundCents: config.roundCents,
-    priceFormula: config.priceFormula,
-    comparePriceType: config.comparePriceType,
-    comparePercentType: config.comparePercentType,
-    comparePercentValue: config.comparePercentValue,
-    compareFixedType: config.compareFixedType,
-    compareFixedValue: config.compareFixedValue,
-    compareFixedPriceAmount: config.compareFixedPriceAmount,
-    compareRoundCents: config.compareRoundCents,
-    comparePriceFormula: config.comparePriceFormula,
-    costPriceType: config.costPriceType,
-    costPercentType: config.costPercentType,
-    costPercentValue: config.costPercentValue,
-    costFixedType: config.costFixedType,
-    costFixedValue: config.costFixedValue,
-    costFixedPriceAmount: config.costFixedPriceAmount,
-    costRoundCents: config.costRoundCents,
-    examplePrice: config.examplePrice,
-    exampleCompare: config.exampleCompare,
-    exampleCost: config.exampleCost,
-  });
-
-  return {
-    ...config,
-    calcPrice: result.calcPrice,
-    calcCompare: result.calcCompare,
-    calcCost: result.calcCost,
-    calcWarnings: result.warnings,
-  };
-}
 
 export default function TasksHistory() {
   const { tasks, collections } = useLoaderData();
@@ -229,9 +187,7 @@ export default function TasksHistory() {
   const detailsModalConfig = useMemo(() => {
     if (!detailsModalTask) return null;
     const actionData = getTaskMeta(detailsModalTask);
-    return enrichTaskConfigWithCalculations(
-      buildTaskConfigState(detailsModalTask, actionData)
-    );
+    return buildTaskConfigState(detailsModalTask, actionData);
   }, [detailsModalTask]);
   const detailsModalActionData = detailsModalTask ? getTaskMeta(detailsModalTask) : {};
   const logsModalLogs = logsModalActionData.logs || [];

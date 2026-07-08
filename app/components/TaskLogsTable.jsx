@@ -2,6 +2,10 @@ import { useCallback, useEffect, useId, useState } from "react";
 
 const LOGS_PAGE_SIZE = 10;
 
+function formatVariantId(variantId) {
+  return String(variantId || "-").split("/").pop();
+}
+
 export default function TaskLogsTable({ logs, isRollbackTask, searchQuery }) {
   const [page, setPage] = useState(0);
   const tableId = useId().replace(/:/g, "");
@@ -65,7 +69,7 @@ export default function TaskLogsTable({ logs, isRollbackTask, searchQuery }) {
     >
       <s-table-header-row>
         <s-table-header listSlot="primary">Product</s-table-header>
-        <s-table-header>Variant</s-table-header>
+        <s-table-header>Variant ID</s-table-header>
         <s-table-header>Price</s-table-header>
         <s-table-header>Compare-at Price</s-table-header>
         <s-table-header>Unit Cost</s-table-header>
@@ -75,7 +79,7 @@ export default function TaskLogsTable({ logs, isRollbackTask, searchQuery }) {
           <s-table-row key={`${pageStart + idx}-${log.variantId || log.variantTitle || log.productTitle}`}>
             <s-table-cell>{log.productTitle}</s-table-cell>
             <s-table-cell>
-              <s-text color="subdued">{log.variantTitle}</s-text>
+              <s-text color="subdued">{formatVariantId(log.variantId)}</s-text>
             </s-table-cell>
             <s-table-cell>
               <s-stack direction="inline" gap="small-100">
