@@ -4,6 +4,7 @@ import CsvUploadCard from "./CsvUploadCard";
 import ScheduleSettingsCard from "./ScheduleSettingsCard";
 import AdvancedSettingsCard from "./AdvancedSettingsCard";
 import PriceChangePreview from "./PriceChangePreview";
+import { createNumericInputHandlers } from "../../utils/numeric-input";
 
 export default function TaskConfigurationForm({
   readOnly = false,
@@ -119,8 +120,11 @@ export default function TaskConfigurationForm({
     handleRevertDateChange,
     handleRevertDateSelect,
     setTaskName,
+    handleSavePricingRules,
     handleRunTask,
   } = handlers ?? {};
+
+  const numericFieldProps = (setter) => createNumericInputHandlers(setter, readOnly);
 
   return (
     <>
@@ -223,7 +227,7 @@ export default function TaskConfigurationForm({
 
       {/* Section 2: Configure Pricing Rules */}
       <s-section heading="2. Configure pricing rules">
-        <s-stack direction="block">
+        <s-stack direction="block" gap="loose">
           <s-select
             label="Change Price"
             value={changePrice}
@@ -255,11 +259,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={percentValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={readOnly ? undefined : (e) => setPercentValue(e.target.value)}
+                      {...numericFieldProps(setPercentValue)}
                     ></s-text-field>
                     <s-text color="subdued">{percentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
@@ -282,11 +286,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={fixedValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={readOnly ? undefined : (e) => setFixedValue(e.target.value)}
+                      {...numericFieldProps(setFixedValue)}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -300,11 +304,11 @@ export default function TaskConfigurationForm({
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
                   label="Fixed price amount"
-                  type="number"
                   value={fixedPriceAmount}
                   placeholder="Enter amount"
+                  inputMode="decimal"
                   disabled={readOnly}
-                  onInput={readOnly ? undefined : (e) => setFixedPriceAmount(e.target.value)}
+                  {...numericFieldProps(setFixedPriceAmount)}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -374,13 +378,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={comparePercentValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={
-                        readOnly ? undefined : (e) => setComparePercentValue(e.target.value)
-                      }
+                      {...numericFieldProps(setComparePercentValue)}
                     ></s-text-field>
                     <s-text color="subdued">
                       {comparePercentType === "4" ? "USD" : "%"}
@@ -407,13 +409,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={compareFixedValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={
-                        readOnly ? undefined : (e) => setCompareFixedValue(e.target.value)
-                      }
+                      {...numericFieldProps(setCompareFixedValue)}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -427,13 +427,11 @@ export default function TaskConfigurationForm({
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
                   label="Fixed compare price amount"
-                  type="number"
                   value={compareFixedPriceAmount}
                   placeholder="Enter amount"
+                  inputMode="decimal"
                   disabled={readOnly}
-                  onInput={
-                    readOnly ? undefined : (e) => setCompareFixedPriceAmount(e.target.value)
-                  }
+                  {...numericFieldProps(setCompareFixedPriceAmount)}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -524,13 +522,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={costPercentValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={
-                        readOnly ? undefined : (e) => setCostPercentValue(e.target.value)
-                      }
+                      {...numericFieldProps(setCostPercentValue)}
                     ></s-text-field>
                     <s-text color="subdued">{costPercentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
@@ -553,13 +549,11 @@ export default function TaskConfigurationForm({
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
                       label="Value"
-                      type="number"
                       value={costFixedValue}
                       placeholder="Enter value"
+                      inputMode="decimal"
                       disabled={readOnly}
-                      onInput={
-                        readOnly ? undefined : (e) => setCostFixedValue(e.target.value)
-                      }
+                      {...numericFieldProps(setCostFixedValue)}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -573,13 +567,11 @@ export default function TaskConfigurationForm({
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
                   label="Fixed cost price amount"
-                  type="number"
                   value={costFixedPriceAmount}
                   placeholder="Enter amount"
+                  inputMode="decimal"
                   disabled={readOnly}
-                  onInput={
-                    readOnly ? undefined : (e) => setCostFixedPriceAmount(e.target.value)
-                  }
+                  {...numericFieldProps(setCostFixedPriceAmount)}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -604,6 +596,14 @@ export default function TaskConfigurationForm({
                 <s-option value="8">Nearest 5 Cent Down</s-option>
                 <s-option value="9">End prices in a certain number</s-option>
               </s-select>
+            </s-box>
+          )}
+
+          {!readOnly && (
+            <s-box paddingBlockStart="large">
+              <s-button variant="primary" onClick={handleSavePricingRules}>
+                Save pricing rules
+              </s-button>
             </s-box>
           )}
 

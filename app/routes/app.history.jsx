@@ -3,7 +3,7 @@ import { useFetcher, useLoaderData, useNavigate, useRevalidator } from "react-ro
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { executeRollbackForTask } from "../services/rollback.server";
+import { startRollbackForTask } from "../services/rollback.server";
 import TaskLogsTable from "../components/TaskLogsTable";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
@@ -75,7 +75,7 @@ export const action = async ({ request }) => {
   }
 
   try {
-    const result = await executeRollbackForTask({ admin, task, createRollbackRecord: true });
+    const result = await startRollbackForTask({ admin, task });
     return Response.json(result);
   } catch (err) {
     console.error("Error rolling back task:", err);
@@ -105,10 +105,19 @@ export default function TasksHistory() {
     if (fetcher.state !== "idle" || !fetcher.data) return;
 
     if (fetcher.data.success) {
+      if (
+        fetcher.data.rollbackTaskId &&
+        (fetcher.data.taskStarted || fetcher.data.alreadyRunning)
+      ) {
+        localStorage.setItem("price_flex_active_task_id", fetcher.data.rollbackTaskId);
+        navigate(`/app?taskId=${encodeURIComponent(fetcher.data.rollbackTaskId)}`);
+        return;
+      }
+
       setRollbackSuccess(
         fetcher.data.alreadyRolledBack
           ? "Rollback already exists. The original task was marked as rolled back."
-          : "Rollback task created and changes reverted successfully."
+          : "Rollback completed successfully."
       );
       setRollbackError("");
       revalidator.revalidate();
@@ -116,7 +125,7 @@ export default function TasksHistory() {
       setRollbackError(fetcher.data.error);
       setRollbackSuccess("");
     }
-  }, [fetcher.state, fetcher.data, revalidator]);
+  }, [fetcher.state, fetcher.data, navigate, revalidator]);
 
   const openLogsModal = (task) => {
     setLogsSearchQuery("");

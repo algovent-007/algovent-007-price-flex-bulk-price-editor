@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
@@ -24,9 +25,15 @@ import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { PLACEHOLDER_IMAGE, buildVariantDisplayTitle } from "../components/new-task/constants";
 import { applyStoredTaskCopy, readStoredTaskCopy } from "../utils/copy-task";
+import {
+  applySavedPricingRules,
+  buildPricingRulesSnapshot,
+  loadSavedPricingRules,
+  savePricingRules,
+} from "../utils/saved-pricing-rules";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   try {
     const response = await admin.graphql(
@@ -44,10 +51,13 @@ export const loader = async ({ request }) => {
     if (json.errors) {
       throw new Error(json.errors[0].message);
     }
-    return { collections: json.data?.collections?.nodes || [] };
+    return {
+      collections: json.data?.collections?.nodes || [],
+      shop: session.shop,
+    };
   } catch (err) {
     console.error("Error fetching collections:", err);
-    return { collections: [] };
+    return { collections: [], shop: session.shop };
   }
 };
 
@@ -372,7 +382,8 @@ function createInitialScheduleState() {
 export default function NewTask() {
   const fetcher = useFetcher();
   const navigate = useNavigate();
-  const { collections } = useLoaderData();
+  const appBridge = useAppBridge();
+  const { collections, shop } = useLoaderData();
 
   // Section 1 States
   const [editType, setEditType] = useState("all");
@@ -447,44 +458,74 @@ export default function NewTask() {
 
   useEffect(() => {
     const copyData = readStoredTaskCopy();
-    if (!copyData) return;
+    if (copyData) {
+      applyStoredTaskCopy(copyData, {
+        setEditType,
+        setMatchType,
+        setConditions,
+        setSelectedCollectionId,
+        setChangePrice,
+        setPercentType,
+        setPercentValue,
+        setFixedType,
+        setFixedValue,
+        setFixedPriceAmount,
+        setRoundCents,
+        setPriceFormula,
+        setComparePriceType,
+        setComparePercentType,
+        setComparePercentValue,
+        setCompareFixedType,
+        setCompareFixedValue,
+        setCompareFixedPriceAmount,
+        setCompareRoundCents,
+        setComparePriceFormula,
+        setCostPriceType,
+        setCostPercentType,
+        setCostPercentValue,
+        setCostFixedType,
+        setCostFixedValue,
+        setCostFixedPriceAmount,
+        setCostRoundCents,
+        setTagsToAdd,
+        setTagsToRemove,
+        setAddTagsActive,
+        setRemoveTagsActive,
+        setTaskName,
+        setRevertLater,
+      });
+      return;
+    }
 
-    applyStoredTaskCopy(copyData, {
-      setEditType,
-      setMatchType,
-      setConditions,
-      setSelectedCollectionId,
-      setChangePrice,
-      setPercentType,
-      setPercentValue,
-      setFixedType,
-      setFixedValue,
-      setFixedPriceAmount,
-      setRoundCents,
-      setPriceFormula,
-      setComparePriceType,
-      setComparePercentType,
-      setComparePercentValue,
-      setCompareFixedType,
-      setCompareFixedValue,
-      setCompareFixedPriceAmount,
-      setCompareRoundCents,
-      setComparePriceFormula,
-      setCostPriceType,
-      setCostPercentType,
-      setCostPercentValue,
-      setCostFixedType,
-      setCostFixedValue,
-      setCostFixedPriceAmount,
-      setCostRoundCents,
-      setTagsToAdd,
-      setTagsToRemove,
-      setAddTagsActive,
-      setRemoveTagsActive,
-      setTaskName,
-      setRevertLater,
-    });
-  }, []);
+    const savedPricingRules = loadSavedPricingRules(shop);
+    if (savedPricingRules) {
+      applySavedPricingRules(savedPricingRules, {
+        setChangePrice,
+        setPercentType,
+        setPercentValue,
+        setFixedType,
+        setFixedValue,
+        setRoundCents,
+        setComparePriceType,
+        setCostPriceType,
+        setFixedPriceAmount,
+        setPriceFormula,
+        setComparePriceFormula,
+        setComparePercentType,
+        setComparePercentValue,
+        setCompareFixedType,
+        setCompareFixedValue,
+        setCompareFixedPriceAmount,
+        setCompareRoundCents,
+        setCostPercentType,
+        setCostPercentValue,
+        setCostFixedType,
+        setCostFixedValue,
+        setCostFixedPriceAmount,
+        setCostRoundCents,
+      });
+    }
+  }, [shop]);
 
   useEffect(() => {
     try {
@@ -552,6 +593,56 @@ export default function NewTask() {
     localStorage.setItem("price_flex_active_task_id", runFetcher.data.taskId);
     navigate(`/app?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
   }, [navigate, runFetcher.data]);
+
+  const handleSavePricingRules = () => {
+    const errors = validatePricingConfig({
+      changePrice,
+      fixedPriceAmount,
+      priceFormula,
+      comparePriceType,
+      compareFixedPriceAmount,
+      comparePriceFormula,
+      costPriceType,
+      costFixedPriceAmount,
+    });
+
+    if (errors.length > 0) {
+      setPricingValidationError(errors.join(" "));
+      appBridge.toast.show(errors[0], { isError: true });
+      return;
+    }
+
+    setPricingValidationError("");
+    savePricingRules(
+      shop,
+      buildPricingRulesSnapshot({
+        changePrice,
+        percentType,
+        percentValue,
+        fixedType,
+        fixedValue,
+        roundCents,
+        comparePriceType,
+        costPriceType,
+        fixedPriceAmount,
+        priceFormula,
+        comparePriceFormula,
+        comparePercentType,
+        comparePercentValue,
+        compareFixedType,
+        compareFixedValue,
+        compareFixedPriceAmount,
+        compareRoundCents,
+        costPercentType,
+        costPercentValue,
+        costFixedType,
+        costFixedValue,
+        costFixedPriceAmount,
+        costRoundCents,
+      })
+    );
+    appBridge.toast.show("Pricing rules saved");
+  };
 
   const handleRunTask = () => {
     const withPendingTag = (tags, input) => {
@@ -967,6 +1058,7 @@ export default function NewTask() {
           handleRevertDateChange,
           handleRevertDateSelect,
           setTaskName,
+          handleSavePricingRules,
           handleRunTask,
         }}
         isSearching={fetcher.state === "submitting" || fetcher.state === "loading"}
