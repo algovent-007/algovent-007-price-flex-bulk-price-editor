@@ -256,7 +256,7 @@ export default function TaskConfigurationForm({
                       disabled={readOnly}
                       onInput={readOnly ? undefined : (e) => setPercentValue(e.target.value)}
                     ></s-text-field>
-                    <s-text color="subdued">%</s-text>
+                    <s-text color="subdued">{percentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -377,7 +377,9 @@ export default function TaskConfigurationForm({
                         readOnly ? undefined : (e) => setComparePercentValue(e.target.value)
                       }
                     ></s-text-field>
-                    <s-text color="subdued">%</s-text>
+                    <s-text color="subdued">
+                      {comparePercentType === "4" ? "USD" : "%"}
+                    </s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -525,7 +527,7 @@ export default function TaskConfigurationForm({
                         readOnly ? undefined : (e) => setCostPercentValue(e.target.value)
                       }
                     ></s-text-field>
-                    <s-text color="subdued">%</s-text>
+                    <s-text color="subdued">{costPercentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>

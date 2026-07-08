@@ -180,6 +180,42 @@ test("percent fixed change adds raw amount", () => {
   assert.equal(result.value, 105);
 });
 
+test("cost price based on new product price uses calculated price", () => {
+  const result = calculateVariantPricing({
+    changePrice: "1",
+    percentType: "1",
+    percentValue: "10",
+    fixedType: "3",
+    fixedValue: "0",
+    fixedPriceAmount: "0",
+    roundCents: "1",
+    priceFormula: "",
+    comparePriceType: "6",
+    comparePercentType: "3",
+    comparePercentValue: "0",
+    compareFixedType: "3",
+    compareFixedValue: "0",
+    compareFixedPriceAmount: "0",
+    compareRoundCents: "1",
+    comparePriceFormula: "",
+    costPriceType: "4",
+    costPercentType: "3",
+    costPercentValue: "0",
+    costFixedType: "3",
+    costFixedValue: "0",
+    costFixedPriceAmount: "0",
+    costRoundCents: "1",
+    originalPrice: 100,
+    originalCompare: 80,
+    originalCost: 40,
+    hasCompare: true,
+    hasCost: true,
+  });
+
+  assert.equal(result.newPrice, 110);
+  assert.equal(result.newCost, 110);
+});
+
 test("validation requires formula when formula mode selected", () => {
   const errors = validatePricingConfig({
     changePrice: "8",
