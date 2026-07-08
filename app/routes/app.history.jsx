@@ -10,8 +10,9 @@ import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
 import { buildTaskConfigState, canViewTaskConfiguration } from "../utils/task-config";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const tasks = await prisma.task.findMany({
+    where: { shop: session.shop },
     orderBy: { createdAt: "desc" },
   });
 
@@ -38,7 +39,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
@@ -51,7 +52,9 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: "Task ID is required" });
   }
 
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, shop: session.shop },
+  });
   if (!task) {
     return Response.json({ success: false, error: "Task not found" });
   }

@@ -23,7 +23,7 @@ export default function ConditionsCard({
           name="match-type"
           label="Match type"
           labelAccessibilityVisibility="exclusive"
-          value={matchType}
+          values={[matchType || "all"]}
           disabled={readOnly}
           onInput={
             readOnly
