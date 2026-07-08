@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import ConditionsCard from "./ConditionsCard";
 import CollectionCard from "./CollectionCard";
 import CsvUploadCard from "./CsvUploadCard";
@@ -18,6 +19,9 @@ export default function TaskConfigurationForm({
   timezoneStr = "",
   currentTimeStr = "",
 }) {
+  const previewModalRef = useRef(null);
+  const [previewSearchQuery, setPreviewSearchQuery] = useState("");
+
   const {
     editType,
     matchType,
@@ -132,6 +136,24 @@ export default function TaskConfigurationForm({
     handleRunTask,
   } = handlers ?? {};
 
+  const trimmedPreviewSearch = previewSearchQuery.trim().toLowerCase();
+  const filteredPreviewVariants = trimmedPreviewSearch
+    ? previewVariants.filter((variant) =>
+        variant.title?.toLowerCase().includes(trimmedPreviewSearch)
+      )
+    : previewVariants;
+
+  useEffect(() => {
+    if (!searchResults || readOnly) return;
+    requestAnimationFrame(() => previewModalRef.current?.showOverlay?.());
+  }, [readOnly, searchResults]);
+
+  const handleSearchWithPreview = () => {
+    setPreviewSearchQuery("");
+    previewModalRef.current?.showOverlay?.();
+    handleSearch?.();
+  };
+
   return (
     <>
       {/* Section 1: Select Products */}
@@ -175,10 +197,8 @@ export default function TaskConfigurationForm({
               handleConditionChange={readOnly ? undefined : handleConditionChange}
               addCondition={readOnly ? undefined : addCondition}
               removeCondition={readOnly ? undefined : removeCondition}
-              handleSearch={readOnly ? undefined : handleSearch}
+              handleSearch={readOnly ? undefined : handleSearchWithPreview}
               isSearching={isSearching}
-              searchResults={searchResults}
-              previewVariants={previewVariants}
             />
           )}
 
@@ -188,10 +208,8 @@ export default function TaskConfigurationForm({
               collections={collections}
               selectedCollectionId={selectedCollectionId}
               setSelectedCollectionId={readOnly ? undefined : setSelectedCollectionId}
-              handleSearch={readOnly ? undefined : handleSearch}
+              handleSearch={readOnly ? undefined : handleSearchWithPreview}
               isSearching={isSearching}
-              searchResults={searchResults}
-              previewVariants={previewVariants}
             />
           )}
 
@@ -214,18 +232,55 @@ export default function TaskConfigurationForm({
               <s-stack direction="block" gap="base">
                 {!readOnly && (
                   <s-stack direction="inline" justifyContent="end">
-                    <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
+                    <s-button
+                      variant="primary"
+                      onClick={handleSearchWithPreview}
+                      loading={isSearching}
+                    >
                       Search For Products
                     </s-button>
                   </s-stack>
-                )}
-                {searchResults && (
-                  <PriceChangePreview previewVariants={previewVariants} visible />
                 )}
               </s-stack>
             )}
         </s-stack>
       </s-section>
+
+      {!readOnly && (
+        <s-modal
+          id="price-change-preview-modal"
+          ref={previewModalRef}
+          heading="Price change preview"
+          size="large"
+        >
+          {isSearching && !searchResults ? (
+            <s-paragraph>Loading preview...</s-paragraph>
+          ) : (
+            <s-stack direction="block" gap="base">
+              <s-search-field
+                label="Search preview"
+                labelAccessibilityVisibility="exclusive"
+                placeholder="Search products or variants..."
+                value={previewSearchQuery}
+                onInput={(e) => setPreviewSearchQuery(e.target.value)}
+              />
+              <PriceChangePreview
+                previewVariants={filteredPreviewVariants}
+                visible
+                framed={false}
+              />
+            </s-stack>
+          )}
+
+          <s-button
+            slot="secondary-actions"
+            commandFor="price-change-preview-modal"
+            command="--hide"
+          >
+            Close
+          </s-button>
+        </s-modal>
+      )}
 
       {/* Section 2: Configure Pricing Rules */}
       <s-section heading="2. Configure pricing rules">

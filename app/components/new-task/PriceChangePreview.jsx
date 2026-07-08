@@ -6,7 +6,7 @@ function formatCurrency(value) {
   return `$${formatPrice(parseFloat(value) || 0)}`;
 }
 
-export default function PriceChangePreview({ previewVariants, visible }) {
+export default function PriceChangePreview({ previewVariants, visible, framed = true }) {
   const [page, setPage] = useState(0);
   const tableId = useId().replace(/:/g, "");
 
@@ -46,7 +46,11 @@ export default function PriceChangePreview({ previewVariants, visible }) {
   if (!visible) return null;
 
   return (
-    <s-box paddingBlockStart="base" borderBlockStartWidth="base" borderColor="base">
+    <s-box
+      paddingBlockStart={framed ? "base" : undefined}
+      borderBlockStartWidth={framed ? "base" : undefined}
+      borderColor={framed ? "base" : undefined}
+    >
       <s-stack direction="block" gap="base">
         <s-stack direction="inline" gap="small" alignItems="center">
           <s-heading>Price change preview</s-heading>
