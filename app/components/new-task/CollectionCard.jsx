@@ -1,3 +1,5 @@
+import PriceChangePreview from "./PriceChangePreview";
+
 export default function CollectionCard({
   readOnly = false,
   collections,
@@ -5,6 +7,8 @@ export default function CollectionCard({
   setSelectedCollectionId,
   handleSearch,
   isSearching,
+  searchResults,
+  previewVariants,
 }) {
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
@@ -39,6 +43,9 @@ export default function CollectionCard({
           </s-stack>
         )}
 
+        {searchResults && (
+          <PriceChangePreview previewVariants={previewVariants} visible />
+        )}
       </s-stack>
     </s-box>
   );

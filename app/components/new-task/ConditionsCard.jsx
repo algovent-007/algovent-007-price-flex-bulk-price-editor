@@ -1,3 +1,4 @@
+import PriceChangePreview from "./PriceChangePreview";
 import { CONDITION_FIELDS, CONDITION_OPERATORS } from "./constants";
 
 export default function ConditionsCard({
@@ -10,6 +11,8 @@ export default function ConditionsCard({
   removeCondition,
   handleSearch,
   isSearching,
+  searchResults,
+  previewVariants,
 }) {
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
@@ -116,6 +119,9 @@ export default function ConditionsCard({
           </>
         )}
 
+        {searchResults && (
+          <PriceChangePreview previewVariants={previewVariants} visible />
+        )}
       </s-stack>
     </s-box>
   );
