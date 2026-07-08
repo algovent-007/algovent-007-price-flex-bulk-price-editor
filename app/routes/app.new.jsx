@@ -375,6 +375,7 @@ export default function NewTask() {
   const [productsList, setProductsList] = useState([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [csvFileName, setCsvFileName] = useState(null);
+  const [productSearchError, setProductSearchError] = useState("");
   const csvFileInputRef = useRef(null);
 
   // Section 2 States
@@ -642,9 +643,50 @@ export default function NewTask() {
     const updated = [...conditions];
     updated[index][key] = val;
     setConditions(updated);
+    if (productSearchError) setProductSearchError("");
+  };
+
+  const handleEditTypeChange = (nextEditType) => {
+    setEditType(nextEditType);
+    setProductSearchError("");
+  };
+
+  const handleCollectionChange = (collectionId) => {
+    setSelectedCollectionId(collectionId);
+    if (productSearchError) setProductSearchError("");
+  };
+
+  const validateProductSearch = () => {
+    if (editType === "conditions") {
+      const hasIncompleteCondition = conditions.some(
+        (condition) =>
+          !condition.field ||
+          !condition.operator ||
+          !String(condition.value ?? "").trim()
+      );
+
+      if (hasIncompleteCondition) {
+        return "Please complete all product condition fields before searching.";
+      }
+    }
+
+    if (editType === "collection" && !selectedCollectionId) {
+      return "Please select a collection before searching.";
+    }
+
+    return "";
   };
 
   const handleSearch = () => {
+    const validationError = validateProductSearch();
+    if (validationError) {
+      setProductsList([]);
+      setSearchResults(null);
+      setProductSearchError(validationError);
+      return;
+    }
+
+    setProductSearchError("");
     const payload = {
       intent: "search",
       editType,
@@ -864,10 +906,10 @@ export default function NewTask() {
           taskName,
         }}
         handlers={{
-          setEditType,
+          setEditType: handleEditTypeChange,
           setSearchResults,
           setCsvFileName,
-          setSelectedCollectionId,
+          setSelectedCollectionId: handleCollectionChange,
           setMatchType,
           handleConditionChange,
           addCondition,
@@ -920,6 +962,7 @@ export default function NewTask() {
         }}
         isSearching={fetcher.state === "submitting" || fetcher.state === "loading"}
         isRunning={runFetcher.state === "submitting" || runFetcher.state === "loading"}
+        productSearchError={productSearchError}
         pricingValidationError={pricingValidationError}
         previewVariants={previewVariants}
         timezoneStr={timezoneStr}

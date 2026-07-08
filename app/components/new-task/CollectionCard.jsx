@@ -36,7 +36,6 @@ export default function CollectionCard({
               variant="primary"
               onClick={handleSearch}
               loading={isSearching}
-              disabled={!selectedCollectionId}
             >
               Search For Products
             </s-button>

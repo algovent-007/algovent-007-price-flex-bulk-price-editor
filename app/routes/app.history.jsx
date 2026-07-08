@@ -102,7 +102,11 @@ export default function TasksHistory() {
     if (fetcher.state !== "idle" || !fetcher.data) return;
 
     if (fetcher.data.success) {
-      setRollbackSuccess("Rollback task created and changes reverted successfully.");
+      setRollbackSuccess(
+        fetcher.data.alreadyRolledBack
+          ? "Rollback already exists. The original task was marked as rolled back."
+          : "Rollback task created and changes reverted successfully."
+      );
       setRollbackError("");
       revalidator.revalidate();
     } else if (fetcher.data.error) {
@@ -237,6 +241,15 @@ export default function TasksHistory() {
                 const logs = actionData.logs || [];
                 const isRollbackTask = actionData.taskType === "rollback";
                 const isRollingBack = rollingBackTaskId === task.id;
+                const hasRollbackTask = tasks.some((candidate) => {
+                  const candidateActionData = getTaskMeta(candidate);
+                  return (
+                    candidate.id === `rollback-${task.id}` ||
+                    candidateActionData.sourceTaskId === task.id
+                  );
+                });
+                const displayedStatus =
+                  !isRollbackTask && hasRollbackTask ? "rolled_back" : task.status;
 
                 return (
                   <s-table-row key={task.id}>
@@ -248,7 +261,8 @@ export default function TasksHistory() {
                             Reverts: {actionData.sourceTaskName}
                           </s-text>
                         )}
-                        {!isRollbackTask && actionData.rolledBackByTaskId && (
+                        {!isRollbackTask &&
+                          (actionData.rolledBackByTaskId || hasRollbackTask) && (
                           <s-text tone="warning">Rolled back</s-text>
                         )}
                       </s-stack>
@@ -260,8 +274,8 @@ export default function TasksHistory() {
                       <s-text color="subdued">{formatDate(task.createdAt)}</s-text>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-badge tone={getStatusTone(task.status)}>
-                        {task.status.replace("_", " ")}
+                      <s-badge tone={getStatusTone(displayedStatus)}>
+                        {displayedStatus.replace("_", " ")}
                       </s-badge>
                     </s-table-cell>
                     <s-table-cell>
@@ -297,7 +311,11 @@ export default function TasksHistory() {
                             tone="critical"
                             variant="secondary"
                             onClick={() => handleRollback(task)}
-                            disabled={!canRollback(task, actionData, logs) || isRollingBack}
+                            disabled={
+                              !canRollback(task, actionData, logs) ||
+                              hasRollbackTask ||
+                              isRollingBack
+                            }
                             loading={isRollingBack}
                           >
                             Rollback

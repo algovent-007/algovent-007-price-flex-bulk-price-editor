@@ -24,6 +24,34 @@ export async function executeRollbackForTask({ admin, task, createRollbackRecord
     };
   }
 
+  const rollbackTaskId = createRollbackRecord ? `rollback-${task.id}` : null;
+
+  if (createRollbackRecord) {
+    const existingRollbackTask = await prisma.task.findUnique({
+      where: { id: rollbackTaskId },
+    });
+
+    if (existingRollbackTask) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          status: "rolled_back",
+          actionDetails: JSON.stringify({
+            ...actionData,
+            rolledBackByTaskId: rollbackTaskId,
+          }),
+        },
+      });
+
+      return {
+        success: true,
+        taskId: task.id,
+        rollbackTaskId,
+        alreadyRolledBack: true,
+      };
+    }
+  }
+
   const shopifyQuery = async (query, variables = {}) => {
     const response = await admin.graphql(query, { variables });
     const json = await response.json();
@@ -142,7 +170,6 @@ export async function executeRollbackForTask({ admin, task, createRollbackRecord
     newCost: log.oldCost,
   }));
 
-  const rollbackTaskId = createRollbackRecord ? `rollback-${task.id}` : null;
   const productCount = actionData.productIds?.length || new Set(logs.map((l) => l.productId)).size;
 
   if (createRollbackRecord) {

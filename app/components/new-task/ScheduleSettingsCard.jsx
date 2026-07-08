@@ -113,7 +113,7 @@ export default function ScheduleSettingsCard({
                 name="change_prices_schedule"
                 label="When to change prices"
                 labelAccessibilityVisibility="exclusive"
-                value={scheduleType}
+                values={[scheduleType || "now"]}
                 disabled={readOnly}
                 onInput={
                   readOnly

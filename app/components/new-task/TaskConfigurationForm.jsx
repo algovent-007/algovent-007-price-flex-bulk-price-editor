@@ -13,6 +13,7 @@ export default function TaskConfigurationForm({
   handlers,
   isSearching = false,
   isRunning = false,
+  productSearchError = "",
   pricingValidationError = "",
   previewVariants = [],
   timezoneStr = "",
@@ -128,7 +129,7 @@ export default function TaskConfigurationForm({
         <s-stack direction="block" gap="loose">
           <s-choice-list
             name="edit-type"
-            value={editType}
+            values={[editType || "all"]}
             disabled={readOnly}
             onInput={
               readOnly
@@ -154,6 +155,10 @@ export default function TaskConfigurationForm({
             <s-choice value="csv-all">All products in a CSV</s-choice>
             <s-choice value="csv-direct">Direct Edit with CSV</s-choice>
           </s-choice-list>
+
+          {!readOnly && productSearchError && (
+            <s-banner tone="critical">{productSearchError}</s-banner>
+          )}
 
           {editType === "conditions" && (
             <ConditionsCard
