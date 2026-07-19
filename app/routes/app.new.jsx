@@ -19,11 +19,20 @@ import {
 import {
   buildProductQuery,
   executePriceEditTask,
+  fetchProductsByQuery,
   filterProductsByConditions,
+  SEARCH_PRODUCT_FIELDS,
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
-import { PLACEHOLDER_IMAGE, buildVariantDisplayTitle } from "../components/new-task/constants";
+import {
+  getDefaultOperatorForField,
+  getDefaultValueForField,
+  isOperatorAllowedForField,
+  isValueAllowedForField,
+  PLACEHOLDER_IMAGE,
+  buildVariantDisplayTitle,
+} from "../components/new-task/constants";
 import { applyStoredTaskCopy, readStoredTaskCopy } from "../utils/copy-task";
 import {
   applySavedPricingRules,
@@ -38,11 +47,17 @@ export const loader = async ({ request }) => {
   try {
     const response = await admin.graphql(
       `#graphql
-      query getCollections {
+      query getCollectionsAndLocations {
         collections(first: 250, sortKey: TITLE) {
           nodes {
             id
             title
+          }
+        }
+        locations(first: 250) {
+          nodes {
+            id
+            name
           }
         }
       }`
@@ -53,11 +68,12 @@ export const loader = async ({ request }) => {
     }
     return {
       collections: json.data?.collections?.nodes || [],
+      locations: json.data?.locations?.nodes || [],
       shop: session.shop,
     };
   } catch (err) {
     console.error("Error fetching collections:", err);
-    return { collections: [], shop: session.shop };
+    return { collections: [], locations: [], shop: session.shop };
   }
 };
 
@@ -91,42 +107,14 @@ export const action = async ({ request }) => {
     }
 
     try {
-      const data = await shopifyQuery(
-        `#graphql
-        query getProducts($query: String) {
-          products(first: 50, query: $query) {
-            nodes {
-              id
-              title
-              featuredImage {
-                url
-              }
-              variants(first: 100) {
-                nodes {
-                  id
-                  title
-                  price
-                  compareAtPrice
-                  image {
-                    url
-                  }
-                  inventoryItem {
-                    unitCost {
-                      amount
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }`,
-        {
-          query: queryStr || null,
-        }
+      const fetchedProducts = await fetchProductsByQuery(
+        shopifyQuery,
+        queryStr,
+        SEARCH_PRODUCT_FIELDS
       );
 
       const products = filterProductsByConditions(
-        data.products?.nodes || [],
+        fetchedProducts,
         editType,
         matchType,
         conditionsStr
@@ -383,7 +371,7 @@ export default function NewTask() {
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const appBridge = useAppBridge();
-  const { collections, shop } = useLoaderData();
+  const { collections, locations, shop } = useLoaderData();
 
   // Section 1 States
   const [editType, setEditType] = useState("all");
@@ -570,13 +558,22 @@ export default function NewTask() {
   };
 
   useEffect(() => {
-    if (fetcher.data && fetcher.data.success) {
+    if (!fetcher.data) return;
+
+    if (fetcher.data.success) {
       setProductsList(fetcher.data.products || []);
-      setSearchResults(`Found ${fetcher.data.products?.length || 0} products matching your criteria.`);
-    } else if (fetcher.data && !fetcher.data.success) {
-      setProductsList([]);
-      setSearchResults(`Found 0 products matching your criteria.`);
+      setProductSearchError("");
+      setSearchResults(
+        `Found ${fetcher.data.products?.length || 0} products matching your criteria.`
+      );
+      return;
     }
+
+    setProductsList([]);
+    setSearchResults(null);
+    setProductSearchError(
+      fetcher.data.error || "No products found matching your criteria."
+    );
   }, [fetcher.data]);
 
   useEffect(() => {
@@ -742,6 +739,16 @@ export default function NewTask() {
   const handleConditionChange = (index, key, val) => {
     const updated = [...conditions];
     updated[index][key] = val;
+
+    if (key === "field") {
+      if (!isOperatorAllowedForField(val, updated[index].operator)) {
+        updated[index].operator = getDefaultOperatorForField(val);
+      }
+      if (!isValueAllowedForField(val, updated[index].value)) {
+        updated[index].value = getDefaultValueForField(val);
+      }
+    }
+
     setConditions(updated);
     if (productSearchError) setProductSearchError("");
   };
@@ -958,6 +965,7 @@ export default function NewTask() {
       )}
       <TaskConfigurationForm
         collections={collections}
+        locations={locations}
         csvFileInputRef={csvFileInputRef}
         values={{
           editType,

@@ -9,6 +9,7 @@ import { createNumericInputHandlers } from "../../utils/numeric-input";
 export default function TaskConfigurationForm({
   readOnly = false,
   collections = [],
+  locations = [],
   csvFileInputRef,
   values,
   handlers,
@@ -177,6 +178,7 @@ export default function TaskConfigurationForm({
               isSearching={isSearching}
               searchResults={searchResults}
               previewVariants={previewVariants}
+              locations={locations}
             />
           )}
 

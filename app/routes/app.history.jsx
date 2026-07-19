@@ -17,25 +17,33 @@ export const loader = async ({ request }) => {
   });
 
   let collections = [];
+  let locations = [];
   try {
     const response = await admin.graphql(
       `#graphql
-      query getCollections {
+      query getCollectionsAndLocations {
         collections(first: 250, sortKey: TITLE) {
           nodes {
             id
             title
           }
         }
+        locations(first: 250) {
+          nodes {
+            id
+            name
+          }
+        }
       }`
     );
     const json = await response.json();
     collections = json.data?.collections?.nodes || [];
+    locations = json.data?.locations?.nodes || [];
   } catch (err) {
     console.error("Error fetching collections for task history:", err);
   }
 
-  return Response.json({ tasks, collections });
+  return Response.json({ tasks, collections, locations, shopDomain: session.shop });
 };
 
 export const action = async ({ request }) => {
@@ -84,7 +92,7 @@ export const action = async ({ request }) => {
 };
 
 export default function TasksHistory() {
-  const { tasks, collections } = useLoaderData();
+  const { tasks, collections, locations, shopDomain } = useLoaderData();
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
@@ -384,6 +392,8 @@ export default function TasksHistory() {
               logs={filteredLogsModalLogs}
               isRollbackTask={isLogsModalRollback}
               searchQuery={trimmedLogsSearch}
+              shopDomain={shopDomain}
+              onProductNavigate={closeLogsModal}
             />
           </s-stack>
         )}
@@ -413,6 +423,7 @@ export default function TasksHistory() {
             <TaskConfigurationForm
               readOnly
               collections={collections}
+              locations={locations}
               values={detailsModalConfig}
               timezoneStr={Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"}
               currentTimeStr={new Date().toLocaleTimeString([], {

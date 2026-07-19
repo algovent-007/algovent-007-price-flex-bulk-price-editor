@@ -1,112 +1,90 @@
 import prisma from "../db.server";
 import { calculateVariantPricing, formatPrice } from "../utils/pricing";
+import {
+  buildProductQuery,
+  filterProductsByConditions,
+  PRODUCT_CONDITION_FIELDS,
+  PRODUCT_CONDITION_VARIANT_FIELDS,
+} from "../utils/product-conditions";
 
-function parseConditions(conditionsStr) {
-  if (!conditionsStr) return [];
+export { buildProductQuery, filterProductsByConditions };
 
-  try {
-    const parsed = JSON.parse(conditionsStr);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    console.error("Error parsing conditions:", e);
-    return [];
+const PRODUCTS_PAGE_SIZE = 50;
+
+export const SEARCH_PRODUCT_FIELDS = `
+  id
+  ${PRODUCT_CONDITION_FIELDS}
+  featuredImage {
+    url
   }
-}
-
-function normalizeConditionValue(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function matchesTitleCondition(title, condition) {
-  const normalizedTitle = normalizeConditionValue(title);
-  const value = normalizeConditionValue(condition.value);
-
-  if (!value) return true;
-
-  if (condition.operator === "not_equals") return normalizedTitle !== value;
-  if (condition.operator === "contains") return normalizedTitle.includes(value);
-  if (condition.operator === "starts_with") return normalizedTitle.startsWith(value);
-  if (condition.operator === "ends_with") return normalizedTitle.endsWith(value);
-
-  return normalizedTitle === value;
-}
-
-export function filterProductsByConditions(products, editType, matchType, conditionsStr) {
-  if (editType !== "conditions") return products;
-
-  const conditions = parseConditions(conditionsStr).filter((condition) =>
-    String(condition.value ?? "").trim()
-  );
-  const titleConditions = conditions.filter((condition) => condition.field === "title");
-
-  if (titleConditions.length === 0) return products;
-
-  // For mixed "any" groups, Shopify handles the OR query. Local filtering would incorrectly
-  // remove products that matched a non-title condition.
-  if (matchType === "any" && titleConditions.length !== conditions.length) {
-    return products;
+  variants(first: 100) {
+    nodes {
+      ${PRODUCT_CONDITION_VARIANT_FIELDS}
+      image {
+        url
+      }
+    }
   }
+`;
 
-  return products.filter((product) => {
-    const matches = titleConditions.map((condition) =>
-      matchesTitleCondition(product.title, condition)
+export const TASK_PRODUCT_FIELDS = `
+  id
+  ${PRODUCT_CONDITION_FIELDS}
+  variants(first: 100) {
+    nodes {
+      ${PRODUCT_CONDITION_VARIANT_FIELDS}
+    }
+  }
+`;
+
+export async function fetchProductsByQuery(
+  shopifyQuery,
+  queryStr,
+  fieldsFragment,
+  { maxProducts } = {}
+) {
+  const products = [];
+  let cursor = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const pageSize =
+      maxProducts != null
+        ? Math.min(PRODUCTS_PAGE_SIZE, maxProducts - products.length)
+        : PRODUCTS_PAGE_SIZE;
+
+    if (pageSize <= 0) break;
+
+    const data = await shopifyQuery(
+      `#graphql
+      query getProducts($query: String, $first: Int!, $after: String) {
+        products(first: $first, after: $after, query: $query) {
+          nodes {
+            ${fieldsFragment}
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }`,
+      {
+        query: queryStr || null,
+        first: pageSize,
+        after: cursor,
+      }
     );
 
-    return matchType === "any" ? matches.some(Boolean) : matches.every(Boolean);
-  });
-}
+    products.push(...(data.products?.nodes || []));
+    hasNextPage = data.products?.pageInfo?.hasNextPage ?? false;
+    cursor = data.products?.pageInfo?.endCursor ?? null;
 
-export function buildProductQuery(editType, matchType, conditionsStr, collectionId) {
-  if (editType === "collection" && collectionId) {
-    const numericId = String(collectionId).split("/").pop();
-    return `collection_id:${numericId}`;
-  }
-
-  if (editType !== "conditions" || !conditionsStr) {
-    return "";
-  }
-
-  try {
-    const conditions = parseConditions(conditionsStr);
-    const parts = [];
-
-    for (const cond of conditions) {
-      const field = cond.field;
-      const operator = cond.operator;
-      const value = (cond.value || "").trim();
-      if (!value) continue;
-
-      let shopifyField = field;
-      if (field === "title") shopifyField = "title";
-      else if (field === "type") shopifyField = "product_type";
-      else if (field === "vendor") shopifyField = "vendor";
-      else if (field === "tag") shopifyField = "tag";
-      else if (field === "status") shopifyField = "status";
-
-      if (field === "title" && operator === "not_equals") {
-        continue;
-      }
-
-      let part = "";
-      if (operator === "equals") part = `${shopifyField}:${value}`;
-      else if (operator === "not_equals") part = `NOT ${shopifyField}:${value}`;
-      else if (operator === "contains") part = `${shopifyField}:${value}`;
-      else if (operator === "starts_with") part = `${shopifyField}:${value}*`;
-      else if (operator === "ends_with") part = `${shopifyField}:${value}`;
-      else part = `${shopifyField}:${value}`;
-
-      parts.push(part);
+    if (maxProducts != null && products.length >= maxProducts) {
+      break;
     }
-
-    if (parts.length > 0) {
-      const joiner = matchType === "any" ? " OR " : " AND ";
-      return parts.join(joiner);
-    }
-  } catch (e) {
-    console.error("Error parsing conditions:", e);
   }
 
-  return "";
+  return products;
 }
 
 export async function executePriceEditTask({ admin, taskId, runPayload }) {
@@ -191,36 +169,14 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
   const queryStr = buildProductQuery(editType, matchType, conditionsStr, collectionId);
 
   try {
-    const data = await shopifyQuery(
-      `#graphql
-      query getProducts($query: String) {
-        products(first: 50, query: $query) {
-          nodes {
-            id
-            title
-            tags
-            variants(first: 100) {
-              nodes {
-                id
-                title
-                price
-                compareAtPrice
-                inventoryItem {
-                  id
-                  unitCost {
-                    amount
-                  }
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { query: queryStr || null }
+    const fetchedProducts = await fetchProductsByQuery(
+      shopifyQuery,
+      queryStr,
+      TASK_PRODUCT_FIELDS
     );
 
     const products = filterProductsByConditions(
-      data.products?.nodes || [],
+      fetchedProducts,
       editType,
       matchType,
       conditionsStr

@@ -1,5 +1,23 @@
 import PriceChangePreview from "./PriceChangePreview";
-import { CONDITION_FIELDS, CONDITION_OPERATORS } from "./constants";
+import { getFieldValue } from "../../utils/numeric-input";
+import ConditionDateValueField from "./ConditionDateValueField";
+import ConditionMetafieldValueField from "./ConditionMetafieldValueField";
+import ConditionInventoryLocationValueField from "./ConditionInventoryLocationValueField";
+import ConditionWeightValueField from "./ConditionWeightValueField";
+import {
+  CONDITION_FIELDS,
+  getConditionOperators,
+  isDateConditionField,
+  isInventoryLocationConditionField,
+  isProductMetafieldConditionField,
+  isPublishedStatusConditionField,
+  isStatusConditionField,
+  isVariantWeightConditionField,
+  normalizeProductStatusValue,
+  normalizePublishedStatusValue,
+  PRODUCT_STATUS_OPTIONS,
+  PUBLISHED_STATUS_OPTIONS,
+} from "./constants";
 
 export default function ConditionsCard({
   readOnly = false,
@@ -13,6 +31,7 @@ export default function ConditionsCard({
   isSearching,
   searchResults,
   previewVariants,
+  locations = [],
 }) {
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
@@ -54,7 +73,7 @@ export default function ConditionsCard({
                 onInput={
                   readOnly
                     ? undefined
-                    : (e) => handleConditionChange(index, "field", e.target.value)
+                    : (e) => handleConditionChange(index, "field", getFieldValue(e))
                 }
               >
                 {CONDITION_FIELDS.map((field) => (
@@ -72,28 +91,93 @@ export default function ConditionsCard({
                 onInput={
                   readOnly
                     ? undefined
-                    : (e) => handleConditionChange(index, "operator", e.target.value)
+                    : (e) => handleConditionChange(index, "operator", getFieldValue(e))
                 }
               >
-                {CONDITION_OPERATORS.map((op) => (
+                {getConditionOperators(condition.field).map((op) => (
                   <s-option key={op.value} value={op.value}>
                     {op.label}
                   </s-option>
                 ))}
               </s-select>
 
-              <s-text-field
-                label="Value"
-                labelAccessibilityVisibility="exclusive"
-                placeholder="Enter value"
-                value={condition.value}
-                disabled={readOnly}
-                onInput={
-                  readOnly
-                    ? undefined
-                    : (e) => handleConditionChange(index, "value", e.target.value)
-                }
-              />
+              {isDateConditionField(condition.field) ? (
+                <ConditionDateValueField
+                  value={condition.value}
+                  readOnly={readOnly}
+                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                />
+              ) : isStatusConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizeProductStatusValue(condition.value)}
+                  disabled={readOnly}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                  }
+                >
+                  {PRODUCT_STATUS_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isPublishedStatusConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizePublishedStatusValue(condition.value)}
+                  disabled={readOnly}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                  }
+                >
+                  {PUBLISHED_STATUS_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isProductMetafieldConditionField(condition.field) ? (
+                <ConditionMetafieldValueField
+                  value={condition.value}
+                  operator={condition.operator}
+                  readOnly={readOnly}
+                  index={index}
+                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                />
+              ) : isVariantWeightConditionField(condition.field) ? (
+                <ConditionWeightValueField
+                  value={condition.value}
+                  readOnly={readOnly}
+                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                />
+              ) : isInventoryLocationConditionField(condition.field) ? (
+                <ConditionInventoryLocationValueField
+                  value={condition.value}
+                  locations={locations}
+                  readOnly={readOnly}
+                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                />
+              ) : (
+                <s-text-field
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  placeholder="Enter value"
+                  value={condition.value}
+                  disabled={readOnly}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                  }
+                />
+              )}
 
               {!readOnly && (
                 <s-button

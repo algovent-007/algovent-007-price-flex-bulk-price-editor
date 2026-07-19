@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
+import ProductLogLink from "./ProductLogLink";
 
 const LOGS_PAGE_SIZE = 10;
 
@@ -6,9 +7,35 @@ function formatVariantId(variantId) {
   return String(variantId || "-").split("/").pop();
 }
 
-export default function TaskLogsTable({ logs, isRollbackTask, searchQuery }) {
+const tableStyle = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: "13px",
+};
+
+const headerCellStyle = {
+  textAlign: "left",
+  padding: "10px 12px",
+  borderBottom: "1px solid var(--p-color-border, #dfe3e8)",
+  color: "var(--p-color-text-secondary, #616161)",
+  fontWeight: 500,
+  whiteSpace: "nowrap",
+};
+
+const bodyCellStyle = {
+  padding: "10px 12px",
+  borderBottom: "1px solid var(--p-color-border-secondary, #ececec)",
+  verticalAlign: "top",
+};
+
+export default function TaskLogsTable({
+  logs,
+  isRollbackTask,
+  searchQuery,
+  shopDomain,
+  onProductNavigate,
+}) {
   const [page, setPage] = useState(0);
-  const tableId = useId().replace(/:/g, "");
 
   useEffect(() => {
     setPage(0);
@@ -34,85 +61,91 @@ export default function TaskLogsTable({ logs, isRollbackTask, searchQuery }) {
   const pageLogs = logs.slice(pageStart, pageStart + LOGS_PAGE_SIZE);
   const showPagination = logs.length > LOGS_PAGE_SIZE;
 
-  const handlePreviousPage = useCallback(() => {
-    setPage((currentPage) => Math.max(0, currentPage - 1));
-  }, []);
-
-  const handleNextPage = useCallback(() => {
-    setPage((currentPage) => Math.min(totalPages - 1, currentPage + 1));
-  }, [totalPages]);
-
-  useEffect(() => {
-    if (!showPagination) return undefined;
-
-    const table = document.getElementById(tableId);
-    if (!table) return undefined;
-
-    table.addEventListener("previouspage", handlePreviousPage);
-    table.addEventListener("nextpage", handleNextPage);
-
-    return () => {
-      table.removeEventListener("previouspage", handlePreviousPage);
-      table.removeEventListener("nextpage", handleNextPage);
-    };
-  }, [handleNextPage, handlePreviousPage, showPagination, tableId]);
-
   return (
-    <s-table
-      id={tableId}
-      variant="auto"
-      paginate={showPagination}
-      hasPreviousPage={safePage > 0}
-      hasNextPage={safePage < totalPages - 1}
-      onPreviousPage={handlePreviousPage}
-      onNextPage={handleNextPage}
-    >
-      <s-table-header-row>
-        <s-table-header listSlot="primary">Product</s-table-header>
-        <s-table-header>Variant ID</s-table-header>
-        <s-table-header>Price</s-table-header>
-        <s-table-header>Compare-at Price</s-table-header>
-        <s-table-header>Unit Cost</s-table-header>
-      </s-table-header-row>
-      <s-table-body>
-        {pageLogs.map((log, idx) => (
-          <s-table-row key={`${pageStart + idx}-${log.variantId || log.variantTitle || log.productTitle}`}>
-            <s-table-cell>{log.productTitle}</s-table-cell>
-            <s-table-cell>
-              <s-text color="subdued">{formatVariantId(log.variantId)}</s-text>
-            </s-table-cell>
-            <s-table-cell>
-              <s-stack direction="inline" gap="small-100">
-                <s-text color="subdued" type="redundant">
-                  {log.oldPrice}
-                </s-text>
-                <s-text color="subdued">→</s-text>
-                <s-text type="strong" tone={isRollbackTask ? "info" : "success"}>
-                  {log.newPrice}
-                </s-text>
-              </s-stack>
-            </s-table-cell>
-            <s-table-cell>
-              <s-stack direction="inline" gap="small-100">
-                <s-text color="subdued" type={log.oldCompare !== "-" ? "redundant" : undefined}>
-                  {log.oldCompare}
-                </s-text>
-                <s-text color="subdued">→</s-text>
-                <s-text type="strong">{log.newCompare}</s-text>
-              </s-stack>
-            </s-table-cell>
-            <s-table-cell>
-              <s-stack direction="inline" gap="small-100">
-                <s-text color="subdued" type="redundant">
-                  {log.oldCost}
-                </s-text>
-                <s-text color="subdued">→</s-text>
-                <s-text type="strong">{log.newCost}</s-text>
-              </s-stack>
-            </s-table-cell>
-          </s-table-row>
-        ))}
-      </s-table-body>
-    </s-table>
+    <s-stack direction="block" gap="base">
+      <s-box borderWidth="base" borderRadius="base" overflow="hidden">
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={headerCellStyle}>Product</th>
+              <th style={headerCellStyle}>Variant ID</th>
+              <th style={headerCellStyle}>Price</th>
+              <th style={headerCellStyle}>Compare-at Price</th>
+              <th style={headerCellStyle}>Unit Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageLogs.map((log, idx) => (
+              <tr key={`${pageStart + idx}-${log.variantId || log.variantTitle || log.productTitle}`}>
+                <td style={bodyCellStyle}>
+                  <ProductLogLink
+                    productId={log.productId}
+                    shopDomain={shopDomain}
+                    onNavigate={onProductNavigate}
+                  >
+                    {log.productTitle}
+                  </ProductLogLink>
+                </td>
+                <td style={bodyCellStyle}>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)" }}>
+                    {formatVariantId(log.variantId)}
+                  </span>
+                </td>
+                <td style={bodyCellStyle}>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)", textDecoration: "line-through" }}>
+                    {log.oldPrice}
+                  </span>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
+                  <strong style={{ color: isRollbackTask ? "#005bd3" : "#008060" }}>{log.newPrice}</strong>
+                </td>
+                <td style={bodyCellStyle}>
+                  <span
+                    style={{
+                      color: "var(--p-color-text-secondary, #616161)",
+                      textDecoration: log.oldCompare !== "-" ? "line-through" : "none",
+                    }}
+                  >
+                    {log.oldCompare}
+                  </span>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
+                  <strong>{log.newCompare}</strong>
+                </td>
+                <td style={bodyCellStyle}>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)", textDecoration: "line-through" }}>
+                    {log.oldCost}
+                  </span>
+                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
+                  <strong>{log.newCost}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </s-box>
+
+      {showPagination && (
+        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
+          <s-text color="subdued">
+            Page {safePage + 1} of {totalPages}
+          </s-text>
+          <s-stack direction="inline" gap="small-100">
+            <s-button
+              variant="secondary"
+              disabled={safePage === 0}
+              onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
+            >
+              Previous
+            </s-button>
+            <s-button
+              variant="secondary"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage((currentPage) => Math.min(totalPages - 1, currentPage + 1))}
+            >
+              Next
+            </s-button>
+          </s-stack>
+        </s-stack>
+      )}
+    </s-stack>
   );
 }

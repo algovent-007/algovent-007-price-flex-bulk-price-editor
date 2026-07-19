@@ -12,8 +12,12 @@ const NAVIGATION_KEYS = new Set([
   "End",
 ]);
 
-export function getNumericFieldValue(event) {
+export function getFieldValue(event) {
   return event.currentTarget?.value ?? event.target?.value ?? "";
+}
+
+export function getNumericFieldValue(event) {
+  return getFieldValue(event);
 }
 
 export function sanitizeNumericInput(value) {
