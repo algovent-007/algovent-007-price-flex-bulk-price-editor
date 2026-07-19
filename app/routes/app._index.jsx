@@ -1,12 +1,18 @@
 import { authenticate } from "../shopify.server";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLoaderData, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import TaskProgressCard, { isTaskTerminal } from "../components/TaskProgressCard";
+import HomeGetStartedBanner from "../components/HomeGetStartedBanner";
+import HomeEmptyState from "../components/HomeEmptyState";
+import HomePageFooter from "../components/HomePageFooter";
+import { APP_NAME } from "../constants/branding";
+import styles from "../components/HomePage.module.css";
 
 const EXECUTING_TASK_STATUSES = ["running"];
 const FINISHED_TASK_STATUSES = ["completed", "failed", "cancelled", "rolled_back"];
+const GET_STARTED_DISMISSED_KEY = "price_flex_get_started_dismissed";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
@@ -40,11 +46,17 @@ export const loader = async ({ request }) => {
   return Response.json({ activeTask, lastCompletedTask });
 };
 
+function readGetStartedDismissed() {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(GET_STARTED_DISMISSED_KEY) === "true";
+}
+
 export default function Index() {
   const { activeTask, lastCompletedTask } = useLoaderData();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const [searchParams] = useSearchParams();
+  const [getStartedDismissed, setGetStartedDismissed] = useState(readGetStartedDismissed);
   const taskId = searchParams.get("taskId");
   const shouldPoll = activeTask && !isTaskTerminal(activeTask.status);
 
@@ -74,62 +86,42 @@ export default function Index() {
     return () => clearInterval(interval);
   }, [revalidator, shouldPoll]);
 
+  const handleCreateJob = () => navigate("/app/new");
+
+  const handleDismissGetStarted = () => {
+    setGetStartedDismissed(true);
+    localStorage.setItem(GET_STARTED_DISMISSED_KEY, "true");
+  };
+
   return (
-    <s-page heading="Current">
-      <s-section heading="Current Task">
-        {activeTask ? (
-          <TaskProgressCard task={activeTask} />
-        ) : (
-          <>
-            <s-paragraph>No task running</s-paragraph>
-            <s-box
-              padding="base"
-              borderWidth="base"
-              borderRadius="base"
-              background="subdued"
-            >
-              <s-stack direction="block" gap="base">
-                <s-paragraph>
-                  Save time by bulk editing product prices in just a few clicks.
-                </s-paragraph>
-                <s-button onClick={() => navigate("/app/new")}>
-                  Create a price edit task
-                </s-button>
-              </s-stack>
-            </s-box>
-          </>
+    <s-page heading={APP_NAME} inlineSize="base">
+      <div className={styles.pageStack}>
+        {!getStartedDismissed && (
+          <s-section>
+            <HomeGetStartedBanner
+              onDismiss={handleDismissGetStarted}
+              onCreateJob={handleCreateJob}
+            />
+          </s-section>
         )}
-      </s-section>
 
-      {lastCompletedTask && (
         <s-section>
-          <s-paragraph>
-            Last completed task:{" "}
-            <s-link href="/app/history">
-              {lastCompletedTask.name} ({lastCompletedTask.processedItems} items)
-            </s-link>
-          </s-paragraph>
+          {activeTask ? <TaskProgressCard task={activeTask} /> : <HomeEmptyState onCreateJob={handleCreateJob} />}
         </s-section>
-      )}
 
-      <s-section slot="aside" heading="Task finished email">
-        <s-paragraph>
-          <s-switch label="Get an email when the bulk edit is complete."></s-switch>
-        </s-paragraph>
-      </s-section>
+        {lastCompletedTask && !activeTask && (
+          <s-section>
+            <s-paragraph>
+              Last completed task:{" "}
+              <s-link href="/app/history">
+                {lastCompletedTask.name} ({lastCompletedTask.processedItems} items)
+              </s-link>
+            </s-paragraph>
+          </s-section>
+        )}
 
-      <s-section slot="aside" heading="Notes">
-        <s-paragraph>
-          <s-link href="#" target="_blank">
-            Fair Usage Policy
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-link href="#" target="_blank">
-            Concurrent Tasks
-          </s-link>
-        </s-paragraph>
-      </s-section>
+        <HomePageFooter />
+      </div>
     </s-page>
   );
 }
