@@ -1,4 +1,5 @@
-import { redirect, Form, useLoaderData } from "react-router";
+import { redirect, useLoaderData } from "react-router";
+import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { login } from "../../shopify.server";
 import styles from "./styles.module.css";
 
@@ -13,42 +14,19 @@ export const loader = async ({ request }) => {
 };
 
 export default function App() {
-  const { showForm } = useLoaderData();
+  useLoaderData();
 
   return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
-        <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
-        </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-          <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
-          </li>
-        </ul>
+    <AppProvider embedded={false}>
+      <div className={styles.landing}>
+        <s-box background="base" padding="none">
+          <s-stack direction="block" alignItems="center" justifyContent="center">
+            <s-text color="subdued" type="generic">
+              <span className={styles.title}>Price Flex Bulk Price Editor</span>
+            </s-text>
+          </s-stack>
+        </s-box>
       </div>
-    </div>
+    </AppProvider>
   );
 }
