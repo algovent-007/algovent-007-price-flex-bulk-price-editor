@@ -21,7 +21,7 @@ import {
   executePriceEditTask,
   fetchProductsByQuery,
   filterProductsByConditions,
-  SEARCH_PRODUCT_FIELDS,
+  getProductSearchQueryConfig,
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
@@ -107,10 +107,12 @@ export const action = async ({ request }) => {
     }
 
     try {
+      const { fields, pageSize } = getProductSearchQueryConfig(editType);
       const fetchedProducts = await fetchProductsByQuery(
         shopifyQuery,
         queryStr,
-        SEARCH_PRODUCT_FIELDS
+        fields,
+        { pageSize }
       );
 
       const products = filterProductsByConditions(

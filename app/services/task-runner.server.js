@@ -10,6 +10,48 @@ import {
 export { buildProductQuery, filterProductsByConditions };
 
 const PRODUCTS_PAGE_SIZE = 50;
+const HEAVY_PRODUCTS_PAGE_SIZE = 15;
+const LIGHT_PRODUCTS_PAGE_SIZE = 50;
+const PRODUCT_VARIANTS_LIMIT = 50;
+
+const PRICING_VARIANT_FIELDS = `
+  id
+  title
+  price
+  compareAtPrice
+  image {
+    url
+  }
+  inventoryItem {
+    id
+    unitCost {
+      amount
+    }
+  }
+`;
+
+export const SEARCH_PREVIEW_FIELDS = `
+  id
+  title
+  featuredImage {
+    url
+  }
+  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    nodes {
+      ${PRICING_VARIANT_FIELDS}
+    }
+  }
+`;
+
+export const TASK_EXECUTION_FIELDS = `
+  id
+  title
+  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    nodes {
+      ${PRICING_VARIANT_FIELDS}
+    }
+  }
+`;
 
 export const SEARCH_PRODUCT_FIELDS = `
   id
@@ -17,7 +59,7 @@ export const SEARCH_PRODUCT_FIELDS = `
   featuredImage {
     url
   }
-  variants(first: 100) {
+  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
     nodes {
       ${PRODUCT_CONDITION_VARIANT_FIELDS}
       image {
@@ -30,30 +72,58 @@ export const SEARCH_PRODUCT_FIELDS = `
 export const TASK_PRODUCT_FIELDS = `
   id
   ${PRODUCT_CONDITION_FIELDS}
-  variants(first: 100) {
+  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
     nodes {
       ${PRODUCT_CONDITION_VARIANT_FIELDS}
     }
   }
 `;
 
+export function getProductSearchQueryConfig(editType) {
+  if (editType === "conditions") {
+    return {
+      fields: SEARCH_PRODUCT_FIELDS,
+      pageSize: HEAVY_PRODUCTS_PAGE_SIZE,
+    };
+  }
+
+  return {
+    fields: SEARCH_PREVIEW_FIELDS,
+    pageSize: LIGHT_PRODUCTS_PAGE_SIZE,
+  };
+}
+
+export function getTaskProductQueryConfig(editType) {
+  if (editType === "conditions") {
+    return {
+      fields: TASK_PRODUCT_FIELDS,
+      pageSize: HEAVY_PRODUCTS_PAGE_SIZE,
+    };
+  }
+
+  return {
+    fields: TASK_EXECUTION_FIELDS,
+    pageSize: LIGHT_PRODUCTS_PAGE_SIZE,
+  };
+}
+
 export async function fetchProductsByQuery(
   shopifyQuery,
   queryStr,
   fieldsFragment,
-  { maxProducts } = {}
+  { maxProducts, pageSize = PRODUCTS_PAGE_SIZE } = {}
 ) {
   const products = [];
   let cursor = null;
   let hasNextPage = true;
 
   while (hasNextPage) {
-    const pageSize =
+    const currentPageSize =
       maxProducts != null
-        ? Math.min(PRODUCTS_PAGE_SIZE, maxProducts - products.length)
-        : PRODUCTS_PAGE_SIZE;
+        ? Math.min(pageSize, maxProducts - products.length)
+        : pageSize;
 
-    if (pageSize <= 0) break;
+    if (currentPageSize <= 0) break;
 
     const data = await shopifyQuery(
       `#graphql
@@ -70,7 +140,7 @@ export async function fetchProductsByQuery(
       }`,
       {
         query: queryStr || null,
-        first: pageSize,
+        first: currentPageSize,
         after: cursor,
       }
     );
@@ -167,12 +237,14 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
   });
 
   const queryStr = buildProductQuery(editType, matchType, conditionsStr, collectionId);
+  const { fields, pageSize } = getTaskProductQueryConfig(editType);
 
   try {
     const fetchedProducts = await fetchProductsByQuery(
       shopifyQuery,
       queryStr,
-      TASK_PRODUCT_FIELDS
+      fields,
+      { pageSize }
     );
 
     const products = filterProductsByConditions(
