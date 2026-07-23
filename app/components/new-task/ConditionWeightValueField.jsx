@@ -5,7 +5,12 @@ import {
   WEIGHT_UNIT_OPTIONS,
 } from "../../utils/weight-conditions";
 
-export default function ConditionWeightValueField({ value, onChange, readOnly = false }) {
+export default function ConditionWeightValueField({
+  value,
+  onChange,
+  readOnly = false,
+  error = "",
+}) {
   const parsed = parseWeightConditionValue(value);
 
   const emitChange = (amount, unit) => {
@@ -20,6 +25,7 @@ export default function ConditionWeightValueField({ value, onChange, readOnly = 
         placeholder="Enter weight"
         value={parsed.amount}
         disabled={readOnly}
+        error={error}
         onInput={
           readOnly
             ? undefined

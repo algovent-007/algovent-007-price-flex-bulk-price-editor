@@ -217,7 +217,7 @@ test("cost price based on new product price uses calculated price", () => {
 });
 
 test("validation requires formula when formula mode selected", () => {
-  const errors = validatePricingConfig({
+  const result = validatePricingConfig({
     changePrice: "8",
     fixedPriceAmount: "10",
     priceFormula: "",
@@ -227,7 +227,8 @@ test("validation requires formula when formula mode selected", () => {
     costPriceType: "6",
     costFixedPriceAmount: "0",
   });
-  assert.ok(errors.length > 0);
+  assert.ok(result.errors.length > 0);
+  assert.equal(result.fieldErrors.priceFormula, "Enter a price formula.");
 });
 
 test("preview matches bulk calculation", () => {

@@ -4,6 +4,7 @@ export default function CsvUploadCard({
   csvFileName,
   onFileChange,
   onUploadClick,
+  error = "",
 }) {
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
@@ -32,6 +33,7 @@ export default function CsvUploadCard({
           ) : readOnly ? (
             <s-text color="subdued">No CSV file recorded for this task.</s-text>
           ) : null}
+          {!readOnly && error && <s-banner tone="critical">{error}</s-banner>}
         </s-stack>
       </s-stack>
     </s-box>

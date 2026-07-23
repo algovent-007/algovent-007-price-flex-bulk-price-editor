@@ -9,6 +9,7 @@ export default function ConditionInventoryLocationValueField({
   onChange,
   locations = [],
   readOnly = false,
+  error = "",
 }) {
   const parsed = parseInventoryLocationConditionValue(value);
   const selectedLocationId =
@@ -28,6 +29,7 @@ export default function ConditionInventoryLocationValueField({
         placeholder="Enter stock level"
         value={parsed.quantity}
         disabled={readOnly}
+        error={error}
         onInput={
           readOnly
             ? undefined

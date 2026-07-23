@@ -9,6 +9,8 @@ export default function CollectionCard({
   isSearching,
   searchResults,
   previewVariants,
+  fieldErrors = {},
+  clearFieldError,
 }) {
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
@@ -17,7 +19,15 @@ export default function CollectionCard({
           label="Select collection"
           value={selectedCollectionId}
           disabled={readOnly}
-          onInput={readOnly ? undefined : (e) => setSelectedCollectionId(e.target.value)}
+          error={fieldErrors?.collectionId}
+          onInput={
+            readOnly
+              ? undefined
+              : (e) => {
+                  clearFieldError?.("collectionId");
+                  setSelectedCollectionId(e.target.value);
+                }
+          }
         >
           {collections.length === 0 ? (
             <s-option value="">No collections found</s-option>
@@ -31,15 +41,21 @@ export default function CollectionCard({
         </s-select>
 
         {!readOnly && (
-          <s-stack direction="inline" justifyContent="end">
-            <s-button
-              variant="primary"
-              onClick={handleSearch}
-              loading={isSearching}
-            >
-              Search For Products
-            </s-button>
-          </s-stack>
+          <>
+            {fieldErrors?.productSearch && (
+              <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+            )}
+
+            <s-stack direction="inline" justifyContent="end">
+              <s-button
+                variant="primary"
+                onClick={handleSearch}
+                loading={isSearching}
+              >
+                Search For Products
+              </s-button>
+            </s-stack>
+          </>
         )}
 
         {searchResults && (

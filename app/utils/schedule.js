@@ -47,38 +47,234 @@ export function parseScheduleDateTime(dateStr, timeStr) {
   return date;
 }
 
-export function validateScheduleConfig({
-  changePricesSchedule,
+export const SCHEDULE_RECURRENCE_OPTIONS = [
+  { value: "one_time", label: "One Time" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+export const WEEKDAY_OPTIONS = [
+  { value: "0", label: "Sunday" },
+  { value: "1", label: "Monday" },
+  { value: "2", label: "Tuesday" },
+  { value: "3", label: "Wednesday" },
+  { value: "4", label: "Thursday" },
+  { value: "5", label: "Friday" },
+  { value: "6", label: "Saturday" },
+];
+
+export const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => {
+  const day = String(index + 1);
+  return { value: day, label: day };
+});
+
+export function isOneTimeScheduleRecurrence(recurrenceType) {
+  return !recurrenceType || recurrenceType === "one_time";
+}
+
+function getNextDailyOccurrence(time, now) {
+  const scheduledAt = new Date(now);
+  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+
+  if (scheduledAt <= now) {
+    scheduledAt.setDate(scheduledAt.getDate() + 1);
+  }
+
+  return scheduledAt;
+}
+
+function getNextWeeklyOccurrence(dayOfWeek, time, now) {
+  const targetDay = parseInt(dayOfWeek, 10);
+  if (Number.isNaN(targetDay) || targetDay < 0 || targetDay > 6) return null;
+
+  const scheduledAt = new Date(now);
+  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+
+  let daysUntil = (targetDay - scheduledAt.getDay() + 7) % 7;
+  if (daysUntil === 0 && scheduledAt <= now) {
+    daysUntil = 7;
+  }
+  scheduledAt.setDate(scheduledAt.getDate() + daysUntil);
+  return scheduledAt;
+}
+
+function getValidDayOfMonth(year, month, targetDay) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return Math.min(targetDay, lastDay);
+}
+
+function getNextMonthlyOccurrence(dayOfMonth, time, now) {
+  const targetDate = parseInt(dayOfMonth, 10);
+  if (Number.isNaN(targetDate) || targetDate < 1 || targetDate > 31) return null;
+
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  let day = getValidDayOfMonth(year, month, targetDate);
+  let scheduledAt = new Date(year, month, day);
+  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+
+  if (scheduledAt <= now) {
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+    day = getValidDayOfMonth(year, month, targetDate);
+    scheduledAt = new Date(year, month, day);
+    scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+  }
+
+  return scheduledAt;
+}
+
+export function computeScheduledAt({
+  recurrenceType,
   changePricesAtDate,
   changePricesAtTime,
+  scheduleRecurrenceDayOfWeek,
+  scheduleRecurrenceDayOfMonth,
+  now,
+}) {
+  const time = parseTimeString(changePricesAtTime);
+  if (!time) return null;
+
+  if (isOneTimeScheduleRecurrence(recurrenceType)) {
+    return parseScheduleDateTime(changePricesAtDate, changePricesAtTime);
+  }
+
+  if (recurrenceType === "daily") {
+    return getNextDailyOccurrence(time, now);
+  }
+
+  if (recurrenceType === "weekly") {
+    return getNextWeeklyOccurrence(scheduleRecurrenceDayOfWeek, time, now);
+  }
+
+  if (recurrenceType === "monthly") {
+    return getNextMonthlyOccurrence(scheduleRecurrenceDayOfMonth, time, now);
+  }
+
+  return null;
+}
+
+export function validateScheduleConfig({
+  changePricesSchedule,
+  scheduleRecurrenceType = "one_time",
+  changePricesAtDate,
+  changePricesAtTime,
+  scheduleRecurrenceDayOfWeek,
+  scheduleRecurrenceDayOfMonth,
   revertPrices,
   revertPricesAtDate,
   revertPricesAtTime,
 }) {
   const errors = [];
+  const fieldErrors = {};
   const now = new Date();
+
+  const addError = (field, message) => {
+    errors.push(message);
+    if (field && !fieldErrors[field]) {
+      fieldErrors[field] = message;
+    }
+  };
 
   let scheduledAt = now;
   if (changePricesSchedule === "later") {
-    scheduledAt = parseScheduleDateTime(changePricesAtDate, changePricesAtTime);
-    if (!scheduledAt) {
-      errors.push("Enter a valid start date and time for the price change.");
-    } else if (scheduledAt <= now) {
-      errors.push("Scheduled start time must be in the future.");
+    const oneTime = isOneTimeScheduleRecurrence(scheduleRecurrenceType);
+    const isWeekly = scheduleRecurrenceType === "weekly";
+    const isMonthly = scheduleRecurrenceType === "monthly";
+
+    if (oneTime) {
+      if (!String(changePricesAtDate ?? "").trim()) {
+        addError("startDateStr", "Enter a start date.");
+      } else if (!parseDateString(changePricesAtDate)) {
+        addError("startDateStr", "Enter a valid start date.");
+      }
+    }
+
+    if (isWeekly) {
+      if (!String(scheduleRecurrenceDayOfWeek ?? "").trim()) {
+        addError("scheduleRecurrenceDay", "Pick a day.");
+      } else if (
+        !WEEKDAY_OPTIONS.some((option) => option.value === String(scheduleRecurrenceDayOfWeek))
+      ) {
+        addError("scheduleRecurrenceDay", "Pick a valid day.");
+      }
+    }
+
+    if (isMonthly) {
+      if (!String(scheduleRecurrenceDayOfMonth ?? "").trim()) {
+        addError("scheduleRecurrenceDate", "Pick a date.");
+      } else if (
+        !MONTH_DAY_OPTIONS.some((option) => option.value === String(scheduleRecurrenceDayOfMonth))
+      ) {
+        addError("scheduleRecurrenceDate", "Pick a valid date.");
+      }
+    }
+
+    if (!String(changePricesAtTime ?? "").trim()) {
+      addError("startTimeStr", "Enter a start time.");
+    } else if (!parseTimeString(changePricesAtTime)) {
+      addError("startTimeStr", "Enter a valid start time.");
+    }
+
+    scheduledAt = computeScheduledAt({
+      recurrenceType: scheduleRecurrenceType,
+      changePricesAtDate,
+      changePricesAtTime,
+      scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth,
+      now,
+    });
+
+    if (oneTime) {
+      if (
+        String(changePricesAtDate ?? "").trim() &&
+        String(changePricesAtTime ?? "").trim() &&
+        !scheduledAt
+      ) {
+        addError("startDateStr", "Enter a valid start date and time.");
+        addError("startTimeStr", "Enter a valid start date and time.");
+      } else if (scheduledAt && scheduledAt <= now) {
+        addError("startDateStr", "Scheduled start time must be in the future.");
+        addError("startTimeStr", "Scheduled start time must be in the future.");
+      }
+    } else if (String(changePricesAtTime ?? "").trim() && !scheduledAt) {
+      addError("startTimeStr", "Enter a valid start time.");
     }
   }
 
   let revertAt = null;
   if (revertPrices === "true" || revertPrices === true) {
+    if (!String(revertPricesAtDate ?? "").trim()) {
+      addError("revertDateStr", "Enter a revert date.");
+    } else if (!parseDateString(revertPricesAtDate)) {
+      addError("revertDateStr", "Enter a valid revert date.");
+    }
+
+    if (!String(revertPricesAtTime ?? "").trim()) {
+      addError("revertTimeStr", "Enter a revert time.");
+    } else if (!parseTimeString(revertPricesAtTime)) {
+      addError("revertTimeStr", "Enter a valid revert time.");
+    }
+
     revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime);
-    if (!revertAt) {
-      errors.push("Enter a valid revert date and time.");
-    } else if (scheduledAt && revertAt <= scheduledAt) {
-      errors.push("Revert time must be after the price change time.");
+    if (
+      String(revertPricesAtDate ?? "").trim() &&
+      String(revertPricesAtTime ?? "").trim() &&
+      !revertAt
+    ) {
+      addError("revertDateStr", "Enter a valid revert date and time.");
+      addError("revertTimeStr", "Enter a valid revert date and time.");
+    } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
+      addError("revertDateStr", "Revert time must be after the price change time.");
+      addError("revertTimeStr", "Revert time must be after the price change time.");
     }
   }
 
-  return { errors, scheduledAt, revertAt };
+  return { errors, fieldErrors, scheduledAt, revertAt };
 }
 
 export function formatScheduleDateTime(date) {

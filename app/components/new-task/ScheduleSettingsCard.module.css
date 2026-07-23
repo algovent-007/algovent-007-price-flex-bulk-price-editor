@@ -1,0 +1,92 @@
+.pickTimeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: end;
+  width: 100%;
+}
+
+.pickTimeRow > * {
+  min-width: 0;
+}
+
+.scrollableSelect {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scrollableSelectLabel {
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.25;
+  color: var(--p-color-text, #303030);
+}
+
+.scrollableSelectTrigger {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 32px 8px 12px;
+  border: 1px solid var(--p-color-border, #8a8a8a);
+  border-radius: 8px;
+  background: var(--p-color-bg-surface, #fff)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M6 8l4 4 4-4' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 8px center;
+  color: var(--p-color-text, #303030);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scrollableSelectTrigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scrollableSelectTriggerError {
+  border-color: var(--p-color-border-critical, #8e0b21);
+}
+
+.scrollableSelectList {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 520;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--p-color-border, #8a8a8a);
+  border-radius: 8px;
+  background: var(--p-color-bg-surface, #fff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.scrollableSelectOption {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--p-color-text, #303030);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scrollableSelectOption:hover,
+.scrollableSelectOption:focus-visible {
+  background: var(--p-color-bg-surface-hover, #f1f1f1);
+}
+
+.scrollableSelectOptionSelected {
+  background: var(--p-color-bg-surface-selected, #f1f1f1);
+  font-weight: 550;
+}
+
+.scrollableSelectError {
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--p-color-text-critical, #8e0b21);
+}

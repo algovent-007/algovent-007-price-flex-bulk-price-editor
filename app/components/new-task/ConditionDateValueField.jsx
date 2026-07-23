@@ -10,7 +10,7 @@ function toIsoDateValue(value) {
   return parsed ? formatDateIso(parsed) : String(value || "").trim();
 }
 
-export default function ConditionDateValueField({ value, onChange, readOnly = false }) {
+export default function ConditionDateValueField({ value, onChange, readOnly = false, error = "" }) {
   const isoValue = toIsoDateValue(value);
 
   const handleChange = (event) => {
@@ -24,6 +24,7 @@ export default function ConditionDateValueField({ value, onChange, readOnly = fa
       placeholder="Select date"
       value={isoValue}
       readOnly={readOnly}
+      error={error}
       onChange={readOnly ? undefined : handleChange}
       onInput={readOnly ? undefined : handleChange}
     />

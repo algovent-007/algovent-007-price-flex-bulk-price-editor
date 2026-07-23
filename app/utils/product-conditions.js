@@ -289,13 +289,6 @@ const CONDITION_FIELD_DEFS = {
         (variant) => variant.inventoryItem?.unitCost?.amount ?? ""
       ),
   },
-  variant_cost_item: {
-    kind: "number",
-    values: (product) =>
-      getVariants(product).map(
-        (variant) => variant.inventoryItem?.unitCost?.amount ?? ""
-      ),
-  },
   variant_inventory_at_location: {
     kind: "inventory_location",
     inventoryLevels: (product) =>
@@ -315,11 +308,9 @@ const CONDITION_FIELD_DEFS = {
       ),
   },
   inventory_policy: {
-    kind: "text",
+    kind: "boolean",
     values: (product) =>
-      getVariants(product).map((variant) =>
-        normalizeInventoryPolicy(variant.inventoryPolicy)
-      ),
+      getVariants(product).map((variant) => variant.inventoryItem?.tracked ?? null),
   },
   physical_product: {
     kind: "boolean",

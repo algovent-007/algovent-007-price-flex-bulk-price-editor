@@ -377,41 +377,110 @@ export function calculateExamplePricing(params) {
 
 export function validatePricingConfig(config) {
   const errors = [];
+  const fieldErrors = {};
+
+  const addError = (field, message) => {
+    errors.push(message);
+    if (field && !fieldErrors[field]) {
+      fieldErrors[field] = message;
+    }
+  };
+
+  const requireNumericValue = (value, label, field) => {
+    if (String(value ?? "").trim() === "") {
+      addError(field, `${label} is required.`);
+      return;
+    }
+    const parsed = parseFloat(value);
+    if (Number.isNaN(parsed)) {
+      addError(field, `${label} must be a valid number.`);
+    }
+  };
+
+  const validateAdjustmentValues = (
+    percentType,
+    percentValue,
+    fixedType,
+    fixedValue,
+    percentField,
+    fixedField
+  ) => {
+    if (["1", "2", "4"].includes(String(percentType))) {
+      requireNumericValue(percentValue, "Percent value", percentField);
+    }
+
+    if (["1", "2", "4"].includes(String(fixedType))) {
+      requireNumericValue(fixedValue, "Fixed amount value", fixedField);
+    }
+  };
+
+  if (["1", "2", "3"].includes(String(config.changePrice))) {
+    validateAdjustmentValues(
+      config.percentType,
+      config.percentValue,
+      config.fixedType,
+      config.fixedValue,
+      "percentValue",
+      "fixedValue"
+    );
+  }
 
   if (config.changePrice === "5") {
     const fixed = parseFloat(config.fixedPriceAmount);
     if (config.fixedPriceAmount === "" || Number.isNaN(fixed)) {
-      errors.push("Enter a fixed price amount.");
+      addError("fixedPriceAmount", "Enter a fixed price amount.");
     } else if (fixed < 0) {
-      errors.push("Fixed price amount cannot be negative.");
+      addError("fixedPriceAmount", "Fixed price amount cannot be negative.");
     }
   }
 
   if (config.changePrice === "8" && !String(config.priceFormula || "").trim()) {
-    errors.push("Enter a price formula.");
+    addError("priceFormula", "Enter a price formula.");
+  }
+
+  if (["1", "2", "3", "4"].includes(String(config.comparePriceType))) {
+    validateAdjustmentValues(
+      config.comparePercentType,
+      config.comparePercentValue,
+      config.compareFixedType,
+      config.compareFixedValue,
+      "comparePercentValue",
+      "compareFixedValue"
+    );
   }
 
   if (config.comparePriceType === "5") {
     const fixed = parseFloat(config.compareFixedPriceAmount);
     if (config.compareFixedPriceAmount === "" || Number.isNaN(fixed)) {
-      errors.push("Enter a fixed compare-at price amount.");
+      addError("compareFixedPriceAmount", "Enter a fixed compare-at price amount.");
     } else if (fixed < 0) {
-      errors.push("Fixed compare-at price amount cannot be negative.");
+      addError("compareFixedPriceAmount", "Fixed compare-at price amount cannot be negative.");
     }
   }
 
   if (config.comparePriceType === "8" && !String(config.comparePriceFormula || "").trim()) {
-    errors.push("Enter a compare-at price formula.");
+    addError("comparePriceFormula", "Enter a compare-at price formula.");
+  }
+
+  if (["1", "2", "3", "4"].includes(String(config.costPriceType))) {
+    validateAdjustmentValues(
+      config.costPercentType,
+      config.costPercentValue,
+      config.costFixedType,
+      config.costFixedValue,
+      "costPercentValue",
+      "costFixedValue"
+    );
   }
 
   if (config.costPriceType === "5") {
     const fixed = parseFloat(config.costFixedPriceAmount);
     if (config.costFixedPriceAmount === "" || Number.isNaN(fixed)) {
-      errors.push("Enter a fixed cost amount.");
+      addError("costFixedPriceAmount", "Enter a fixed cost amount.");
     } else if (fixed < 0) {
-      errors.push("Fixed cost amount cannot be negative.");
+      addError("costFixedPriceAmount", "Fixed cost amount cannot be negative.");
     }
   }
 
-  return errors;
+  return { errors, fieldErrors };
 }

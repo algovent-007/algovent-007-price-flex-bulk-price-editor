@@ -1,6 +1,11 @@
 import prisma from "../db.server";
 import { executePriceEditTask } from "./task-runner.server";
 import { executeRollbackForTask } from "./rollback.server";
+import {
+  computeScheduledAt,
+  formatTime12Hour,
+  isOneTimeScheduleRecurrence,
+} from "../utils/schedule";
 
 export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTaskName, revertAt }) {
   const revertTaskId = `scheduled-rollback-${sourceTaskId}`;
@@ -43,6 +48,15 @@ export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTask
 }
 
 async function processScheduledEditTask({ admin, shop, task, actionData }) {
+  const scheduleMeta = {
+    scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
+    scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek || "1",
+    scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
+    changePricesAtTime:
+      actionData.changePricesAtTime || formatTime12Hour(new Date(task.scheduledAt)),
+    revertEnabled: actionData.revertEnabled,
+  };
+
   const result = await executePriceEditTask({
     admin,
     taskId: task.id,
@@ -50,6 +64,37 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   });
 
   if (!result.success) {
+    return result;
+  }
+
+  const isRecurring = !isOneTimeScheduleRecurrence(scheduleMeta.scheduleRecurrenceType);
+
+  if (isRecurring) {
+    const nextScheduledAt = computeScheduledAt({
+      recurrenceType: scheduleMeta.scheduleRecurrenceType,
+      changePricesAtTime: scheduleMeta.changePricesAtTime,
+      scheduleRecurrenceDayOfWeek: scheduleMeta.scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth: scheduleMeta.scheduleRecurrenceDayOfMonth,
+      now: new Date(),
+    });
+
+    if (nextScheduledAt) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          status: "scheduled",
+          scheduledAt: nextScheduledAt,
+          actionDetails: JSON.stringify({
+            taskType: "scheduled_edit",
+            ...scheduleMeta,
+            runPayload: actionData.runPayload,
+            scheduledAt: nextScheduledAt.toISOString(),
+            revertAt: task.revertAt?.toISOString() || null,
+          }),
+        },
+      });
+    }
+
     return result;
   }
 

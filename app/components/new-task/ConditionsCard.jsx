@@ -7,16 +7,31 @@ import ConditionWeightValueField from "./ConditionWeightValueField";
 import {
   CONDITION_FIELDS,
   getConditionOperators,
+  isCollectionConditionField,
   isDateConditionField,
   isInventoryLocationConditionField,
-  isProductMetafieldConditionField,
+  isMetafieldConditionField,
+  isVariantMetafieldConditionField,
   isPublishedStatusConditionField,
   isStatusConditionField,
+  isTaxableConditionField,
+  isInventoryOutOfStockPolicyConditionField,
+  isInventoryPolicyConditionField,
+  isPhysicalProductConditionField,
   isVariantWeightConditionField,
+  normalizeCollectionValue,
+  normalizeInventoryOutOfStockPolicyValue,
+  normalizeInventoryTrackingValue,
+  normalizePhysicalProductValue,
   normalizeProductStatusValue,
   normalizePublishedStatusValue,
+  normalizeTaxableValue,
   PRODUCT_STATUS_OPTIONS,
   PUBLISHED_STATUS_OPTIONS,
+  TAXABLE_OPTIONS,
+  INVENTORY_OUT_OF_STOCK_POLICY_OPTIONS,
+  INVENTORY_TRACKING_OPTIONS,
+  PHYSICAL_PRODUCT_OPTIONS,
 } from "./constants";
 
 export default function ConditionsCard({
@@ -32,7 +47,17 @@ export default function ConditionsCard({
   searchResults,
   previewVariants,
   locations = [],
+  collections = [],
+  fieldErrors = {},
+  clearFieldError,
 }) {
+  const conditionValueError = (index) => fieldErrors?.[`condition-${index}-value`];
+
+  const handleValueChange = (index, nextValue) => {
+    clearFieldError?.(`condition-${index}-value`);
+    handleConditionChange(index, "value", nextValue);
+  };
+
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
       <s-stack direction="block" gap="base">
@@ -105,7 +130,8 @@ export default function ConditionsCard({
                 <ConditionDateValueField
                   value={condition.value}
                   readOnly={readOnly}
-                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                  error={conditionValueError(index)}
+                  onChange={(nextValue) => handleValueChange(index, nextValue)}
                 />
               ) : isStatusConditionField(condition.field) ? (
                 <s-select
@@ -113,13 +139,90 @@ export default function ConditionsCard({
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeProductStatusValue(condition.value)}
                   disabled={readOnly}
+                  error={conditionValueError(index)}
                   onInput={
                     readOnly
                       ? undefined
-                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                      : (e) => handleValueChange(index, getFieldValue(e))
                   }
                 >
                   {PRODUCT_STATUS_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isTaxableConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizeTaxableValue(condition.value)}
+                  disabled={readOnly}
+                  error={conditionValueError(index)}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleValueChange(index, getFieldValue(e))
+                  }
+                >
+                  {TAXABLE_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isInventoryOutOfStockPolicyConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizeInventoryOutOfStockPolicyValue(condition.value)}
+                  disabled={readOnly}
+                  error={conditionValueError(index)}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleValueChange(index, getFieldValue(e))
+                  }
+                >
+                  {INVENTORY_OUT_OF_STOCK_POLICY_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isInventoryPolicyConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizeInventoryTrackingValue(condition.value)}
+                  disabled={readOnly}
+                  error={conditionValueError(index)}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleValueChange(index, getFieldValue(e))
+                  }
+                >
+                  {INVENTORY_TRACKING_OPTIONS.map((option) => (
+                    <s-option key={option.value} value={option.value}>
+                      {option.label}
+                    </s-option>
+                  ))}
+                </s-select>
+              ) : isPhysicalProductConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizePhysicalProductValue(condition.value)}
+                  disabled={readOnly}
+                  error={conditionValueError(index)}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleValueChange(index, getFieldValue(e))
+                  }
+                >
+                  {PHYSICAL_PRODUCT_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
                       {option.label}
                     </s-option>
@@ -131,10 +234,11 @@ export default function ConditionsCard({
                   labelAccessibilityVisibility="exclusive"
                   value={normalizePublishedStatusValue(condition.value)}
                   disabled={readOnly}
+                  error={conditionValueError(index)}
                   onInput={
                     readOnly
                       ? undefined
-                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                      : (e) => handleValueChange(index, getFieldValue(e))
                   }
                 >
                   {PUBLISHED_STATUS_OPTIONS.map((option) => (
@@ -143,27 +247,56 @@ export default function ConditionsCard({
                     </s-option>
                   ))}
                 </s-select>
-              ) : isProductMetafieldConditionField(condition.field) ? (
+              ) : isMetafieldConditionField(condition.field) ? (
                 <ConditionMetafieldValueField
                   value={condition.value}
                   operator={condition.operator}
                   readOnly={readOnly}
                   index={index}
-                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                  error={conditionValueError(index)}
+                  metafieldType={
+                    isVariantMetafieldConditionField(condition.field) ? "variant" : "product"
+                  }
+                  onChange={(nextValue) => handleValueChange(index, nextValue)}
                 />
               ) : isVariantWeightConditionField(condition.field) ? (
                 <ConditionWeightValueField
                   value={condition.value}
                   readOnly={readOnly}
-                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                  error={conditionValueError(index)}
+                  onChange={(nextValue) => handleValueChange(index, nextValue)}
                 />
               ) : isInventoryLocationConditionField(condition.field) ? (
                 <ConditionInventoryLocationValueField
                   value={condition.value}
                   locations={locations}
                   readOnly={readOnly}
-                  onChange={(nextValue) => handleConditionChange(index, "value", nextValue)}
+                  error={conditionValueError(index)}
+                  onChange={(nextValue) => handleValueChange(index, nextValue)}
                 />
+              ) : isCollectionConditionField(condition.field) ? (
+                <s-select
+                  label="Value"
+                  labelAccessibilityVisibility="exclusive"
+                  value={normalizeCollectionValue(condition.value, collections)}
+                  disabled={readOnly || collections.length === 0}
+                  error={conditionValueError(index)}
+                  onInput={
+                    readOnly
+                      ? undefined
+                      : (e) => handleValueChange(index, getFieldValue(e))
+                  }
+                >
+                  {collections.length === 0 ? (
+                    <s-option value="">No collections found</s-option>
+                  ) : (
+                    collections.map((collection) => (
+                      <s-option key={collection.id} value={collection.id}>
+                        {collection.title}
+                      </s-option>
+                    ))
+                  )}
+                </s-select>
               ) : (
                 <s-text-field
                   label="Value"
@@ -171,10 +304,11 @@ export default function ConditionsCard({
                   placeholder="Enter value"
                   value={condition.value}
                   disabled={readOnly}
+                  error={conditionValueError(index)}
                   onInput={
                     readOnly
                       ? undefined
-                      : (e) => handleConditionChange(index, "value", getFieldValue(e))
+                      : (e) => handleValueChange(index, getFieldValue(e))
                   }
                 />
               )}
@@ -194,6 +328,10 @@ export default function ConditionsCard({
         {!readOnly && (
           <>
             <s-button onClick={addCondition}>Add another condition</s-button>
+
+            {fieldErrors?.productSearch && (
+              <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+            )}
 
             <s-stack direction="inline" justifyContent="end">
               <s-button variant="primary" onClick={handleSearch} loading={isSearching}>

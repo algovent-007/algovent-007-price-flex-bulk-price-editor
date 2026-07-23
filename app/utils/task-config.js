@@ -49,6 +49,9 @@ export function getDefaultTaskConfigState(taskName = "") {
     tagToRemoveInput: "",
     tagsToRemove: [],
     scheduleType: "now",
+    scheduleRecurrenceType: "one_time",
+    scheduleRecurrenceDayOfWeek: "1",
+    scheduleRecurrenceDayOfMonth: "1",
     revertLater: false,
     startDate: new Date(),
     startDateStr: "",
@@ -132,6 +135,9 @@ export function buildTaskConfigState(task, actionData) {
   const isScheduled =
     actionData.taskType === "scheduled_edit" || task?.status === "scheduled";
   config.scheduleType = isScheduled ? "later" : "now";
+  config.scheduleRecurrenceType = actionData.scheduleRecurrenceType || "one_time";
+  config.scheduleRecurrenceDayOfWeek = actionData.scheduleRecurrenceDayOfWeek || "1";
+  config.scheduleRecurrenceDayOfMonth = actionData.scheduleRecurrenceDayOfMonth || "1";
 
   if (task?.scheduledAt) {
     const scheduledAt = new Date(task.scheduledAt);

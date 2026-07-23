@@ -40,6 +40,7 @@ import {
   loadSavedPricingRules,
   savePricingRules,
 } from "../utils/saved-pricing-rules";
+import { validateRunTaskForm } from "../utils/validate-run-task";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -170,6 +171,9 @@ export const action = async ({ request }) => {
     const taskName = formData.get("taskName") || "sale-" + Math.floor(1000000000 + Math.random() * 9000000000);
 
     const changePricesSchedule = formData.get("changePricesSchedule") || "now";
+    const scheduleRecurrenceType = formData.get("scheduleRecurrenceType") || "one_time";
+    const scheduleRecurrenceDayOfWeek = formData.get("scheduleRecurrenceDayOfWeek") || "1";
+    const scheduleRecurrenceDayOfMonth = formData.get("scheduleRecurrenceDayOfMonth") || "1";
     const changePricesAtDate = formData.get("changePricesAtDate");
     const changePricesAtTime = formData.get("changePricesAtTime");
     const revertPrices = formData.get("revertPrices") === "true";
@@ -178,20 +182,35 @@ export const action = async ({ request }) => {
 
     const pricingErrors = validatePricingConfig({
       changePrice,
+      percentType,
+      percentValue,
+      fixedType,
+      fixedValue,
       fixedPriceAmount,
       priceFormula,
       comparePriceType,
+      comparePercentType,
+      comparePercentValue,
+      compareFixedType,
+      compareFixedValue,
       compareFixedPriceAmount,
       comparePriceFormula,
       costPriceType,
+      costPercentType,
+      costPercentValue,
+      costFixedType,
+      costFixedValue,
       costFixedPriceAmount,
     });
-    if (pricingErrors.length > 0) {
-      return Response.json({ success: false, error: pricingErrors.join(" ") });
+    if (pricingErrors.errors.length > 0) {
+      return Response.json({ success: false, error: pricingErrors.errors.join(" ") });
     }
 
     const scheduleValidation = validateScheduleConfig({
       changePricesSchedule,
+      scheduleRecurrenceType,
+      scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth,
       changePricesAtDate,
       changePricesAtTime,
       revertPrices,
@@ -271,6 +290,10 @@ export const action = async ({ request }) => {
             totalItems: 0,
             actionDetails: JSON.stringify({
               taskType: "scheduled_edit",
+              scheduleRecurrenceType,
+              scheduleRecurrenceDayOfWeek,
+              scheduleRecurrenceDayOfMonth,
+              changePricesAtTime,
               runPayload,
               revertEnabled: revertPrices,
               scheduledAt: scheduledAt.toISOString(),
@@ -415,7 +438,7 @@ export default function NewTask() {
   const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
   const [costRoundCents, setCostRoundCents] = useState("1");
 
-  const [pricingValidationError, setPricingValidationError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Section 4 States
   const [addTagsActive, setAddTagsActive] = useState(true);
@@ -429,6 +452,9 @@ export default function NewTask() {
 
   // Section 5 States
   const [scheduleType, setScheduleType] = useState("now"); // "now" or "later"
+  const [scheduleRecurrenceType, setScheduleRecurrenceType] = useState("one_time");
+  const [scheduleRecurrenceDayOfWeek, setScheduleRecurrenceDayOfWeek] = useState("1");
+  const [scheduleRecurrenceDayOfMonth, setScheduleRecurrenceDayOfMonth] = useState("1");
   const [revertLater, setRevertLater] = useState(false);
   
   // Left Column States (Start pricing schedule)
@@ -593,25 +619,46 @@ export default function NewTask() {
     navigate(`/app?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
   }, [navigate, runFetcher.data]);
 
+  const clearFieldError = (key) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const handleSavePricingRules = () => {
-    const errors = validatePricingConfig({
+    const validation = validatePricingConfig({
       changePrice,
+      percentType,
+      percentValue,
+      fixedType,
+      fixedValue,
       fixedPriceAmount,
       priceFormula,
       comparePriceType,
+      comparePercentType,
+      comparePercentValue,
+      compareFixedType,
+      compareFixedValue,
       compareFixedPriceAmount,
       comparePriceFormula,
       costPriceType,
+      costPercentType,
+      costPercentValue,
+      costFixedType,
+      costFixedValue,
       costFixedPriceAmount,
     });
 
-    if (errors.length > 0) {
-      setPricingValidationError(errors.join(" "));
-      appBridge.toast.show(errors[0], { isError: true });
+    if (validation.errors.length > 0) {
+      setFieldErrors(validation.fieldErrors);
+      appBridge.toast.show(validation.errors[0], { isError: true });
       return;
     }
 
-    setPricingValidationError("");
+    setFieldErrors({});
     savePricingRules(
       shop,
       buildPricingRulesSnapshot({
@@ -652,35 +699,59 @@ export default function NewTask() {
     const effectiveTagsToAdd = withPendingTag(tagsToAdd, tagToAddInput);
     const effectiveTagsToRemove = withPendingTag(tagsToRemove, tagToRemoveInput);
 
-    const errors = validatePricingConfig({
+    const { fieldErrors: nextFieldErrors, messages } = validateRunTaskForm({
+      shop,
+      editType,
+      matchType,
+      conditions,
+      productsList,
+      csvFileName,
+      selectedCollectionId,
       changePrice,
+      percentType,
+      percentValue,
+      fixedType,
+      fixedValue,
       fixedPriceAmount,
       priceFormula,
       comparePriceType,
+      comparePercentType,
+      comparePercentValue,
+      compareFixedType,
+      compareFixedValue,
       compareFixedPriceAmount,
       comparePriceFormula,
       costPriceType,
+      costPercentType,
+      costPercentValue,
+      costFixedType,
+      costFixedValue,
       costFixedPriceAmount,
+      taskName,
+      scheduleType,
+      scheduleRecurrenceType,
+      scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth,
+      startDateStr,
+      startTimeStr,
+      revertLater,
+      revertDateStr,
+      revertTimeStr,
+      addTagsActive,
+      removeTagsActive,
+      tagsToAdd: effectiveTagsToAdd,
+      tagsToRemove: effectiveTagsToRemove,
+      tagToAddInput,
+      tagToRemoveInput,
     });
-    if (errors.length > 0) {
-      setPricingValidationError(errors.join(" "));
+
+    if (messages.length > 0) {
+      setFieldErrors(nextFieldErrors);
+      appBridge.toast.show(messages[0], { isError: true });
       return;
     }
 
-    const scheduleValidation = validateScheduleConfig({
-      changePricesSchedule: scheduleType,
-      changePricesAtDate: startDateStr,
-      changePricesAtTime: startTimeStr,
-      revertPrices: revertLater,
-      revertPricesAtDate: revertDateStr,
-      revertPricesAtTime: revertTimeStr,
-    });
-    if (scheduleValidation.errors.length > 0) {
-      setPricingValidationError(scheduleValidation.errors.join(" "));
-      return;
-    }
-
-    setPricingValidationError("");
+    setFieldErrors({});
 
     const payload = {
       intent: "run_task",
@@ -717,6 +788,9 @@ export default function NewTask() {
       tagsToRemove: JSON.stringify(effectiveTagsToRemove),
       taskName,
       changePricesSchedule: scheduleType,
+      scheduleRecurrenceType,
+      scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth,
       changePricesAtDate: startDateStr,
       changePricesAtTime: startTimeStr,
       revertPrices: revertLater ? "true" : "false",
@@ -746,8 +820,8 @@ export default function NewTask() {
       if (!isOperatorAllowedForField(val, updated[index].operator)) {
         updated[index].operator = getDefaultOperatorForField(val);
       }
-      if (!isValueAllowedForField(val, updated[index].value)) {
-        updated[index].value = getDefaultValueForField(val);
+      if (!isValueAllowedForField(val, updated[index].value, collections)) {
+        updated[index].value = getDefaultValueForField(val, collections);
       }
     }
 
@@ -763,6 +837,14 @@ export default function NewTask() {
   const handleCollectionChange = (collectionId) => {
     setSelectedCollectionId(collectionId);
     if (productSearchError) setProductSearchError("");
+  };
+
+  const handleScheduleRecurrenceTypeChange = (nextType) => {
+    setScheduleRecurrenceType(nextType);
+    clearFieldError("scheduleRecurrenceDay");
+    clearFieldError("scheduleRecurrenceDate");
+    clearFieldError("startTimeStr");
+    clearFieldError("startDateStr");
   };
 
   const validateProductSearch = () => {
@@ -903,6 +985,7 @@ export default function NewTask() {
   const handleCsvFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      clearFieldError("csvFile");
       setCsvFileName(file.name);
     }
   };
@@ -1006,6 +1089,9 @@ export default function NewTask() {
           tagToRemoveInput,
           tagsToRemove,
           scheduleType,
+          scheduleRecurrenceType,
+          scheduleRecurrenceDayOfWeek,
+          scheduleRecurrenceDayOfMonth,
           revertLater,
           startDateStr,
           startTimeStr,
@@ -1060,6 +1146,9 @@ export default function NewTask() {
           addTagToRemoveFromInput,
           removeTagToRemove,
           setScheduleType,
+          setScheduleRecurrenceType: handleScheduleRecurrenceTypeChange,
+          setScheduleRecurrenceDayOfWeek,
+          setScheduleRecurrenceDayOfMonth,
           setRevertLater,
           setStartTimeStr,
           handleStartDateChange,
@@ -1074,7 +1163,8 @@ export default function NewTask() {
         isSearching={fetcher.state === "submitting" || fetcher.state === "loading"}
         isRunning={runFetcher.state === "submitting" || runFetcher.state === "loading"}
         productSearchError={productSearchError}
-        pricingValidationError={pricingValidationError}
+        fieldErrors={fieldErrors}
+        clearFieldError={clearFieldError}
         previewVariants={previewVariants}
         timezoneStr={timezoneStr}
         currentTimeStr={currentTimeStr}

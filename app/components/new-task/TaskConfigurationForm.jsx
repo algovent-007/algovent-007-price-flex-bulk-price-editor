@@ -16,7 +16,8 @@ export default function TaskConfigurationForm({
   isSearching = false,
   isRunning = false,
   productSearchError = "",
-  pricingValidationError = "",
+  fieldErrors = {},
+  clearFieldError,
   previewVariants = [],
   timezoneStr = "",
   currentTimeStr = "",
@@ -58,6 +59,9 @@ export default function TaskConfigurationForm({
     tagToRemoveInput,
     tagsToRemove,
     scheduleType,
+    scheduleRecurrenceType,
+    scheduleRecurrenceDayOfWeek,
+    scheduleRecurrenceDayOfMonth,
     revertLater,
     startDateStr,
     startTimeStr,
@@ -113,6 +117,9 @@ export default function TaskConfigurationForm({
     addTagToRemoveFromInput,
     removeTagToRemove,
     setScheduleType,
+    setScheduleRecurrenceType,
+    setScheduleRecurrenceDayOfWeek,
+    setScheduleRecurrenceDayOfMonth,
     setRevertLater,
     setStartTimeStr,
     handleStartDateChange,
@@ -125,7 +132,13 @@ export default function TaskConfigurationForm({
     handleRunTask,
   } = handlers ?? {};
 
-  const numericFieldProps = (setter) => createNumericInputHandlers(setter, readOnly);
+  const numericFieldProps = (setter, key) =>
+    createNumericInputHandlers((value) => {
+      clearFieldError?.(key);
+      setter(value);
+    }, readOnly);
+
+  const fieldError = (key) => fieldErrors?.[key];
 
   return (
     <>
@@ -179,6 +192,9 @@ export default function TaskConfigurationForm({
               searchResults={searchResults}
               previewVariants={previewVariants}
               locations={locations}
+              collections={collections}
+              fieldErrors={fieldErrors}
+              clearFieldError={clearFieldError}
             />
           )}
 
@@ -192,6 +208,8 @@ export default function TaskConfigurationForm({
               isSearching={isSearching}
               searchResults={searchResults}
               previewVariants={previewVariants}
+              fieldErrors={fieldErrors}
+              clearFieldError={clearFieldError}
             />
           )}
 
@@ -204,6 +222,7 @@ export default function TaskConfigurationForm({
               onUploadClick={
                 readOnly ? undefined : () => csvFileInputRef.current?.click()
               }
+              error={fieldError("csvFile")}
             />
           )}
 
@@ -265,7 +284,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setPercentValue)}
+                      {...numericFieldProps(setPercentValue, "percentValue")}
+                      error={fieldError("percentValue")}
                     ></s-text-field>
                     <s-text color="subdued">{percentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
@@ -292,7 +312,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setFixedValue)}
+                      {...numericFieldProps(setFixedValue, "fixedValue")}
+                      error={fieldError("fixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -310,7 +331,8 @@ export default function TaskConfigurationForm({
                   placeholder="Enter amount"
                   inputMode="decimal"
                   disabled={readOnly}
-                  {...numericFieldProps(setFixedPriceAmount)}
+                  {...numericFieldProps(setFixedPriceAmount, "fixedPriceAmount")}
+                  error={fieldError("fixedPriceAmount")}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -384,7 +406,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setComparePercentValue)}
+                      {...numericFieldProps(setComparePercentValue, "comparePercentValue")}
+                      error={fieldError("comparePercentValue")}
                     ></s-text-field>
                     <s-text color="subdued">
                       {comparePercentType === "4" ? "USD" : "%"}
@@ -415,7 +438,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setCompareFixedValue)}
+                      {...numericFieldProps(setCompareFixedValue, "compareFixedValue")}
+                      error={fieldError("compareFixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -433,7 +457,8 @@ export default function TaskConfigurationForm({
                   placeholder="Enter amount"
                   inputMode="decimal"
                   disabled={readOnly}
-                  {...numericFieldProps(setCompareFixedPriceAmount)}
+                  {...numericFieldProps(setCompareFixedPriceAmount, "compareFixedPriceAmount")}
+                  error={fieldError("compareFixedPriceAmount")}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -448,8 +473,14 @@ export default function TaskConfigurationForm({
                   value={comparePriceFormula}
                   disabled={readOnly}
                   onInput={
-                    readOnly ? undefined : (e) => setComparePriceFormula(e.target.value)
+                    readOnly
+                      ? undefined
+                      : (e) => {
+                          clearFieldError?.("comparePriceFormula");
+                          setComparePriceFormula(e.target.value);
+                        }
                   }
+                  error={fieldError("comparePriceFormula")}
                   placeholder="price * 1.2"
                 ></s-text-field>
                 <s-text color="subdued">
@@ -528,7 +559,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setCostPercentValue)}
+                      {...numericFieldProps(setCostPercentValue, "costPercentValue")}
+                      error={fieldError("costPercentValue")}
                     ></s-text-field>
                     <s-text color="subdued">{costPercentType === "4" ? "USD" : "%"}</s-text>
                   </s-grid>
@@ -555,7 +587,8 @@ export default function TaskConfigurationForm({
                       placeholder="Enter value"
                       inputMode="decimal"
                       disabled={readOnly}
-                      {...numericFieldProps(setCostFixedValue)}
+                      {...numericFieldProps(setCostFixedValue, "costFixedValue")}
+                      error={fieldError("costFixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
                   </s-grid>
@@ -573,7 +606,8 @@ export default function TaskConfigurationForm({
                   placeholder="Enter amount"
                   inputMode="decimal"
                   disabled={readOnly}
-                  {...numericFieldProps(setCostFixedPriceAmount)}
+                  {...numericFieldProps(setCostFixedPriceAmount, "costFixedPriceAmount")}
+                  error={fieldError("costFixedPriceAmount")}
                 ></s-text-field>
                 <s-text color="subdued">USD</s-text>
               </s-grid>
@@ -606,6 +640,12 @@ export default function TaskConfigurationForm({
               <s-button variant="primary" onClick={handleSavePricingRules}>
                 Save pricing rules
               </s-button>
+            </s-box>
+          )}
+
+          {!readOnly && fieldError("pricingRulesSave") && (
+            <s-box paddingBlockStart="large">
+              <s-banner tone="critical">{fieldError("pricingRulesSave")}</s-banner>
             </s-box>
           )}
 
@@ -653,6 +693,16 @@ export default function TaskConfigurationForm({
             readOnly={readOnly}
             scheduleType={scheduleType}
             setScheduleType={readOnly ? undefined : setScheduleType}
+            scheduleRecurrenceType={scheduleRecurrenceType}
+            setScheduleRecurrenceType={readOnly ? undefined : setScheduleRecurrenceType}
+            scheduleRecurrenceDayOfWeek={scheduleRecurrenceDayOfWeek}
+            setScheduleRecurrenceDayOfWeek={
+              readOnly ? undefined : setScheduleRecurrenceDayOfWeek
+            }
+            scheduleRecurrenceDayOfMonth={scheduleRecurrenceDayOfMonth}
+            setScheduleRecurrenceDayOfMonth={
+              readOnly ? undefined : setScheduleRecurrenceDayOfMonth
+            }
             revertLater={revertLater}
             setRevertLater={readOnly ? undefined : setRevertLater}
             startDateStr={startDateStr}
@@ -669,6 +719,8 @@ export default function TaskConfigurationForm({
             onRevertDateSelect={readOnly ? undefined : handleRevertDateSelect}
             timezoneStr={timezoneStr}
             currentTimeStr={currentTimeStr}
+            fieldErrors={fieldErrors}
+            clearFieldError={clearFieldError}
           />
 
           <s-box paddingBlockStart="large">
@@ -677,13 +729,17 @@ export default function TaskConfigurationForm({
               required
               value={taskName}
               disabled={readOnly}
-              onInput={readOnly ? undefined : (e) => setTaskName(e.target.value)}
+              onInput={
+                readOnly
+                  ? undefined
+                  : (e) => {
+                      clearFieldError?.("taskName");
+                      setTaskName(e.target.value);
+                    }
+              }
+              error={fieldError("taskName")}
             ></s-text-field>
           </s-box>
-
-          {!readOnly && pricingValidationError && (
-            <s-banner tone="critical">{pricingValidationError}</s-banner>
-          )}
 
           {!readOnly && (
             <s-box paddingBlockStart="large">

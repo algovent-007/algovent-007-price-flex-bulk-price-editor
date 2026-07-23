@@ -34,7 +34,6 @@ export const CONDITION_FIELDS = [
   { value: "physical_product", label: "Physical Product" },
   { value: "price", label: "Variant Price" },
   { value: "variant_metafield", label: "Variant Metafield" },
-  { value: "variant_cost_item", label: "Variant Cost Per Item" },
 ];
 
 export const CONDITION_OPERATORS = [
@@ -108,6 +107,10 @@ const FIELDS_WITH_VARIANT_PRICE_OPERATORS = new Set([
 
 const STATUS_OPERATORS = [{ value: "equals", label: "is equal to" }];
 
+const TAXABLE_OPERATORS = [{ value: "equals", label: "is equal to" }];
+
+const INVENTORY_POLICY_OPERATORS = [{ value: "equals", label: "is equal to" }];
+
 const PUBLISHED_STATUS_OPERATORS = [{ value: "on_web", label: "On Web" }];
 
 const PRODUCT_METAFIELD_OPERATORS = [
@@ -126,6 +129,26 @@ export const PUBLISHED_STATUS_OPTIONS = [
   { value: "unpublished", label: "No, it is not published" },
 ];
 
+export const TAXABLE_OPTIONS = [
+  { value: "true", label: "Yes, It Is Taxable" },
+  { value: "false", label: "No, It Is Not Taxable" },
+];
+
+export const INVENTORY_OUT_OF_STOCK_POLICY_OPTIONS = [
+  { value: "CONTINUE", label: "Continue Selling when out of stock" },
+  { value: "DENY", label: "Stop Selling when out of stock" },
+];
+
+export const INVENTORY_TRACKING_OPTIONS = [
+  { value: "true", label: "Shopify tracks the product's inventory" },
+  { value: "false", label: "Don't track inventory" },
+];
+
+export const PHYSICAL_PRODUCT_OPTIONS = [
+  { value: "true", label: "Yes, This is a physical product" },
+  { value: "false", label: "No, This is not a physical product" },
+];
+
 export function getConditionOperators(field) {
   if (field === "tag") {
     return TAG_OPERATORS;
@@ -139,11 +162,27 @@ export function getConditionOperators(field) {
     return STATUS_OPERATORS;
   }
 
+  if (field === "taxable") {
+    return TAXABLE_OPERATORS;
+  }
+
+  if (field === "inventory_out_of_stock_policy") {
+    return INVENTORY_POLICY_OPERATORS;
+  }
+
+  if (field === "inventory_policy") {
+    return INVENTORY_POLICY_OPERATORS;
+  }
+
+  if (field === "physical_product") {
+    return TAXABLE_OPERATORS;
+  }
+
   if (field === "published_status") {
     return PUBLISHED_STATUS_OPERATORS;
   }
 
-  if (field === "product_metafield") {
+  if (field === "product_metafield" || field === "variant_metafield") {
     return PRODUCT_METAFIELD_OPERATORS;
   }
 
@@ -182,6 +221,22 @@ export function isStatusConditionField(field) {
   return field === "status";
 }
 
+export function isTaxableConditionField(field) {
+  return field === "taxable";
+}
+
+export function isInventoryOutOfStockPolicyConditionField(field) {
+  return field === "inventory_out_of_stock_policy";
+}
+
+export function isInventoryPolicyConditionField(field) {
+  return field === "inventory_policy";
+}
+
+export function isPhysicalProductConditionField(field) {
+  return field === "physical_product";
+}
+
 export function isPublishedStatusConditionField(field) {
   return field === "published_status";
 }
@@ -190,12 +245,41 @@ export function isProductMetafieldConditionField(field) {
   return field === "product_metafield";
 }
 
+export function isVariantMetafieldConditionField(field) {
+  return field === "variant_metafield";
+}
+
+export function isMetafieldConditionField(field) {
+  return isProductMetafieldConditionField(field) || isVariantMetafieldConditionField(field);
+}
+
 export function isVariantWeightConditionField(field) {
   return field === "variant_weight";
 }
 
 export function isInventoryLocationConditionField(field) {
   return field === "variant_inventory_at_location";
+}
+
+export function isCollectionConditionField(field) {
+  return field === "collection";
+}
+
+export function normalizeCollectionValue(value, collections = []) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return collections[0]?.id ?? "";
+  }
+
+  const match = collections.find((collection) => {
+    if (collection.id === trimmed) return true;
+    const numericId = String(collection.id ?? "").split("/").pop();
+    if (numericId === trimmed) return true;
+    if (collection.title === trimmed) return true;
+    return false;
+  });
+
+  return match?.id ?? trimmed;
 }
 
 export function parseMetafieldConditionValue(value) {
@@ -267,7 +351,60 @@ export function normalizePublishedStatusValue(value) {
   return "published";
 }
 
-export function isValueAllowedForField(field, value) {
+export function normalizeTaxableValue(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["true", "yes", "1"].includes(normalized)) return "true";
+  if (["false", "no", "0"].includes(normalized)) return "false";
+  return "true";
+}
+
+export function normalizeInventoryOutOfStockPolicyValue(value) {
+  const normalized = String(value ?? "").trim().toUpperCase().replace(/\s+/g, "_");
+  if (normalized === "CONTINUE" || normalized.includes("CONTINUE")) return "CONTINUE";
+  if (normalized === "DENY" || normalized.includes("DENY") || normalized.includes("STOP")) {
+    return "DENY";
+  }
+  return "CONTINUE";
+}
+
+export function normalizeInventoryTrackingValue(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["true", "yes", "1"].includes(normalized) || normalized.includes("shopify tracks")) {
+    return "true";
+  }
+  if (
+    ["false", "no", "0"].includes(normalized) ||
+    normalized.includes("don't track") ||
+    normalized.includes("dont track")
+  ) {
+    return "false";
+  }
+  return "true";
+}
+
+export function normalizePhysicalProductValue(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["true", "yes", "1"].includes(normalized)) return "true";
+  if (["false", "no", "0"].includes(normalized)) return "false";
+  if (normalized.includes("not a physical") || normalized.includes("not physical")) {
+    return "false";
+  }
+  if (normalized.includes("physical product") || normalized.startsWith("yes")) {
+    return "true";
+  }
+  return "true";
+}
+
+export function isValueAllowedForField(field, value, collections = []) {
+  if (field === "collection") {
+    const trimmed = String(value ?? "").trim();
+    if (!trimmed) return collections.length === 0;
+    if (collections.length === 0) return true;
+    return collections.some(
+      (collection) => normalizeCollectionValue(value, collections) === collection.id
+    );
+  }
+
   if (field === "status") {
     const normalized = String(value ?? "").trim().toUpperCase();
     return PRODUCT_STATUS_OPTIONS.some((option) => option.value === normalized);
@@ -278,7 +415,29 @@ export function isValueAllowedForField(field, value) {
     return PUBLISHED_STATUS_OPTIONS.some((option) => option.value === normalized);
   }
 
-  if (field === "product_metafield") {
+  if (field === "taxable") {
+    return TAXABLE_OPTIONS.some((option) => option.value === normalizeTaxableValue(value));
+  }
+
+  if (field === "inventory_out_of_stock_policy") {
+    return INVENTORY_OUT_OF_STOCK_POLICY_OPTIONS.some(
+      (option) => option.value === normalizeInventoryOutOfStockPolicyValue(value)
+    );
+  }
+
+  if (field === "inventory_policy") {
+    return INVENTORY_TRACKING_OPTIONS.some(
+      (option) => option.value === normalizeInventoryTrackingValue(value)
+    );
+  }
+
+  if (field === "physical_product") {
+    return PHYSICAL_PRODUCT_OPTIONS.some(
+      (option) => option.value === normalizePhysicalProductValue(value)
+    );
+  }
+
+  if (field === "product_metafield" || field === "variant_metafield") {
     const trimmed = String(value ?? "").trim();
     if (!trimmed) return true;
     return isValidMetafieldConditionValue(trimmed);
@@ -299,9 +458,14 @@ export function isValueAllowedForField(field, value) {
   return true;
 }
 
-export function getDefaultValueForField(field) {
+export function getDefaultValueForField(field, collections = []) {
+  if (field === "collection") return collections[0]?.id ?? "";
   if (field === "status") return "ACTIVE";
   if (field === "published_status") return "published";
+  if (field === "taxable") return "true";
+  if (field === "inventory_out_of_stock_policy") return "CONTINUE";
+  if (field === "inventory_policy") return "true";
+  if (field === "physical_product") return "true";
   return "";
 }
 
