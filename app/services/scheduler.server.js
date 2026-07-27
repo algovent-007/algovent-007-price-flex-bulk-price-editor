@@ -110,6 +110,43 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   return result;
 }
 
+async function markScheduledTaskFailed(taskId, err) {
+  console.error(`Failed to process scheduled task ${taskId}:`, err);
+  try {
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { status: "failed" },
+    });
+  } catch (updateErr) {
+    console.error(`Failed to mark scheduled task ${taskId} as failed:`, updateErr);
+  }
+}
+
+function startScheduledEditTask({ admin, shop, task, actionData }) {
+  processScheduledEditTask({ admin, shop, task, actionData }).catch((err) => {
+    markScheduledTaskFailed(task.id, err);
+  });
+}
+
+function startScheduledRollbackTask({ admin, task, actionData }) {
+  processScheduledRollbackTask({ admin, task, actionData }).catch((err) => {
+    markScheduledTaskFailed(task.id, err);
+  });
+}
+
+async function claimScheduledTask(taskId, shop) {
+  const claim = await prisma.task.updateMany({
+    where: {
+      id: taskId,
+      shop,
+      status: "scheduled",
+    },
+    data: { status: "running" },
+  });
+
+  return claim.count > 0;
+}
+
 async function completeScheduledRollbackTask(taskId, status, extra = {}) {
   await prisma.task.update({
     where: { id: taskId },
@@ -222,20 +259,20 @@ export async function processDueTasksForShop({ admin, shop }) {
 
     try {
       if (actionData.taskType === "scheduled_rollback") {
-        const result = await processScheduledRollbackTask({ admin, task, actionData });
-        if (!result.skipped) {
-          processed.push({ taskId: task.id, ...result });
-        }
-      } else {
-        const result = await processScheduledEditTask({ admin, shop, task, actionData });
-        processed.push({ taskId: task.id, ...result });
+        startScheduledRollbackTask({ admin, task, actionData });
+        processed.push({ taskId: task.id, started: true });
+        continue;
       }
+
+      const claimed = await claimScheduledTask(task.id, shop);
+      if (!claimed) {
+        continue;
+      }
+
+      startScheduledEditTask({ admin, shop, task, actionData });
+      processed.push({ taskId: task.id, started: true });
     } catch (err) {
-      console.error(`Failed to process scheduled task ${task.id}:`, err);
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { status: "failed" },
-      });
+      await markScheduledTaskFailed(task.id, err);
       processed.push({ taskId: task.id, success: false, error: err.message });
     }
   }
