@@ -9,6 +9,8 @@
     "deploy": "shopify app deploy",
     "config:use": "shopify app config use",
     "env": "shopify app env",
+    "env:staging": "cp .env.staging .env && cp shopify.app.staging.toml shopify.app.toml",
+    "env:production": "cp .env.production .env && cp shopify.app.production.toml shopify.app.toml",
     "start": "react-router-serve ./build/server/index.js",
     "docker-start": "npm run setup && npm run start",
     "setup": "prisma generate && prisma migrate deploy",

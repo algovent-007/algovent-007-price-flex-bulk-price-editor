@@ -1,12 +1,12 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "6d38319660f1dbb710104ef795b28796"
-name = "Price Flex Bulk Price editor"
-application_url = "https://priceflex-app.algovent.com"
+client_id = "764cc873c1b23c366c3d61896baff0e5"
+name = "Price Flex - Bulk Price editor"
+application_url = "https://priceflex.algovent.com"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = false
+automatically_update_urls_on_dev = true
 
 [webhooks]
 api_version = "2026-04"
@@ -27,11 +27,11 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://priceflex-app.algovent.com/auth/callback"
+  "https://priceflex.algovent.com/auth/callback"
 ]
 
 [app_proxy]
-url = "https://priceflex-app.algovent.com/proxy"
+url = "https://priceflex.algovent.com/proxy"
 subpath = "priceflex"
 prefix = "apps"
 

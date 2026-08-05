@@ -1,3 +1,0 @@
-git add shopify.app.toml
-git commit -m "Update Shopify app URL for staging deployment"
-git push origin main
