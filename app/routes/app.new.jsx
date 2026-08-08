@@ -41,6 +41,9 @@ import {
   savePricingRules,
 } from "../utils/saved-pricing-rules";
 import { validateRunTaskForm } from "../utils/validate-run-task";
+import { isOneTimeScheduleRecurrence } from "../utils/schedule";
+import { assertPlanFeature } from "../services/subscription.server";
+import { BILLING_FEATURES } from "../constants/billing";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -219,6 +222,13 @@ export const action = async ({ request }) => {
     });
     if (scheduleValidation.errors.length > 0) {
       return Response.json({ success: false, error: scheduleValidation.errors.join(" ") });
+    }
+
+    if (
+      changePricesSchedule === "later" &&
+      !isOneTimeScheduleRecurrence(scheduleRecurrenceType)
+    ) {
+      await assertPlanFeature(admin, session, BILLING_FEATURES.RECURRING_TASKS);
     }
 
     let tagsToAddList = [];

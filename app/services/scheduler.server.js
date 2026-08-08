@@ -1,4 +1,10 @@
+import {
+  BILLING_FEATURES,
+  SUBSCRIPTION_STATUS,
+  planIncludesFeature,
+} from "../constants/billing";
 import prisma from "../db.server";
+import { getSubscriptionByShop } from "../models/subscription.server";
 import { executePriceEditTask } from "./task-runner.server";
 import { executeRollbackForTask } from "./rollback.server";
 import {
@@ -70,6 +76,19 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   const isRecurring = !isOneTimeScheduleRecurrence(scheduleMeta.scheduleRecurrenceType);
 
   if (isRecurring) {
+    const subscription = await getSubscriptionByShop(shop);
+    const canUseRecurring =
+      subscription?.status === SUBSCRIPTION_STATUS.ACTIVE &&
+      planIncludesFeature(subscription.planName, BILLING_FEATURES.RECURRING_TASKS);
+
+    if (!canUseRecurring) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: "completed" },
+      });
+      return result;
+    }
+
     const nextScheduledAt = computeScheduledAt({
       recurrenceType: scheduleMeta.scheduleRecurrenceType,
       changePricesAtTime: scheduleMeta.changePricesAtTime,

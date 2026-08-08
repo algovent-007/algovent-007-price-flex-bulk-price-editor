@@ -1,12 +1,32 @@
 import { redirect, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
-import { login } from "../../shopify.server";
+import { login, authenticate } from "../../shopify.server";
+import { redirectToInstallBilling } from "../../services/billing.server";
+import { requireSubscription } from "../../services/subscription.server";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
 
   if (url.searchParams.get("shop")) {
+    try {
+      const { admin, session, redirect: shopifyRedirect } = await authenticate.admin(request);
+      const subscription = await requireSubscription(admin, session);
+
+      if (!subscription) {
+        await redirectToInstallBilling({
+          admin,
+          session,
+          request,
+          redirect: shopifyRedirect,
+        });
+      }
+    } catch (error) {
+      if (error instanceof Response) {
+        throw error;
+      }
+    }
+
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 

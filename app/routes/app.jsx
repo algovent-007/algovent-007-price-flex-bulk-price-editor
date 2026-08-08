@@ -3,10 +3,20 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { processDueTasksForShop } from "../services/scheduler.server";
+import { requireSubscription } from "../services/subscription.server";
+import { redirectToInstallBilling } from "../services/billing.server";
+
+const BILLING_EXEMPT_PATHS = ["/app/plans", "/app/billing"];
+
+function isBillingExemptPath(pathname) {
+  return BILLING_EXEMPT_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
 
 export const loader = async ({ request }) => {
   try {
-    const { admin, session } = await authenticate.admin(request);
+    const { admin, session, redirect } = await authenticate.admin(request);
 
     console.log("Authenticated:", session.shop);
 
@@ -14,6 +24,14 @@ export const loader = async ({ request }) => {
       admin,
       shop: session.shop,
     });
+
+    const url = new URL(request.url);
+    if (!isBillingExemptPath(url.pathname)) {
+      const subscription = await requireSubscription(admin, session);
+      if (!subscription) {
+        await redirectToInstallBilling({ admin, session, request, redirect });
+      }
+    }
 
     // eslint-disable-next-line no-undef
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };

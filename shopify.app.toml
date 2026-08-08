@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "6d38319660f1dbb710104ef795b28796"
-name = "Price Flex Bulk Price editor"
-application_url = "https://priceflex-app.algovent.com"
+client_id = "764cc873c1b23c366c3d61896baff0e5"
+name = "Price Flex - Bulk Price editor"
+application_url = "https://priceflex.algovent.com"
 embedded = true
 
 [build]
@@ -19,6 +19,10 @@ api_version = "2026-04"
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "customer_read_markets,customer_read_metaobjects,customer_read_orders,customer_write_orders,read_channels,read_checkouts,read_content,read_discounts,read_gift_cards,read_inventory,read_inventory_shipments,read_inventory_shipments_received_items,read_inventory_transfers,read_locales,read_locations,read_markets,read_metaobject_definitions,read_metaobjects,read_online_store_navigation,read_online_store_pages,read_order_edits,read_orders,read_price_rules,read_product_feeds,read_product_listings,read_products,read_publications,read_shipping,read_themes,read_translations,unauthenticated_read_bulk_operations,unauthenticated_read_bundles,unauthenticated_read_content,unauthenticated_read_customer_tags,unauthenticated_read_metaobjects,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_tags,unauthenticated_write_bulk_operations,write_channels,write_checkouts,write_content,write_discounts,write_gift_cards,write_inventory,write_inventory_shipments,write_inventory_shipments_received_items,write_inventory_transfers,write_locales,write_locations,write_markets,write_metaobject_definitions,write_metaobjects,write_online_store_navigation,write_online_store_pages,write_order_edits,write_orders,write_price_rules,write_product_feeds,write_product_listings,write_products,write_publications,write_shipping,write_theme_code,write_themes,write_translations"
@@ -27,11 +31,11 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://priceflex-app.algovent.com/auth/callback"
+  "https://priceflex.algovent.com/auth/callback"
 ]
 
 [app_proxy]
-url = "https://priceflex-app.algovent.com/proxy"
+url = "https://priceflex.algovent.com/proxy"
 subpath = "priceflex"
 prefix = "apps"
 

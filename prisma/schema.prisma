@@ -53,3 +53,13 @@ model ShopSettings {
   timezone  String?
   updatedAt DateTime @updatedAt
 }
+
+model Subscription {
+  id        String   @id @default(cuid())
+  shop      String   @unique
+  planName  String
+  status    String
+  chargeId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
