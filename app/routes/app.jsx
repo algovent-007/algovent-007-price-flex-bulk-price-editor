@@ -37,6 +37,10 @@ export const loader = async ({ request }) => {
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };
   } catch (error) {
     if (error instanceof Response) {
+      if (error.status >= 300 && error.status < 400) {
+        throw error;
+      }
+
       console.error("===== SHOPIFY AUTH ERROR =====");
       console.error("Status:", error.status);
       console.error("Status Text:", error.statusText);
