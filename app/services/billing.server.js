@@ -414,5 +414,8 @@ export async function redirectToInstallBilling({
     return;
   }
 
-  throw redirect("/app/plans?billing=error");
+  const errorMessage = result.error || "Failed to create billing request.";
+  throw redirect(
+    `/app/plans?billing=error&error=${encodeURIComponent(errorMessage)}`,
+  );
 }

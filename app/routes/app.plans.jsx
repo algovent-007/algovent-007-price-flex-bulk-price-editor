@@ -121,7 +121,10 @@ export default function Plans() {
       setBannerMessage("Your billing request is pending approval in Shopify.");
     } else if (billingState === "error") {
       setBannerTone("critical");
-      setBannerMessage("We could not confirm your subscription. Please try again.");
+      setBannerMessage(
+        searchParams.get("error") ||
+          "We could not confirm your subscription. Please try again.",
+      );
     }
   }, [searchParams, loaderData.isDevelopmentStore]);
 

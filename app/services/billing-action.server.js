@@ -4,7 +4,7 @@ import {
   createBillingRequest,
 } from "./billing.server";
 
-export async function handleBillingAction(request) {
+export async function handleBillingAction({ request }) {
   const { admin, session, redirect } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent") || "select";
