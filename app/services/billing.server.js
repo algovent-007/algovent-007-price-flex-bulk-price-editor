@@ -1,6 +1,5 @@
 import {
   comparePlans,
-  DEFAULT_INSTALL_PLAN,
   getPlanDefinition,
   getReplacementBehavior,
   isValidPlanName,
@@ -386,36 +385,4 @@ export async function syncSubscriptionAfterApproval({ admin, session, planName }
   }
 
   return subscription;
-}
-
-/**
- * First-time install: create a Shopify billing charge and send the merchant
- * straight to Shopify's approve/decline page (test charge on dev stores).
- */
-export async function redirectToInstallBilling({
-  admin,
-  session,
-  request,
-  redirect,
-  planName = DEFAULT_INSTALL_PLAN,
-}) {
-  const result = await createBillingRequest({
-    admin,
-    session,
-    planName,
-    request,
-  });
-
-  if (result.confirmationUrl) {
-    return redirect(result.confirmationUrl, { target: "_top" });
-  }
-
-  if (result.error?.includes("already subscribed")) {
-    return null;
-  }
-
-  const errorMessage = result.error || "Failed to create billing request.";
-  return redirect(
-    `/app/plans?billing=error&error=${encodeURIComponent(errorMessage)}`,
-  );
 }

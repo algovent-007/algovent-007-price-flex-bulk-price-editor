@@ -1,3 +1,4 @@
+import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
   cancelBillingSubscription,
@@ -37,7 +38,9 @@ export async function handleBillingAction({ request }) {
   }
 
   if (result.confirmationUrl) {
-    return redirect(result.confirmationUrl, { target: "_top" });
+    return redirect(
+      `/app/billing/confirm?url=${encodeURIComponent(result.confirmationUrl)}`,
+    );
   }
 
   if (result.redirectTo) {

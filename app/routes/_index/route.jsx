@@ -1,7 +1,6 @@
 import { redirect, useLoaderData } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { login, authenticate } from "../../shopify.server";
-import { redirectToInstallBilling } from "../../services/billing.server";
 import { requireSubscription } from "../../services/subscription.server";
 import styles from "./styles.module.css";
 
@@ -10,19 +9,11 @@ export const loader = async ({ request }) => {
 
   if (url.searchParams.get("shop")) {
     try {
-      const { admin, session, redirect: shopifyRedirect } = await authenticate.admin(request);
+      const { admin, session } = await authenticate.admin(request);
       const subscription = await requireSubscription(admin, session);
 
       if (!subscription) {
-        const billingRedirect = await redirectToInstallBilling({
-          admin,
-          session,
-          request,
-          redirect: shopifyRedirect,
-        });
-        if (billingRedirect) {
-          return billingRedirect;
-        }
+        throw redirect(`/app/billing/confirm?${url.searchParams.toString()}`);
       }
     } catch (error) {
       if (error instanceof Response) {
