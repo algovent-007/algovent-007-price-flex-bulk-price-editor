@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { redirect, useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { DEFAULT_INSTALL_PLAN } from "../constants/billing";
@@ -51,16 +52,42 @@ export const loader = async ({ request }) => {
 
 export default function BillingConfirm() {
   const { confirmationUrl } = useLoaderData();
+  const shopify = useAppBridge();
 
   useEffect(() => {
-    if (confirmationUrl) {
-      window.open(confirmationUrl, "_top");
+    if (!confirmationUrl) {
+      return;
     }
-  }, [confirmationUrl]);
+
+    if (shopify?.open) {
+      shopify.open(confirmationUrl, "_top");
+      return;
+    }
+
+    if (window.top) {
+      window.top.location.href = confirmationUrl;
+    }
+  }, [confirmationUrl, shopify]);
+
+  const handleContinue = () => {
+    if (shopify?.open) {
+      shopify.open(confirmationUrl, "_top");
+      return;
+    }
+
+    if (window.top) {
+      window.top.location.href = confirmationUrl;
+    }
+  };
 
   return (
     <s-page heading="Billing">
-      <s-text>Redirecting to Shopify to approve your subscription...</s-text>
+      <s-stack direction="block" gap="base">
+        <s-text>Redirecting to Shopify to approve your subscription...</s-text>
+        <s-button variant="primary" onClick={handleContinue}>
+          Continue to billing approval
+        </s-button>
+      </s-stack>
     </s-page>
   );
 }
