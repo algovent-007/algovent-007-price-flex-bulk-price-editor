@@ -29,7 +29,15 @@ export const loader = async ({ request }) => {
     if (!isBillingExemptPath(url.pathname)) {
       const subscription = await requireSubscription(admin, session);
       if (!subscription) {
-        await redirectToInstallBilling({ admin, session, request, redirect });
+        const billingRedirect = await redirectToInstallBilling({
+          admin,
+          session,
+          request,
+          redirect,
+        });
+        if (billingRedirect) {
+          return billingRedirect;
+        }
       }
     }
 
@@ -37,25 +45,10 @@ export const loader = async ({ request }) => {
     return { apiKey: process.env.SHOPIFY_API_KEY || "" };
   } catch (error) {
     if (error instanceof Response) {
-      if (error.status >= 300 && error.status < 400) {
-        throw error;
-      }
-
-      console.error("===== SHOPIFY AUTH ERROR =====");
-      console.error("Status:", error.status);
-      console.error("Status Text:", error.statusText);
-      console.error("Headers:", Object.fromEntries(error.headers.entries()));
-
-      try {
-        const body = await error.text();
-        console.error("Body:", body);
-      } catch (e) {
-        console.error("Couldn't read response body");
-      }
-    } else {
-      console.error(error);
+      throw error;
     }
 
+    console.error(error);
     throw error;
   }
 };

@@ -14,12 +14,15 @@ export const loader = async ({ request }) => {
       const subscription = await requireSubscription(admin, session);
 
       if (!subscription) {
-        await redirectToInstallBilling({
+        const billingRedirect = await redirectToInstallBilling({
           admin,
           session,
           request,
           redirect: shopifyRedirect,
         });
+        if (billingRedirect) {
+          return billingRedirect;
+        }
       }
     } catch (error) {
       if (error instanceof Response) {

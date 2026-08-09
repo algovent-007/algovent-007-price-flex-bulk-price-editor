@@ -407,15 +407,15 @@ export async function redirectToInstallBilling({
   });
 
   if (result.confirmationUrl) {
-    throw redirect(result.confirmationUrl, { target: "_top" });
+    return redirect(result.confirmationUrl, { target: "_top" });
   }
 
   if (result.error?.includes("already subscribed")) {
-    return;
+    return null;
   }
 
   const errorMessage = result.error || "Failed to create billing request.";
-  throw redirect(
+  return redirect(
     `/app/plans?billing=error&error=${encodeURIComponent(errorMessage)}`,
   );
 }
