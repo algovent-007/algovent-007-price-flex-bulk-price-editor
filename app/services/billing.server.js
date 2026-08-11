@@ -80,6 +80,14 @@ const APP_SUBSCRIPTION_CREATE_MUTATION = `#graphql
   }
 `;
 
+const APP_LAUNCH_URL_QUERY = `#graphql
+  query AppLaunchUrl {
+    currentAppInstallation {
+      launchUrl
+    }
+  }
+`;
+
 const APP_SUBSCRIPTION_CANCEL_MUTATION = `#graphql
   mutation AppSubscriptionCancel($id: ID!) {
     appSubscriptionCancel(id: $id) {
@@ -137,21 +145,35 @@ export async function fetchBillingHistory(admin) {
   }));
 }
 
-function buildReturnUrl(planName, request) {
+async function buildReturnUrl({ admin, session, planName, request }) {
+  const requestUrl = request ? new URL(request.url) : null;
+  const host = requestUrl?.searchParams.get("host");
+
+  try {
+    const data = await runGraphql(admin, APP_LAUNCH_URL_QUERY);
+    const launchUrl = data?.currentAppInstallation?.launchUrl;
+
+    if (launchUrl) {
+      const base = launchUrl.replace(/\/$/, "");
+      const url = new URL(`${base}/app/billing/callback`);
+      url.searchParams.set("plan", planName);
+      url.searchParams.set("shop", session.shop);
+      return url.toString();
+    }
+  } catch (error) {
+    logBillingError("billing_return_url", error, {
+      shop: session.shop,
+      planName,
+    });
+  }
+
   const appUrl = process.env.SHOPIFY_APP_URL || "";
   const url = new URL("/app/billing/callback", appUrl);
   url.searchParams.set("plan", planName);
-
-  if (request) {
-    const requestUrl = new URL(request.url);
-    const shop = requestUrl.searchParams.get("shop");
-    const host = requestUrl.searchParams.get("host");
-    if (shop) {
-      url.searchParams.set("shop", shop);
-    }
-    if (host) {
-      url.searchParams.set("host", host);
-    }
+  url.searchParams.set("shop", session.shop);
+  if (host) {
+    url.searchParams.set("host", host);
+    url.searchParams.set("embedded", "1");
   }
 
   return url.toString();
@@ -254,7 +276,12 @@ export async function createBillingRequest({ admin, session, planName, request }
   try {
     const data = await runGraphql(admin, APP_SUBSCRIPTION_CREATE_MUTATION, {
       name: plan.name,
-      returnUrl: buildReturnUrl(plan.name, request),
+      returnUrl: await buildReturnUrl({
+        admin,
+        session,
+        planName: plan.name,
+        request,
+      }),
       lineItems: buildLineItems(plan),
       replacementBehavior,
       test: devStore,

@@ -1,4 +1,3 @@
-import { redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { syncSubscriptionAfterApproval } from "../services/billing.server";
@@ -6,7 +5,7 @@ import { SUBSCRIPTION_STATUS } from "../constants/billing";
 import { logBillingError } from "../utils/billing-logger.server";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { admin, session, redirect } = await authenticate.admin(request);
   const url = new URL(request.url);
   const planName = url.searchParams.get("plan");
 
