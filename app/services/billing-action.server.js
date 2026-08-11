@@ -39,7 +39,7 @@ export async function handleBillingAction({ request }) {
 
   if (result.confirmationUrl) {
     return redirect(
-      `/app/billing/confirm?url=${encodeURIComponent(result.confirmationUrl)}`,
+      `/billing/confirm?url=${encodeURIComponent(result.confirmationUrl)}`,
     );
   }
 

@@ -28,7 +28,7 @@ export const loader = async ({ request }) => {
     if (!isBillingExemptPath(url.pathname)) {
       const subscription = await requireSubscription(admin, session);
       if (!subscription) {
-        throw redirect("/app/billing/confirm");
+        throw redirect("/billing/confirm");
       }
     }
 

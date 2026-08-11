@@ -13,7 +13,7 @@ export const loader = async ({ request }) => {
       const subscription = await requireSubscription(admin, session);
 
       if (!subscription) {
-        throw redirect(`/app/billing/confirm?${url.searchParams.toString()}`);
+        throw redirect(`/billing/confirm?${url.searchParams.toString()}`);
       }
     } catch (error) {
       if (error instanceof Response) {
