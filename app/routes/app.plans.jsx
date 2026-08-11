@@ -253,36 +253,6 @@ export default function Plans() {
           })}
         </s-grid>
       </s-section>
-
-      {loaderData.billingHistory?.length > 0 && (
-        <s-box paddingBlockStart="base">
-          <s-section heading="Billing history">
-            <s-stack direction="block" gap="base">
-              {loaderData.billingHistory.map((entry) => (
-                <s-box
-                  key={entry.id}
-                  padding="base"
-                  borderWidth="base"
-                  borderColor="base"
-                  background="subdued"
-                >
-                  <s-stack direction="block" gap="small-100">
-                    <s-text>
-                      <strong>{entry.planName}</strong> — {entry.status}
-                    </s-text>
-                    <s-text color="subdued">
-                      Created: {formatDateTime(entry.createdAt)}
-                    </s-text>
-                    <s-text color="subdued">
-                      Period end: {formatDateTime(entry.currentPeriodEnd)}
-                    </s-text>
-                  </s-stack>
-                </s-box>
-              ))}
-            </s-stack>
-          </s-section>
-        </s-box>
-      )}
     </s-page>
   );
 }

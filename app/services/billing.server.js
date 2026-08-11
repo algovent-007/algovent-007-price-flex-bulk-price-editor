@@ -23,23 +23,6 @@ const ACTIVE_SUBSCRIPTION_QUERY = `#graphql
   }
 `;
 
-const ALL_SUBSCRIPTIONS_QUERY = `#graphql
-  query AllAppSubscriptions {
-    currentAppInstallation {
-      allSubscriptions(first: 20, sortKey: CREATED_AT, reverse: true) {
-        nodes {
-          id
-          name
-          status
-          createdAt
-          currentPeriodEnd
-          test
-        }
-      }
-    }
-  }
-`;
-
 const SHOP_BILLING_CONTEXT_QUERY = `#graphql
   query ShopBillingContext {
     shop {
@@ -131,18 +114,6 @@ export async function fetchActiveShopifySubscription(admin) {
   const data = await runGraphql(admin, ACTIVE_SUBSCRIPTION_QUERY);
   const subscriptions = data?.currentAppInstallation?.activeSubscriptions || [];
   return subscriptions[0] || null;
-}
-
-export async function fetchBillingHistory(admin) {
-  const data = await runGraphql(admin, ALL_SUBSCRIPTIONS_QUERY);
-  return (data?.currentAppInstallation?.allSubscriptions?.nodes || []).map((entry) => ({
-    id: entry.id,
-    planName: entry.name,
-    status: entry.status,
-    createdAt: entry.createdAt,
-    currentPeriodEnd: entry.currentPeriodEnd,
-    test: entry.test,
-  }));
 }
 
 async function buildReturnUrl({ admin, session, planName, request }) {

@@ -12,7 +12,6 @@ import {
 } from "../models/subscription.server";
 import {
   fetchActiveShopifySubscription,
-  fetchBillingHistory,
   fetchShopBillingContext,
   isDevelopmentStore,
   syncSubscriptionFromShopify,
@@ -79,7 +78,6 @@ export async function getPlansPageData(admin, session) {
   const shop = session.shop;
   const devStore = await isDevelopmentStore(admin);
   const subscription = await getSubscriptionByShop(shop);
-  let billingHistory = [];
   let renewalDate = null;
   let billingStatus = subscription?.status || "NONE";
   let shopifyPlanName = null;
@@ -88,7 +86,6 @@ export async function getPlansPageData(admin, session) {
     const activeShopifySubscription = await fetchActiveShopifySubscription(admin);
     shopifyPlanName = activeShopifySubscription?.name || null;
     renewalDate = activeShopifySubscription?.currentPeriodEnd || null;
-    billingHistory = await fetchBillingHistory(admin);
     billingStatus = activeShopifySubscription?.status || billingStatus;
   } catch (error) {
     logBillingError("billing_error", error, { shop, source: "getPlansPageData" });
@@ -106,7 +103,6 @@ export async function getPlansPageData(admin, session) {
     subscriptionStatus: subscription?.status || null,
     billingStatus,
     renewalDate,
-    billingHistory,
     chargeId: subscription?.chargeId || null,
     updatedAt: subscription?.updatedAt?.toISOString?.() || null,
     requiresShopifyApproval: !shopifyPlanName || billingStatus !== SUBSCRIPTION_STATUS.ACTIVE,
