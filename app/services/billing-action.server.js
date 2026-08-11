@@ -1,10 +1,8 @@
-import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
   cancelBillingSubscription,
   createBillingRequest,
 } from "./billing.server";
-
 export async function handleBillingAction({ request }) {
   const { admin, session, redirect } = await authenticate.admin(request);
   const formData = await request.formData();
@@ -38,9 +36,7 @@ export async function handleBillingAction({ request }) {
   }
 
   if (result.confirmationUrl) {
-    return redirect(
-      `/billing/confirm?url=${encodeURIComponent(result.confirmationUrl)}`,
-    );
+    return redirect(result.confirmationUrl, { target: "_top" });
   }
 
   if (result.redirectTo) {
