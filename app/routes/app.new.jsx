@@ -372,6 +372,7 @@ export const action = async ({ request }) => {
               scheduleRecurrenceType,
               scheduleRecurrenceDayOfWeek,
               scheduleRecurrenceDayOfMonth,
+              changePricesAtDate,
               changePricesAtTime,
               scheduleTimezone: timezone,
               runPayload,

@@ -5,6 +5,8 @@ import {
   validateScheduleConfig,
   formatDateMDY,
   formatTime12Hour,
+  formatScheduleDateTime,
+  parseStoredDate,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -220,6 +222,16 @@ test("daily schedule uses shop timezone for next occurrence", () => {
 
   assert.equal(formatDateMDY(scheduledAt, "Asia/Kolkata"), "7/18/2026");
   assert.equal(formatTime12Hour(scheduledAt, "Asia/Kolkata"), "4:30 PM");
+});
+
+test("parseStoredDate treats timezone-less ISO values as UTC", () => {
+  const parsed = parseStoredDate("2026-08-15T17:00:00.000");
+  assert.equal(formatScheduleDateTime(parsed, "Asia/Kolkata"), "8/15/2026, 10:30 PM");
+});
+
+test("formatScheduleDateTime matches entered shop-local schedule time", () => {
+  const scheduledAt = parseScheduleDateTime("8/15/2026", "10:30 PM", "Asia/Kolkata");
+  assert.equal(formatScheduleDateTime(scheduledAt, "Asia/Kolkata"), "8/15/2026, 10:30 PM");
 });
 
 console.log("All schedule tests passed.");

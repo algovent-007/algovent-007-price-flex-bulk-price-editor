@@ -4,7 +4,7 @@ import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { processDueTasksForShop } from "../services/scheduler.server";
-import { formatScheduleDateTime } from "../utils/schedule";
+import { serializeScheduledTasks } from "../utils/schedule";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 
 export const loader = async ({ request }) => {
@@ -19,9 +19,11 @@ export const loader = async ({ request }) => {
     orderBy: { scheduledAt: "asc" },
   });
 
+  const timezone = await getShopTimezone({ shop: session.shop, admin });
+
   return Response.json({
-    tasks,
-    timezone: await getShopTimezone({ shop: session.shop, admin }),
+    tasks: serializeScheduledTasks(tasks, timezone),
+    timezone,
   });
 };
 
@@ -99,6 +101,11 @@ export default function ScheduledTasks() {
   return (
     <s-page heading="Scheduled Tasks">
       <s-section heading="Upcoming scheduled tasks">
+        <s-box paddingBlockEnd="base">
+          <s-banner tone="info">
+            Run and revert times are shown in {timezone}.
+          </s-banner>
+        </s-box>
         {tasks.length === 0 ? (
           <s-paragraph>
             No scheduled tasks. Create a task on the New Task page and choose &quot;Change prices
@@ -130,12 +137,12 @@ export default function ScheduledTasks() {
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">
-                        {formatScheduleDateTime(task.scheduledAt, timezone)}
+                        {task.runsAtLabel || "—"}
                       </s-text>
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">
-                        {task.revertAt ? formatScheduleDateTime(task.revertAt, timezone) : "—"}
+                        {task.revertAtLabel || "—"}
                       </s-text>
                     </s-table-cell>
                     <s-table-cell>

@@ -458,22 +458,79 @@ export function validateScheduleConfig({
   return { errors, fieldErrors, scheduledAt, revertAt };
 }
 
+export function parseStoredDate(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  // ISO datetimes without a timezone are treated as local time by JS; stored
+  // schedule values are always UTC, so force UTC interpretation in that case.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed) && !/[zZ]|[+-]\d{2}(?::?\d{2})?$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}Z`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function getTaskScheduleTimezone(actionData, shopTimezone) {
+  return actionData?.scheduleTimezone || shopTimezone || undefined;
+}
+
 export function formatScheduleDateTime(date, timeZone) {
-  if (!date) return "";
+  const parsed = parseStoredDate(date);
+  if (!parsed) return "";
+
   try {
-    return new Date(date).toLocaleString(undefined, timeZone ? { timeZone } : undefined);
+    const dateLabel = formatDateMDY(parsed, timeZone);
+    const timeLabel = formatTime12Hour(parsed, timeZone);
+    return `${dateLabel}, ${timeLabel}`;
   } catch {
     return String(date);
   }
 }
 
+export function serializeScheduledTasks(tasks, shopTimezone) {
+  return tasks.map((task) => {
+    let actionData = {};
+    try {
+      actionData = JSON.parse(task.actionDetails || "{}");
+    } catch {
+      actionData = {};
+    }
+
+    const taskTimezone = getTaskScheduleTimezone(actionData, shopTimezone);
+    const scheduledAt = parseStoredDate(task.scheduledAt);
+    const revertAt = parseStoredDate(task.revertAt);
+
+    return {
+      ...task,
+      scheduledAt: scheduledAt?.toISOString() ?? null,
+      revertAt: revertAt?.toISOString() ?? null,
+      runsAtLabel: formatScheduleDateTime(scheduledAt, taskTimezone),
+      revertAtLabel: revertAt ? formatScheduleDateTime(revertAt, taskTimezone) : null,
+      scheduleTimezone: taskTimezone || shopTimezone,
+    };
+  });
+}
+
 export function formatDateMDY(date, timeZone) {
-  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  const parsed = parseStoredDate(date);
+  if (!parsed) return "";
+  const parts = getZonedDateTimeParts(parsed, timeZone);
   return `${parts.month}/${parts.day}/${parts.year}`;
 }
 
 export function formatDateIso(date, timeZone) {
-  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  const parsed = parseStoredDate(date);
+  if (!parsed) return "";
+  const parts = getZonedDateTimeParts(parsed, timeZone);
   const month = String(parts.month).padStart(2, "0");
   const day = String(parts.day).padStart(2, "0");
   return `${parts.year}-${month}-${day}`;
@@ -502,7 +559,9 @@ export function parseIsoDate(iso, timeZone) {
 }
 
 export function formatTime12Hour(date, timeZone) {
-  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  const parsed = parseStoredDate(date);
+  if (!parsed) return "";
+  const parts = getZonedDateTimeParts(parsed, timeZone);
   let hours = parts.hours;
   const minutes = parts.minutes;
   const meridiem = hours >= 12 ? "PM" : "AM";
