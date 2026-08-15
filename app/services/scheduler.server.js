@@ -278,6 +278,11 @@ export async function processDueTasksForShop({ admin, shop }) {
 
     try {
       if (actionData.taskType === "scheduled_rollback") {
+        const claimed = await claimScheduledTask(task.id, shop);
+        if (!claimed) {
+          continue;
+        }
+
         startScheduledRollbackTask({ admin, task, actionData });
         processed.push({ taskId: task.id, started: true });
         continue;

@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import { syncSubscriptionAfterApproval } from "../services/billing.server";
 import { SUBSCRIPTION_STATUS } from "../constants/billing";
 import { logBillingError } from "../utils/billing-logger.server";
+import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
 
 export const loader = async ({ request }) => {
   const { admin, session, redirect } = await authenticate.admin(request);
@@ -10,7 +11,7 @@ export const loader = async ({ request }) => {
   const planName = url.searchParams.get("plan");
 
   if (!planName) {
-    throw redirect("/app/plans?billing=missing_plan");
+    throw redirect(appendEmbeddedAppParams(request, "/app/plans?billing=missing_plan"));
   }
 
   try {
@@ -21,10 +22,10 @@ export const loader = async ({ request }) => {
     });
 
     if (!subscription || subscription.status !== SUBSCRIPTION_STATUS.ACTIVE) {
-      throw redirect("/app/plans?billing=pending");
+      throw redirect(appendEmbeddedAppParams(request, "/app/plans?billing=pending"));
     }
 
-    throw redirect("/app?billing=success");
+    throw redirect(appendEmbeddedAppParams(request, "/app?billing=success"));
   } catch (error) {
     if (error instanceof Response) {
       throw error;
@@ -36,7 +37,7 @@ export const loader = async ({ request }) => {
       source: "billing_callback",
     });
 
-    throw redirect("/app/plans?billing=error");
+    throw redirect(appendEmbeddedAppParams(request, "/app/plans?billing=error"));
   }
 };
 

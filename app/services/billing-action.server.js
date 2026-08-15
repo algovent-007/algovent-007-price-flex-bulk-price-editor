@@ -21,7 +21,9 @@ export async function handleBillingAction({ request }) {
   }
 
   if (!planName) {
-    return Response.json({ success: false, error: "Plan name is required." }, { status: 400 });
+    return redirect(
+      `/app/plans?billing=error&error=${encodeURIComponent("Plan name is required.")}`,
+    );
   }
 
   const result = await createBillingRequest({
@@ -32,7 +34,9 @@ export async function handleBillingAction({ request }) {
   });
 
   if (result.error) {
-    return Response.json({ success: false, error: result.error }, { status: 400 });
+    return redirect(
+      `/app/plans?billing=error&error=${encodeURIComponent(result.error)}`,
+    );
   }
 
   if (result.confirmationUrl) {

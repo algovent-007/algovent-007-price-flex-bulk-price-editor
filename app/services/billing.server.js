@@ -7,6 +7,7 @@ import {
 } from "../constants/billing";
 import { getSubscriptionByShop, upsertSubscription } from "../models/subscription.server";
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
+import { copyEmbeddedAppParams } from "../utils/embedded-app-params.server";
 
 const ACTIVE_SUBSCRIPTION_QUERY = `#graphql
   query ActiveAppSubscription {
@@ -126,9 +127,12 @@ async function buildReturnUrl({ admin, session, planName, request }) {
 
     if (launchUrl) {
       const base = launchUrl.replace(/\/$/, "");
-      const url = new URL(`${base}/app/billing/callback`);
+      let url = new URL(`${base}/app/billing/callback`);
       url.searchParams.set("plan", planName);
       url.searchParams.set("shop", session.shop);
+      if (requestUrl) {
+        url = copyEmbeddedAppParams(requestUrl, url);
+      }
       return url.toString();
     }
   } catch (error) {
@@ -139,10 +143,12 @@ async function buildReturnUrl({ admin, session, planName, request }) {
   }
 
   const appUrl = process.env.SHOPIFY_APP_URL || "";
-  const url = new URL("/app/billing/callback", appUrl);
+  let url = new URL("/app/billing/callback", appUrl);
   url.searchParams.set("plan", planName);
   url.searchParams.set("shop", session.shop);
-  if (host) {
+  if (requestUrl) {
+    url = copyEmbeddedAppParams(requestUrl, url);
+  } else if (host) {
     url.searchParams.set("host", host);
     url.searchParams.set("embedded", "1");
   }
@@ -173,7 +179,11 @@ export async function syncSubscriptionFromShopify({ admin, shop, expectedPlanNam
     return getSubscriptionByShop(shop);
   }
 
-  const planName = expectedPlanName || activeSubscription.name;
+  let planName = activeSubscription.name;
+  if (!isValidPlanName(planName) && expectedPlanName && isValidPlanName(expectedPlanName)) {
+    planName = expectedPlanName;
+  }
+
   if (!isValidPlanName(planName)) {
     throw new Error(`Unable to map Shopify subscription to a known plan: ${planName}`);
   }
@@ -213,6 +223,13 @@ export async function createBillingRequest({ admin, session, planName, request }
     existingSubscription.status === SUBSCRIPTION_STATUS.ACTIVE
   ) {
     return { error: "You are already subscribed to this plan." };
+  }
+
+  if (existingSubscription?.status === SUBSCRIPTION_STATUS.PENDING) {
+    return {
+      error:
+        "You already have a pending billing request. Approve or decline it in Shopify before trying again.",
+    };
   }
 
   const activeShopifySubscription = await fetchActiveShopifySubscription(admin);

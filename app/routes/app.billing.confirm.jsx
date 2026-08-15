@@ -3,6 +3,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { DEFAULT_INSTALL_PLAN, PLANS } from "../constants/billing";
+import { isValidShopifyBillingConfirmationUrl } from "../utils/embedded-app-params.server";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
@@ -11,8 +12,13 @@ export const loader = async ({ request }) => {
     throw redirect(`/billing/confirm?${url.searchParams.toString()}`);
   }
 
-  const { admin, session } = await authenticate.admin(request);
+  await authenticate.admin(request);
   const confirmationUrl = url.searchParams.get("url");
+
+  if (!isValidShopifyBillingConfirmationUrl(confirmationUrl)) {
+    throw redirect("/app/plans?billing=error&error=Invalid+billing+confirmation+URL");
+  }
+
   const planName = url.searchParams.get("plan") || DEFAULT_INSTALL_PLAN;
   // eslint-disable-next-line no-undef
   const apiKey = process.env.SHOPIFY_API_KEY || "";

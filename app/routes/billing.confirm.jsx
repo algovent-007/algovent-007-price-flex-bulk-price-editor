@@ -5,6 +5,7 @@ import { DEFAULT_INSTALL_PLAN } from "../constants/billing";
 import { createBillingRequest } from "../services/billing.server";
 import { requireSubscription } from "../services/subscription.server";
 import { createBillingRedirectResponse } from "../utils/billing-redirect.server";
+import { isValidShopifyBillingConfirmationUrl } from "../utils/embedded-app-params.server";
 
 async function resolveConfirmationUrl({ admin, session, request }) {
   const url = new URL(request.url);
@@ -12,6 +13,9 @@ async function resolveConfirmationUrl({ admin, session, request }) {
   const planName = url.searchParams.get("plan") || DEFAULT_INSTALL_PLAN;
 
   if (existingConfirmationUrl) {
+    if (!isValidShopifyBillingConfirmationUrl(existingConfirmationUrl)) {
+      throw redirect("/app/plans?billing=error&error=Invalid+billing+confirmation+URL");
+    }
     return existingConfirmationUrl;
   }
 

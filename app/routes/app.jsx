@@ -1,9 +1,10 @@
-import { Outlet, redirect, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { processDueTasksForShop } from "../services/scheduler.server";
 import { requireSubscription } from "../services/subscription.server";
+import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
 
 const BILLING_EXEMPT_PATHS = ["/app/plans", "/app/billing"];
 
@@ -15,21 +16,23 @@ function isBillingExemptPath(pathname) {
 
 export const loader = async ({ request }) => {
   try {
-    const { admin, session } = await authenticate.admin(request);
+    const { admin, session, redirect } = await authenticate.admin(request);
 
     console.log("Authenticated:", session.shop);
 
-    await processDueTasksForShop({
-      admin,
-      shop: session.shop,
-    });
-
     const url = new URL(request.url);
-    if (!isBillingExemptPath(url.pathname)) {
-      const subscription = await requireSubscription(admin, session);
-      if (!subscription) {
-        throw redirect("/billing/confirm");
-      }
+    const billingExempt = isBillingExemptPath(url.pathname);
+    const subscription = await requireSubscription(admin, session);
+
+    if (!billingExempt && !subscription) {
+      throw redirect(appendEmbeddedAppParams(request, "/billing/confirm"));
+    }
+
+    if (subscription) {
+      await processDueTasksForShop({
+        admin,
+        shop: session.shop,
+      });
     }
 
     // eslint-disable-next-line no-undef

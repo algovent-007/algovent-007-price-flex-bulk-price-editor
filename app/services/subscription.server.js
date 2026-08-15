@@ -64,6 +64,22 @@ export async function requireSubscription(admin, session) {
     }
   } catch (error) {
     logBillingError("subscription_update", error, { shop, source: "requireSubscription" });
+
+    const cached = await getSubscriptionByShop(shop);
+    if (
+      cached &&
+      cached.status === SUBSCRIPTION_STATUS.ACTIVE &&
+      isValidPlanName(cached.planName)
+    ) {
+      logBilling("subscription_update", {
+        shop,
+        planName: cached.planName,
+        status: cached.status,
+        chargeId: cached.chargeId,
+        source: "requireSubscription_cache_fallback",
+      });
+      return cached;
+    }
   }
 
   return null;
