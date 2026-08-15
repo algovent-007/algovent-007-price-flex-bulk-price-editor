@@ -5,7 +5,10 @@ import { DEFAULT_INSTALL_PLAN } from "../constants/billing";
 import { createBillingRequest } from "../services/billing.server";
 import { requireSubscription } from "../services/subscription.server";
 import { createBillingRedirectResponse } from "../utils/billing-redirect.server";
-import { isValidShopifyBillingConfirmationUrl } from "../utils/embedded-app-params.server";
+import {
+  appendEmbeddedAppParams,
+  isValidShopifyBillingConfirmationUrl,
+} from "../utils/embedded-app-params.server";
 
 async function resolveConfirmationUrl({ admin, session, request }) {
   const url = new URL(request.url);
@@ -14,14 +17,19 @@ async function resolveConfirmationUrl({ admin, session, request }) {
 
   if (existingConfirmationUrl) {
     if (!isValidShopifyBillingConfirmationUrl(existingConfirmationUrl)) {
-      throw redirect("/app/plans?billing=error&error=Invalid+billing+confirmation+URL");
+      throw redirect(
+        appendEmbeddedAppParams(
+          request,
+          "/app/plans?billing=error&error=Invalid+billing+confirmation+URL",
+        ),
+      );
     }
     return existingConfirmationUrl;
   }
 
   const subscription = await requireSubscription(admin, session);
   if (subscription) {
-    throw redirect("/app");
+    throw redirect(appendEmbeddedAppParams(request, "/app"));
   }
 
   const result = await createBillingRequest({
@@ -33,12 +41,15 @@ async function resolveConfirmationUrl({ admin, session, request }) {
 
   if (result.error) {
     throw redirect(
-      `/app/plans?billing=error&error=${encodeURIComponent(result.error)}`,
+      appendEmbeddedAppParams(
+        request,
+        `/app/plans?billing=error&error=${encodeURIComponent(result.error)}`,
+      ),
     );
   }
 
   if (!result.confirmationUrl) {
-    throw redirect("/app/plans?billing=error");
+    throw redirect(appendEmbeddedAppParams(request, "/app/plans?billing=error"));
   }
 
   return result.confirmationUrl;

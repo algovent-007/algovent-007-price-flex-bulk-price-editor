@@ -225,13 +225,6 @@ export async function createBillingRequest({ admin, session, planName, request }
     return { error: "You are already subscribed to this plan." };
   }
 
-  if (existingSubscription?.status === SUBSCRIPTION_STATUS.PENDING) {
-    return {
-      error:
-        "You already have a pending billing request. Approve or decline it in Shopify before trying again.",
-    };
-  }
-
   const activeShopifySubscription = await fetchActiveShopifySubscription(admin);
   if (
     activeShopifySubscription &&
@@ -245,6 +238,24 @@ export async function createBillingRequest({ admin, session, planName, request }
       chargeId: activeShopifySubscription.id,
     });
     return { error: "You are already subscribed to this plan." };
+  }
+
+  if (
+    activeShopifySubscription &&
+    String(activeShopifySubscription.status).toUpperCase() === SUBSCRIPTION_STATUS.ACTIVE &&
+    isValidPlanName(activeShopifySubscription.name)
+  ) {
+    await upsertSubscription({
+      shop,
+      planName: activeShopifySubscription.name,
+      status: SUBSCRIPTION_STATUS.ACTIVE,
+      chargeId: activeShopifySubscription.id,
+    });
+  } else if (existingSubscription?.status === SUBSCRIPTION_STATUS.PENDING) {
+    return {
+      error:
+        "You already have a pending billing request. Approve or decline it in Shopify before trying again.",
+    };
   }
 
   const replacementBehavior = (existingSubscription?.planName || activeShopifySubscription?.name)

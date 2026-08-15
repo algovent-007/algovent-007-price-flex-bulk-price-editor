@@ -202,6 +202,10 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
   }
 
   if (sourceTask.status === "scheduled") {
+    await prisma.task.update({
+      where: { id: task.id },
+      data: { status: "scheduled" },
+    });
     return { success: false, skipped: true, reason: "Source price edit has not run yet" };
   }
 

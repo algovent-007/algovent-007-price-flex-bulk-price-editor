@@ -18,6 +18,16 @@ import {
 } from "./billing.server";
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
 
+const SUBSCRIPTION_CACHE_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+function isRecentSubscriptionRecord(record) {
+  if (!record?.updatedAt) {
+    return false;
+  }
+
+  return Date.now() - new Date(record.updatedAt).getTime() < SUBSCRIPTION_CACHE_FALLBACK_MAX_AGE_MS;
+}
+
 export function isActiveSubscriptionStatus(status) {
   return status === SUBSCRIPTION_STATUS.ACTIVE;
 }
@@ -69,7 +79,8 @@ export async function requireSubscription(admin, session) {
     if (
       cached &&
       cached.status === SUBSCRIPTION_STATUS.ACTIVE &&
-      isValidPlanName(cached.planName)
+      isValidPlanName(cached.planName) &&
+      isRecentSubscriptionRecord(cached)
     ) {
       logBilling("subscription_update", {
         shop,
