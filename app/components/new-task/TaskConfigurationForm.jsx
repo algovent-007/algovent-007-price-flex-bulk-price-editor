@@ -170,7 +170,7 @@ export default function TaskConfigurationForm({
               </s-choice-list>
             </div>
 
-            {!readOnly && editType === "all" && (
+            {!readOnly && (
               <div className={styles.productSelectionAction}>
                 <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
                   Search For Products
@@ -192,8 +192,6 @@ export default function TaskConfigurationForm({
               handleConditionChange={readOnly ? undefined : handleConditionChange}
               addCondition={readOnly ? undefined : addCondition}
               removeCondition={readOnly ? undefined : removeCondition}
-              handleSearch={readOnly ? undefined : handleSearch}
-              isSearching={isSearching}
               locations={locations}
               collections={collections}
               fieldErrors={fieldErrors}
@@ -207,8 +205,6 @@ export default function TaskConfigurationForm({
               collections={collections}
               selectedCollectionId={selectedCollectionId}
               setSelectedCollectionId={readOnly ? undefined : setSelectedCollectionId}
-              handleSearch={readOnly ? undefined : handleSearch}
-              isSearching={isSearching}
               fieldErrors={fieldErrors}
               clearFieldError={clearFieldError}
             />
@@ -234,13 +230,6 @@ export default function TaskConfigurationForm({
                 }
                 error={fieldError("csvFile")}
               />
-              {!readOnly && (
-                <s-stack direction="inline" justifyContent="end">
-                  <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                    Load Products From CSV
-                  </s-button>
-                </s-stack>
-              )}
             </>
           )}
         </s-stack>

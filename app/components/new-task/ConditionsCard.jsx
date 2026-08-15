@@ -41,8 +41,6 @@ export default function ConditionsCard({
   handleConditionChange,
   addCondition,
   removeCondition,
-  handleSearch,
-  isSearching,
   locations = [],
   collections = [],
   fieldErrors = {},
@@ -329,12 +327,6 @@ export default function ConditionsCard({
             {fieldErrors?.productSearch && (
               <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
             )}
-
-            <s-stack direction="inline" justifyContent="end">
-              <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                Search For Products
-              </s-button>
-            </s-stack>
           </>
         )}
       </s-stack>
