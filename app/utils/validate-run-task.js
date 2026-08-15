@@ -49,7 +49,11 @@ function isConditionComplete(condition) {
 
 function validateProductSelection(formState, addError) {
   if (formState.editType === "csv-all" || formState.editType === "csv-direct") {
-    addError("editType", "CSV product selection is not available yet. Choose another product source.");
+    if (!formState.csvRows?.length) {
+      addError("csvFile", "Please upload a CSV file before running the task.");
+    } else if (!formState.productsList?.length) {
+      addError("productSearch", "Please load products from your CSV before running the task.");
+    }
     return;
   }
 
@@ -90,36 +94,38 @@ export function validateRunTaskForm(formState) {
     }
   };
 
-  if (!pricingRulesMatchSaved(formState.shop, formState)) {
+  if (formState.editType !== "csv-direct" && !pricingRulesMatchSaved(formState.shop, formState)) {
     addError("pricingRulesSave", "Please save your pricing rules before running the task.");
   }
 
-  const pricingValidation = validatePricingConfig({
-    changePrice: formState.changePrice,
-    percentType: formState.percentType,
-    percentValue: formState.percentValue,
-    fixedType: formState.fixedType,
-    fixedValue: formState.fixedValue,
-    fixedPriceAmount: formState.fixedPriceAmount,
-    priceFormula: formState.priceFormula,
-    comparePriceType: formState.comparePriceType,
-    comparePercentType: formState.comparePercentType,
-    comparePercentValue: formState.comparePercentValue,
-    compareFixedType: formState.compareFixedType,
-    compareFixedValue: formState.compareFixedValue,
-    compareFixedPriceAmount: formState.compareFixedPriceAmount,
-    comparePriceFormula: formState.comparePriceFormula,
-    costPriceType: formState.costPriceType,
-    costPercentType: formState.costPercentType,
-    costPercentValue: formState.costPercentValue,
-    costFixedType: formState.costFixedType,
-    costFixedValue: formState.costFixedValue,
-    costFixedPriceAmount: formState.costFixedPriceAmount,
-  });
+  if (formState.editType !== "csv-direct") {
+    const pricingValidation = validatePricingConfig({
+      changePrice: formState.changePrice,
+      percentType: formState.percentType,
+      percentValue: formState.percentValue,
+      fixedType: formState.fixedType,
+      fixedValue: formState.fixedValue,
+      fixedPriceAmount: formState.fixedPriceAmount,
+      priceFormula: formState.priceFormula,
+      comparePriceType: formState.comparePriceType,
+      comparePercentType: formState.comparePercentType,
+      comparePercentValue: formState.comparePercentValue,
+      compareFixedType: formState.compareFixedType,
+      compareFixedValue: formState.compareFixedValue,
+      compareFixedPriceAmount: formState.compareFixedPriceAmount,
+      comparePriceFormula: formState.comparePriceFormula,
+      costPriceType: formState.costPriceType,
+      costPercentType: formState.costPercentType,
+      costPercentValue: formState.costPercentValue,
+      costFixedType: formState.costFixedType,
+      costFixedValue: formState.costFixedValue,
+      costFixedPriceAmount: formState.costFixedPriceAmount,
+    });
 
-  Object.entries(pricingValidation.fieldErrors).forEach(([field, message]) => {
-    addError(field, message);
-  });
+    Object.entries(pricingValidation.fieldErrors).forEach(([field, message]) => {
+      addError(field, message);
+    });
+  }
 
   validateProductSelection(formState, addError);
 
@@ -137,6 +143,7 @@ export function validateRunTaskForm(formState) {
     revertPrices: formState.revertLater,
     revertPricesAtDate: formState.revertDateStr,
     revertPricesAtTime: formState.revertTimeStr,
+    timeZone: formState.timezone,
   });
 
   Object.entries(scheduleValidation.fieldErrors).forEach(([field, message]) => {

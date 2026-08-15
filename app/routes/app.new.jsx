@@ -44,6 +44,12 @@ import { validateRunTaskForm } from "../utils/validate-run-task";
 import { isOneTimeScheduleRecurrence } from "../utils/schedule";
 import { assertPlanFeature } from "../services/subscription.server";
 import { BILLING_FEATURES } from "../constants/billing";
+import { parseCsvAllRows, parseCsvDirectRows, validateCsvRowsForRun } from "../utils/csv-bulk-edit";
+import { getShopTimezone } from "../utils/shop-timezone.server";
+import {
+  formatScheduleDateTime,
+  formatCurrentTimeInTimezone,
+} from "../utils/schedule";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -74,10 +80,16 @@ export const loader = async ({ request }) => {
       collections: json.data?.collections?.nodes || [],
       locations: json.data?.locations?.nodes || [],
       shop: session.shop,
+      timezone: await getShopTimezone({ shop: session.shop, admin }),
     };
   } catch (err) {
     console.error("Error fetching collections:", err);
-    return { collections: [], locations: [], shop: session.shop };
+    return {
+      collections: [],
+      locations: [],
+      shop: session.shop,
+      timezone: await getShopTimezone({ shop: session.shop, admin }),
+    };
   }
 };
 
@@ -100,6 +112,42 @@ export const action = async ({ request }) => {
     const matchType = formData.get("matchType");
     const conditionsStr = formData.get("conditions");
     const collectionId = formData.get("collectionId");
+
+    if (editType === "csv-all" || editType === "csv-direct") {
+      let csvRows = [];
+      try {
+        csvRows = JSON.parse(formData.get("csvRows") || "[]");
+      } catch (e) {
+        return Response.json({
+          success: false,
+          products: [],
+          error: "Invalid CSV data submitted.",
+        });
+      }
+
+      const csvValidation = validateCsvRowsForRun(csvRows, editType);
+      if (!csvValidation.valid) {
+        return Response.json({
+          success: false,
+          products: [],
+          error: csvValidation.errors[0],
+        });
+      }
+
+      try {
+        const { resolveCsvRowsToProducts } = await import("../services/csv-bulk-edit.server");
+        const { products, warnings } = await resolveCsvRowsToProducts(shopifyQuery, csvRows);
+        return Response.json({
+          success: true,
+          products,
+          warnings,
+        });
+      } catch (err) {
+        console.error("Error loading CSV products from Shopify:", err);
+        return Response.json({ success: false, products: [], error: err.message });
+      }
+    }
+
     const queryStr = buildProductQuery(editType, matchType, conditionsStr, collectionId);
 
     if (editType === "collection" && !collectionId) {
@@ -135,6 +183,7 @@ export const action = async ({ request }) => {
   if (intent === "run_task") {
     const { admin, session } = await authenticate.admin(request);
     const shop = session.shop;
+    const timezone = await getShopTimezone({ shop, admin });
 
     const editType = formData.get("editType");
     const matchType = formData.get("matchType");
@@ -182,31 +231,48 @@ export const action = async ({ request }) => {
     const revertPrices = formData.get("revertPrices") === "true";
     const revertPricesAtDate = formData.get("revertPricesAtDate");
     const revertPricesAtTime = formData.get("revertPricesAtTime");
+    const csvFileName = formData.get("csvFileName") || null;
 
-    const pricingErrors = validatePricingConfig({
-      changePrice,
-      percentType,
-      percentValue,
-      fixedType,
-      fixedValue,
-      fixedPriceAmount,
-      priceFormula,
-      comparePriceType,
-      comparePercentType,
-      comparePercentValue,
-      compareFixedType,
-      compareFixedValue,
-      compareFixedPriceAmount,
-      comparePriceFormula,
-      costPriceType,
-      costPercentType,
-      costPercentValue,
-      costFixedType,
-      costFixedValue,
-      costFixedPriceAmount,
-    });
-    if (pricingErrors.errors.length > 0) {
-      return Response.json({ success: false, error: pricingErrors.errors.join(" ") });
+    let csvRows = [];
+    if (editType === "csv-all" || editType === "csv-direct") {
+      try {
+        csvRows = JSON.parse(formData.get("csvRows") || "[]");
+      } catch (e) {
+        return Response.json({ success: false, error: "Invalid CSV data submitted." });
+      }
+
+      const csvValidation = validateCsvRowsForRun(csvRows, editType);
+      if (!csvValidation.valid) {
+        return Response.json({ success: false, error: csvValidation.errors[0] });
+      }
+    }
+
+    if (editType !== "csv-direct") {
+      const pricingErrors = validatePricingConfig({
+        changePrice,
+        percentType,
+        percentValue,
+        fixedType,
+        fixedValue,
+        fixedPriceAmount,
+        priceFormula,
+        comparePriceType,
+        comparePercentType,
+        comparePercentValue,
+        compareFixedType,
+        compareFixedValue,
+        compareFixedPriceAmount,
+        comparePriceFormula,
+        costPriceType,
+        costPercentType,
+        costPercentValue,
+        costFixedType,
+        costFixedValue,
+        costFixedPriceAmount,
+      });
+      if (pricingErrors.errors.length > 0) {
+        return Response.json({ success: false, error: pricingErrors.errors.join(" ") });
+      }
     }
 
     const scheduleValidation = validateScheduleConfig({
@@ -219,6 +285,7 @@ export const action = async ({ request }) => {
       revertPrices,
       revertPricesAtDate,
       revertPricesAtTime,
+      timeZone: timezone,
     });
     if (scheduleValidation.errors.length > 0) {
       return Response.json({ success: false, error: scheduleValidation.errors.join(" ") });
@@ -281,6 +348,8 @@ export const action = async ({ request }) => {
       removeTagsActive,
       tagsToAddList,
       tagsToRemoveList,
+      csvFileName,
+      csvRows,
     };
 
     const scheduledAt = scheduleValidation.scheduledAt;
@@ -304,6 +373,7 @@ export const action = async ({ request }) => {
               scheduleRecurrenceDayOfWeek,
               scheduleRecurrenceDayOfMonth,
               changePricesAtTime,
+              scheduleTimezone: timezone,
               runPayload,
               revertEnabled: revertPrices,
               scheduledAt: scheduledAt.toISOString(),
@@ -389,24 +459,26 @@ export const action = async ({ request }) => {
   return Response.json({ success: false, products: [] });
 };
 
-function createInitialScheduleState() {
-  const start = getDefaultScheduleDateTime(60);
-  const revert = getDefaultRevertDateTime(start, 24);
+function createInitialScheduleState(timezone) {
+  const start = getDefaultScheduleDateTime(60, timezone);
+  const revert = getDefaultRevertDateTime(start, 24, timezone);
   return {
     startDate: start,
-    startDateStr: formatDateMDY(start),
-    startTimeStr: formatTime12Hour(start),
+    startDateStr: formatDateMDY(start, timezone),
+    startTimeStr: formatTime12Hour(start, timezone),
     revertDate: revert,
-    revertDateStr: formatDateMDY(revert),
-    revertTimeStr: formatTime12Hour(revert),
+    revertDateStr: formatDateMDY(revert, timezone),
+    revertTimeStr: formatTime12Hour(revert, timezone),
   };
 }
 
 export default function NewTask() {
   const fetcher = useFetcher();
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
   const navigate = useNavigate();
   const appBridge = useAppBridge();
-  const { collections, locations, shop } = useLoaderData();
+  const { collections, locations, shop, timezone } = useLoaderData();
 
   // Section 1 States
   const [editType, setEditType] = useState("all");
@@ -418,6 +490,7 @@ export default function NewTask() {
   const [productsList, setProductsList] = useState([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [csvFileName, setCsvFileName] = useState(null);
+  const [csvRows, setCsvRows] = useState([]);
   const [productSearchError, setProductSearchError] = useState("");
   const csvFileInputRef = useRef(null);
 
@@ -458,7 +531,7 @@ export default function NewTask() {
   const [tagToRemoveInput, setTagToRemoveInput] = useState("");
   const [tagsToRemove, setTagsToRemove] = useState([]);
 
-  const initialSchedule = useMemo(() => createInitialScheduleState(), []);
+  const initialSchedule = useMemo(() => createInitialScheduleState(timezone), [timezone]);
 
   // Section 5 States
   const [scheduleType, setScheduleType] = useState("now"); // "now" or "later"
@@ -477,8 +550,8 @@ export default function NewTask() {
   const [revertTimeStr, setRevertTimeStr] = useState(initialSchedule.revertTimeStr);
 
   // Timezone and live clock states
-  const [currentTimeStr, setCurrentTimeStr] = useState("");
-  const [timezoneStr, setTimezoneStr] = useState("Asia/Calcutta");
+  const [currentTimeStr, setCurrentTimeStr] = useState(() => formatCurrentTimeInTimezone(timezone));
+  const timezoneStr = timezone;
 
   const [taskName, setTaskName] = useState(() => "sale-" + Math.floor(1000000000 + Math.random() * 9000000000));
 
@@ -490,6 +563,8 @@ export default function NewTask() {
         setMatchType,
         setConditions,
         setSelectedCollectionId,
+        setCsvFileName,
+        setCsvRows,
         setChangePrice,
         setPercentType,
         setPercentValue,
@@ -520,6 +595,25 @@ export default function NewTask() {
         setTaskName,
         setRevertLater,
       });
+
+      const payload = copyData.runPayload;
+      if (
+        (payload?.editType === "csv-all" || payload?.editType === "csv-direct") &&
+        Array.isArray(payload.csvRows) &&
+        payload.csvRows.length > 0
+      ) {
+        fetcherRef.current.submit(
+          {
+            intent: "search",
+            editType: payload.editType,
+            matchType: payload.matchType || "all",
+            conditions: payload.conditionsStr || "[]",
+            collectionId: payload.collectionId || "",
+            csvRows: JSON.stringify(payload.csvRows),
+          },
+          { method: "POST" },
+        );
+      }
       return;
     }
 
@@ -554,56 +648,62 @@ export default function NewTask() {
   }, [shop]);
 
   useEffect(() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      setTimezoneStr(tz);
-    } catch (e) {
-      setTimezoneStr("Asia/Calcutta");
-    }
-
     const updateTime = () => {
-      const now = new Date();
-      const hrs = String(now.getHours()).padStart(2, '0');
-      const mins = String(now.getMinutes()).padStart(2, '0');
-      setCurrentTimeStr(`${hrs}:${mins}`);
+      setCurrentTimeStr(formatCurrentTimeInTimezone(timezone));
     };
 
     updateTime();
     const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timezone]);
 
   const handleStartDateChange = (val) => {
     setStartDateStr(val);
-    const parsed = parseDateString(val);
+    const parsed = parseDateString(val, timezone);
     if (parsed) setStartDate(parsed);
   };
 
   const handleRevertDateChange = (val) => {
     setRevertDateStr(val);
-    const parsed = parseDateString(val);
+    const parsed = parseDateString(val, timezone);
     if (parsed) setRevertDate(parsed);
   };
 
   const handleStartDateSelect = (date) => {
     setStartDate(date);
-    setStartDateStr(formatDateMDY(date));
+    setStartDateStr(formatDateMDY(date, timezone));
   };
 
   const handleRevertDateSelect = (date) => {
     setRevertDate(date);
-    setRevertDateStr(formatDateMDY(date));
+    setRevertDateStr(formatDateMDY(date, timezone));
   };
 
   useEffect(() => {
     if (!fetcher.data) return;
 
     if (fetcher.data.success) {
-      setProductsList(fetcher.data.products || []);
+      const products = fetcher.data.products || [];
+      setProductsList(products);
       setProductSearchError("");
-      setSearchResults(
-        `Found ${fetcher.data.products?.length || 0} products matching your criteria.`
+      const variantCount = products.reduce(
+        (sum, product) => sum + (product.variants?.nodes?.length || 0),
+        0,
       );
+      setSearchResults(
+        editType === "csv-all" || editType === "csv-direct"
+          ? `Loaded ${variantCount} variant${variantCount === 1 ? "" : "s"} from CSV across ${products.length} product${products.length === 1 ? "" : "s"}.`
+          : `Found ${products.length} products matching your criteria.`,
+      );
+      if (fetcher.data.warnings?.length) {
+        const warningCount = fetcher.data.warnings.length;
+        const firstWarning = fetcher.data.warnings[0];
+        appBridge.toast.show(
+          warningCount === 1
+            ? firstWarning
+            : `${firstWarning} (+${warningCount - 1} more warning${warningCount - 1 === 1 ? "" : "s"})`,
+        );
+      }
       return;
     }
 
@@ -612,7 +712,7 @@ export default function NewTask() {
     setProductSearchError(
       fetcher.data.error || "No products found matching your criteria."
     );
-  }, [fetcher.data]);
+  }, [fetcher.data, editType, appBridge]);
 
   useEffect(() => {
     if (collections.length > 0 && !selectedCollectionId) {
@@ -718,11 +818,13 @@ export default function NewTask() {
 
     const { fieldErrors: nextFieldErrors, messages } = validateRunTaskForm({
       shop,
+      timezone,
       editType,
       matchType,
       conditions,
       productsList,
       csvFileName,
+      csvRows,
       selectedCollectionId,
       changePrice,
       percentType,
@@ -779,6 +881,8 @@ export default function NewTask() {
       matchType,
       conditions: JSON.stringify(conditions),
       collectionId: selectedCollectionId,
+      csvFileName: csvFileName || "",
+      csvRows: JSON.stringify(csvRows),
       changePrice,
       percentType,
       percentValue,
@@ -852,6 +956,13 @@ export default function NewTask() {
   const handleEditTypeChange = (nextEditType) => {
     setEditType(nextEditType);
     setProductSearchError("");
+    setCsvFileName(null);
+    setCsvRows([]);
+    setProductsList([]);
+    setSearchResults(null);
+    if (nextEditType === "collection" && collections.length > 0 && !selectedCollectionId) {
+      setSelectedCollectionId(collections[0].id);
+    }
   };
 
   const handleCollectionChange = (collectionId) => {
@@ -885,7 +996,50 @@ export default function NewTask() {
       return "Please select a collection before searching.";
     }
 
+    if ((editType === "csv-all" || editType === "csv-direct") && !csvRows.length) {
+      return "Please upload a CSV file before loading products.";
+    }
+
     return "";
+  };
+
+  const handleCsvFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    clearFieldError("csvFile");
+    setProductSearchError("");
+    setProductsList([]);
+    setSearchResults(null);
+
+    try {
+      const text = await file.text();
+      const parsed =
+        editType === "csv-direct" ? parseCsvDirectRows(text) : parseCsvAllRows(text);
+
+      if (parsed.errors.length > 0) {
+        setCsvFileName(null);
+        setCsvRows([]);
+        setFieldErrors((current) => ({ ...current, csvFile: parsed.errors[0] }));
+        appBridge.toast.show(parsed.errors[0], { isError: true });
+        return;
+      }
+
+      setCsvFileName(file.name);
+      setCsvRows(parsed.rows);
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next.csvFile;
+        delete next.productSearch;
+        return next;
+      });
+    } catch (error) {
+      setCsvFileName(null);
+      setCsvRows([]);
+      appBridge.toast.show(error.message || "Failed to read CSV file.", { isError: true });
+    } finally {
+      e.target.value = "";
+    }
   };
 
   const handleSearch = () => {
@@ -904,12 +1058,22 @@ export default function NewTask() {
       matchType,
       conditions: JSON.stringify(conditions),
       collectionId: selectedCollectionId,
+      csvRows: JSON.stringify(csvRows),
     };
     fetcher.submit(payload, { method: "POST" });
   };
 
   const previewVariants = useMemo(() => {
     if (!productsList.length) return [];
+
+    const findCsvRow = (variant) =>
+      csvRows.find((row) => {
+        if (row.variantId && row.variantId === variant.id) return true;
+        return (
+          row.sku &&
+          String(row.sku).toLowerCase() === String(variant.sku || "").toLowerCase()
+        );
+      });
 
     const pricingParams = {
       changePrice,
@@ -948,6 +1112,25 @@ export default function NewTask() {
           variant.inventoryItem.unitCost.amount !== "";
         const originalCompare = hasCompare ? parseFloat(variant.compareAtPrice) : 0;
         const originalCost = hasCost ? parseFloat(variant.inventoryItem.unitCost.amount) : 0;
+        const csvRow = editType === "csv-direct" ? findCsvRow(variant) : null;
+
+        if (csvRow) {
+          items.push({
+            id: variant.id,
+            title: buildVariantDisplayTitle(product.title, variant.title),
+            imageUrl: variant.image?.url || product.featuredImage?.url || PLACEHOLDER_IMAGE,
+            currentPrice: originalPrice,
+            newPrice: csvRow.newPrice !== undefined ? csvRow.newPrice : originalPrice,
+            hasCompare: csvRow.newCompare !== undefined ? true : hasCompare,
+            currentCompare: originalCompare,
+            newCompare:
+              csvRow.newCompare !== undefined ? csvRow.newCompare : hasCompare ? originalCompare : null,
+            hasCost: csvRow.newCost !== undefined ? true : hasCost,
+            currentCost: originalCost,
+            newCost: csvRow.newCost !== undefined ? csvRow.newCost ?? 0 : originalCost,
+          });
+          continue;
+        }
 
         const result = calculateVariantPricing({
           ...pricingParams,
@@ -977,6 +1160,8 @@ export default function NewTask() {
     return items;
   }, [
     productsList,
+    csvRows,
+    editType,
     changePrice,
     percentType,
     percentValue,
@@ -1001,14 +1186,6 @@ export default function NewTask() {
     costFixedPriceAmount,
     costRoundCents,
   ]);
-
-  const handleCsvFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      clearFieldError("csvFile");
-      setCsvFileName(file.name);
-    }
-  };
 
   const handleTagToAddKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -1052,9 +1229,10 @@ export default function NewTask() {
     <s-page heading="New Task">
       {runFetcher.data && runFetcher.data.success && runFetcher.data.scheduled && (
         <s-banner tone="success">
-          Task "{runFetcher.data.taskName}" scheduled for {new Date(runFetcher.data.scheduledAt).toLocaleString()}
+          Task "{runFetcher.data.taskName}" scheduled for{" "}
+          {formatScheduleDateTime(runFetcher.data.scheduledAt, timezone)}
           {runFetcher.data.revertAt
-            ? ` with automatic revert at ${new Date(runFetcher.data.revertAt).toLocaleString()}.`
+            ? ` with automatic revert at ${formatScheduleDateTime(runFetcher.data.revertAt, timezone)}.`
             : "."}
         </s-banner>
       )}
@@ -1079,6 +1257,7 @@ export default function NewTask() {
           searchResults,
           selectedCollectionId,
           csvFileName,
+          csvRowCount: csvRows.length,
           changePrice,
           percentType,
           percentValue,
@@ -1123,8 +1302,6 @@ export default function NewTask() {
         }}
         handlers={{
           setEditType: handleEditTypeChange,
-          setSearchResults,
-          setCsvFileName,
           setSelectedCollectionId: handleCollectionChange,
           setMatchType,
           handleConditionChange,

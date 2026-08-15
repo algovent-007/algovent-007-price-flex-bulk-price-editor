@@ -5,6 +5,7 @@ import prisma from "../db.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { processDueTasksForShop } from "../services/scheduler.server";
 import { formatScheduleDateTime } from "../utils/schedule";
+import { getShopTimezone } from "../utils/shop-timezone.server";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -18,7 +19,10 @@ export const loader = async ({ request }) => {
     orderBy: { scheduledAt: "asc" },
   });
 
-  return Response.json({ tasks });
+  return Response.json({
+    tasks,
+    timezone: await getShopTimezone({ shop: session.shop, admin }),
+  });
 };
 
 export const action = async ({ request }) => {
@@ -76,7 +80,7 @@ function getTaskTypeLabel(actionData) {
 }
 
 export default function ScheduledTasks() {
-  const { tasks } = useLoaderData();
+  const { tasks, timezone } = useLoaderData();
   const fetcher = useFetcher();
   const revalidator = useRevalidator();
 
@@ -125,11 +129,13 @@ export default function ScheduledTasks() {
                       <s-badge tone="info">{getTaskTypeLabel(actionData)}</s-badge>
                     </s-table-cell>
                     <s-table-cell>
-                      <s-text color="subdued">{formatScheduleDateTime(task.scheduledAt)}</s-text>
+                      <s-text color="subdued">
+                        {formatScheduleDateTime(task.scheduledAt, timezone)}
+                      </s-text>
                     </s-table-cell>
                     <s-table-cell>
                       <s-text color="subdued">
-                        {task.revertAt ? formatScheduleDateTime(task.revertAt) : "—"}
+                        {task.revertAt ? formatScheduleDateTime(task.revertAt, timezone) : "—"}
                       </s-text>
                     </s-table-cell>
                     <s-table-cell>

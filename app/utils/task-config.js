@@ -12,6 +12,7 @@ export function getDefaultTaskConfigState(taskName = "") {
     searchResults: null,
     selectedCollectionId: "",
     csvFileName: null,
+    csvRowCount: 0,
     changePrice: "1",
     percentType: "1",
     percentValue: "",
@@ -63,13 +64,15 @@ export function getDefaultTaskConfigState(taskName = "") {
   };
 }
 
-export function buildTaskConfigState(task, actionData) {
+export function buildTaskConfigState(task, actionData, timeZone) {
   const payload = actionData?.runPayload;
   if (!payload) return null;
 
   const config = getDefaultTaskConfigState(task?.name || "");
 
   if (payload.editType) config.editType = payload.editType;
+  if (payload.csvFileName) config.csvFileName = payload.csvFileName;
+  if (Array.isArray(payload.csvRows)) config.csvRowCount = payload.csvRows.length;
   if (payload.matchType) config.matchType = payload.matchType;
   if (payload.conditionsStr) {
     try {
@@ -139,18 +142,20 @@ export function buildTaskConfigState(task, actionData) {
   config.scheduleRecurrenceDayOfWeek = actionData.scheduleRecurrenceDayOfWeek || "1";
   config.scheduleRecurrenceDayOfMonth = actionData.scheduleRecurrenceDayOfMonth || "1";
 
+  const scheduleTimezone = actionData?.scheduleTimezone || timeZone;
+
   if (task?.scheduledAt) {
     const scheduledAt = new Date(task.scheduledAt);
     config.startDate = scheduledAt;
-    config.startDateStr = formatDateMDY(scheduledAt);
-    config.startTimeStr = formatTime12Hour(scheduledAt);
+    config.startDateStr = formatDateMDY(scheduledAt, scheduleTimezone);
+    config.startTimeStr = formatTime12Hour(scheduledAt, scheduleTimezone);
   }
 
   if (task?.revertAt) {
     const revertAt = new Date(task.revertAt);
     config.revertDate = revertAt;
-    config.revertDateStr = formatDateMDY(revertAt);
-    config.revertTimeStr = formatTime12Hour(revertAt);
+    config.revertDateStr = formatDateMDY(revertAt, scheduleTimezone);
+    config.revertTimeStr = formatTime12Hour(revertAt, scheduleTimezone);
   }
 
   return config;

@@ -47,23 +47,24 @@ function ScheduleDateTimeFields({
   timeError = "",
   onClearDateError,
   onClearTimeError,
+  timeZone,
 }) {
   const rawModalId = useId();
   const modalId = `schedule-date-picker-${rawModalId.replace(/:/g, "")}`;
   const modalRef = useRef(null);
-  const [draftDateIso, setDraftDateIso] = useState(formatDateIso(selectedDate));
+  const [draftDateIso, setDraftDateIso] = useState(formatDateIso(selectedDate, timeZone));
 
   useEffect(() => {
-    setDraftDateIso(formatDateIso(selectedDate));
-  }, [selectedDate]);
+    setDraftDateIso(formatDateIso(selectedDate, timeZone));
+  }, [selectedDate, timeZone]);
 
   const openDatePicker = () => {
-    setDraftDateIso(formatDateIso(selectedDate));
+    setDraftDateIso(formatDateIso(selectedDate, timeZone));
     modalRef.current?.showOverlay?.();
   };
 
   const applyDate = () => {
-    const parsed = parseIsoDate(draftDateIso);
+    const parsed = parseIsoDate(draftDateIso, timeZone);
     if (parsed) onSelectDate(parsed);
     modalRef.current?.hideOverlay?.();
   };
@@ -107,7 +108,7 @@ function ScheduleDateTimeFields({
           id={modalId}
           ref={modalRef}
           heading={dateLabel}
-          onHide={() => setDraftDateIso(formatDateIso(selectedDate))}
+          onHide={() => setDraftDateIso(formatDateIso(selectedDate, timeZone))}
         >
           <s-date-picker
             type="single"
@@ -437,6 +438,7 @@ export default function ScheduleSettingsCard({
                       timeError={fieldErrors?.startTimeStr}
                       onClearDateError={() => clearFieldError?.("startDateStr")}
                       onClearTimeError={() => clearFieldError?.("startTimeStr")}
+                      timeZone={timezoneStr}
                     />
                   ) : (
                     <ScheduleRecurringFields
@@ -487,6 +489,7 @@ export default function ScheduleSettingsCard({
                   timeError={fieldErrors?.revertTimeStr}
                   onClearDateError={() => clearFieldError?.("revertDateStr")}
                   onClearTimeError={() => clearFieldError?.("revertTimeStr")}
+                  timeZone={timezoneStr}
                 />
               )}
             </s-stack>

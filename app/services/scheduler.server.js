@@ -80,13 +80,16 @@ async function recoverStaleRunningTasks(shop) {
 }
 
 async function processScheduledEditTask({ admin, shop, task, actionData }) {
+  const scheduleTimezone = actionData.scheduleTimezone || null;
   const scheduleMeta = {
     scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
     scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek || "1",
     scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
     changePricesAtTime:
-      actionData.changePricesAtTime || formatTime12Hour(new Date(task.scheduledAt)),
+      actionData.changePricesAtTime ||
+      formatTime12Hour(new Date(task.scheduledAt), scheduleTimezone),
     revertEnabled: actionData.revertEnabled,
+    scheduleTimezone,
   };
 
   const isRecurring = !isOneTimeScheduleRecurrence(scheduleMeta.scheduleRecurrenceType);
@@ -126,6 +129,7 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
       scheduleRecurrenceDayOfWeek: scheduleMeta.scheduleRecurrenceDayOfWeek,
       scheduleRecurrenceDayOfMonth: scheduleMeta.scheduleRecurrenceDayOfMonth,
       now: new Date(),
+      timeZone: scheduleMeta.scheduleTimezone,
     });
 
     if (nextScheduledAt) {

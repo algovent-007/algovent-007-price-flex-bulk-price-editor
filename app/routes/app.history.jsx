@@ -7,7 +7,8 @@ import { startRollbackForTask } from "../services/rollback.server";
 import TaskLogsTable from "../components/TaskLogsTable";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
-import { buildTaskConfigState, canViewTaskConfiguration } from "../utils/task-config";
+import { getShopTimezone } from "../utils/shop-timezone.server";
+import { formatCurrentTimeInTimezone } from "../utils/schedule";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -43,7 +44,13 @@ export const loader = async ({ request }) => {
     console.error("Error fetching collections for task history:", err);
   }
 
-  return Response.json({ tasks, collections, locations, shopDomain: session.shop });
+  return Response.json({
+    tasks,
+    collections,
+    locations,
+    shopDomain: session.shop,
+    timezone: await getShopTimezone({ shop: session.shop, admin }),
+  });
 };
 
 export const action = async ({ request }) => {
@@ -92,7 +99,7 @@ export const action = async ({ request }) => {
 };
 
 export default function TasksHistory() {
-  const { tasks, collections, locations, shopDomain } = useLoaderData();
+  const { tasks, collections, locations, shopDomain, timezone } = useLoaderData();
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
@@ -211,8 +218,8 @@ export default function TasksHistory() {
   const detailsModalConfig = useMemo(() => {
     if (!detailsModalTask) return null;
     const actionData = getTaskMeta(detailsModalTask);
-    return buildTaskConfigState(detailsModalTask, actionData);
-  }, [detailsModalTask]);
+    return buildTaskConfigState(detailsModalTask, actionData, timezone);
+  }, [detailsModalTask, timezone]);
   const detailsModalActionData = detailsModalTask ? getTaskMeta(detailsModalTask) : {};
   const logsModalLogs = logsModalActionData.logs || [];
   const isLogsModalRollback = logsModalActionData.taskType === "rollback";
@@ -425,11 +432,8 @@ export default function TasksHistory() {
               collections={collections}
               locations={locations}
               values={detailsModalConfig}
-              timezoneStr={Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"}
-              currentTimeStr={new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              timezoneStr={timezone}
+              currentTimeStr={formatCurrentTimeInTimezone(timezone)}
             />
           </s-stack>
         )}

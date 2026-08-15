@@ -1,22 +1,50 @@
-export function parseDateString(dateStr) {
+const WEEKDAY_FROM_SHORT = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+export function parseDateStringParts(dateStr) {
   const parts = String(dateStr || "").trim().split("/");
   if (parts.length !== 3) return null;
 
-  const month = parseInt(parts[0], 10) - 1;
+  const month = parseInt(parts[0], 10);
   const day = parseInt(parts[1], 10);
   const year = parseInt(parts[2], 10);
 
-  if (month < 0 || month > 11 || day < 1 || day > 31 || year < 2000) {
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000) {
     return null;
   }
 
-  const date = new Date(year, month, day);
-  if (Number.isNaN(date.getTime())) return null;
-  if (date.getMonth() !== month || date.getDate() !== day || date.getFullYear() !== year) {
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    Number.isNaN(probe.getTime()) ||
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
     return null;
   }
 
-  return date;
+  return { year, month, day };
+}
+
+export function parseDateString(dateStr, timeZone) {
+  const parts = parseDateStringParts(dateStr);
+  if (!parts) return null;
+
+  return wallClockToDate({
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hours: 0,
+    minutes: 0,
+    timeZone,
+  });
 }
 
 export function parseTimeString(timeStr) {
@@ -38,13 +66,111 @@ export function parseTimeString(timeStr) {
   return { hours, minutes };
 }
 
-export function parseScheduleDateTime(dateStr, timeStr) {
-  const date = parseDateString(dateStr);
-  const time = parseTimeString(timeStr);
-  if (!date || !time) return null;
+export function getZonedDateTimeParts(date, timeZone) {
+  if (!timeZone) {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hours: date.getHours(),
+      minutes: date.getMinutes(),
+      seconds: date.getSeconds(),
+      weekday: date.getDay(),
+    };
+  }
 
-  date.setHours(time.hours, time.minutes, 0, 0);
-  return date;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    weekday: "short",
+    hour12: false,
+  });
+
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+
+  let hours = parseInt(parts.hour, 10);
+  if (hours === 24) hours = 0;
+
+  return {
+    year: parseInt(parts.year, 10),
+    month: parseInt(parts.month, 10),
+    day: parseInt(parts.day, 10),
+    hours,
+    minutes: parseInt(parts.minute, 10),
+    seconds: parseInt(parts.second, 10),
+    weekday: WEEKDAY_FROM_SHORT[parts.weekday] ?? 0,
+  };
+}
+
+export function wallClockToDate({
+  year,
+  month,
+  day,
+  hours = 0,
+  minutes = 0,
+  seconds = 0,
+  timeZone,
+}) {
+  if (!timeZone) {
+    const date = new Date(year, month - 1, day, hours, minutes, seconds, 0);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  let utcMs = Date.UTC(year, month - 1, day, hours, minutes, seconds, 0);
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const zoned = getZonedDateTimeParts(new Date(utcMs), timeZone);
+    const desired = Date.UTC(year, month - 1, day, hours, minutes, seconds, 0);
+    const actual = Date.UTC(
+      zoned.year,
+      zoned.month - 1,
+      zoned.day,
+      zoned.hours,
+      zoned.minutes,
+      zoned.seconds
+    );
+    const diff = desired - actual;
+    if (diff === 0) break;
+    utcMs += diff;
+  }
+
+  const result = new Date(utcMs);
+  return Number.isNaN(result.getTime()) ? null : result;
+}
+
+function addCalendarDays({ year, month, day }, days) {
+  const next = new Date(Date.UTC(year, month - 1, day));
+  next.setUTCDate(next.getUTCDate() + days);
+  return {
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate(),
+  };
+}
+
+export function parseScheduleDateTime(dateStr, timeStr, timeZone) {
+  const parts = parseDateStringParts(dateStr);
+  const time = parseTimeString(timeStr);
+  if (!parts || !time) return null;
+
+  return wallClockToDate({
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hours: time.hours,
+    minutes: time.minutes,
+    timeZone,
+  });
 }
 
 export const SCHEDULE_RECURRENCE_OPTIONS = [
@@ -73,56 +199,108 @@ export function isOneTimeScheduleRecurrence(recurrenceType) {
   return !recurrenceType || recurrenceType === "one_time";
 }
 
-function getNextDailyOccurrence(time, now) {
-  const scheduledAt = new Date(now);
-  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+function getNextDailyOccurrence(time, now, timeZone) {
+  const zonedNow = getZonedDateTimeParts(now, timeZone);
+  let { year, month, day } = zonedNow;
+
+  let scheduledAt = wallClockToDate({
+    year,
+    month,
+    day,
+    hours: time.hours,
+    minutes: time.minutes,
+    timeZone,
+  });
 
   if (scheduledAt <= now) {
-    scheduledAt.setDate(scheduledAt.getDate() + 1);
+    ({ year, month, day } = addCalendarDays({ year, month, day }, 1));
+    scheduledAt = wallClockToDate({
+      year,
+      month,
+      day,
+      hours: time.hours,
+      minutes: time.minutes,
+      timeZone,
+    });
   }
 
   return scheduledAt;
 }
 
-function getNextWeeklyOccurrence(dayOfWeek, time, now) {
+function getNextWeeklyOccurrence(dayOfWeek, time, now, timeZone) {
   const targetDay = parseInt(dayOfWeek, 10);
   if (Number.isNaN(targetDay) || targetDay < 0 || targetDay > 6) return null;
 
-  const scheduledAt = new Date(now);
-  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+  const zonedNow = getZonedDateTimeParts(now, timeZone);
+  let { year, month, day } = zonedNow;
+  let daysUntil = (targetDay - zonedNow.weekday + 7) % 7;
 
-  let daysUntil = (targetDay - scheduledAt.getDay() + 7) % 7;
-  if (daysUntil === 0 && scheduledAt <= now) {
-    daysUntil = 7;
+  if (daysUntil === 0) {
+    const scheduledAt = wallClockToDate({
+      year,
+      month,
+      day,
+      hours: time.hours,
+      minutes: time.minutes,
+      timeZone,
+    });
+    if (scheduledAt <= now) {
+      daysUntil = 7;
+    }
   }
-  scheduledAt.setDate(scheduledAt.getDate() + daysUntil);
-  return scheduledAt;
+
+  if (daysUntil > 0) {
+    ({ year, month, day } = addCalendarDays({ year, month, day }, daysUntil));
+  }
+
+  return wallClockToDate({
+    year,
+    month,
+    day,
+    hours: time.hours,
+    minutes: time.minutes,
+    timeZone,
+  });
 }
 
 function getValidDayOfMonth(year, month, targetDay) {
-  const lastDay = new Date(year, month + 1, 0).getDate();
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return Math.min(targetDay, lastDay);
 }
 
-function getNextMonthlyOccurrence(dayOfMonth, time, now) {
+function getNextMonthlyOccurrence(dayOfMonth, time, now, timeZone) {
   const targetDate = parseInt(dayOfMonth, 10);
   if (Number.isNaN(targetDate) || targetDate < 1 || targetDate > 31) return null;
 
-  let year = now.getFullYear();
-  let month = now.getMonth();
+  const zonedNow = getZonedDateTimeParts(now, timeZone);
+  let year = zonedNow.year;
+  let month = zonedNow.month;
   let day = getValidDayOfMonth(year, month, targetDate);
-  let scheduledAt = new Date(year, month, day);
-  scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+
+  let scheduledAt = wallClockToDate({
+    year,
+    month,
+    day,
+    hours: time.hours,
+    minutes: time.minutes,
+    timeZone,
+  });
 
   if (scheduledAt <= now) {
     month += 1;
-    if (month > 11) {
-      month = 0;
+    if (month > 12) {
+      month = 1;
       year += 1;
     }
     day = getValidDayOfMonth(year, month, targetDate);
-    scheduledAt = new Date(year, month, day);
-    scheduledAt.setHours(time.hours, time.minutes, 0, 0);
+    scheduledAt = wallClockToDate({
+      year,
+      month,
+      day,
+      hours: time.hours,
+      minutes: time.minutes,
+      timeZone,
+    });
   }
 
   return scheduledAt;
@@ -135,24 +313,25 @@ export function computeScheduledAt({
   scheduleRecurrenceDayOfWeek,
   scheduleRecurrenceDayOfMonth,
   now,
+  timeZone,
 }) {
   const time = parseTimeString(changePricesAtTime);
   if (!time) return null;
 
   if (isOneTimeScheduleRecurrence(recurrenceType)) {
-    return parseScheduleDateTime(changePricesAtDate, changePricesAtTime);
+    return parseScheduleDateTime(changePricesAtDate, changePricesAtTime, timeZone);
   }
 
   if (recurrenceType === "daily") {
-    return getNextDailyOccurrence(time, now);
+    return getNextDailyOccurrence(time, now, timeZone);
   }
 
   if (recurrenceType === "weekly") {
-    return getNextWeeklyOccurrence(scheduleRecurrenceDayOfWeek, time, now);
+    return getNextWeeklyOccurrence(scheduleRecurrenceDayOfWeek, time, now, timeZone);
   }
 
   if (recurrenceType === "monthly") {
-    return getNextMonthlyOccurrence(scheduleRecurrenceDayOfMonth, time, now);
+    return getNextMonthlyOccurrence(scheduleRecurrenceDayOfMonth, time, now, timeZone);
   }
 
   return null;
@@ -168,6 +347,7 @@ export function validateScheduleConfig({
   revertPrices,
   revertPricesAtDate,
   revertPricesAtTime,
+  timeZone,
 }) {
   const errors = [];
   const fieldErrors = {};
@@ -189,7 +369,7 @@ export function validateScheduleConfig({
     if (oneTime) {
       if (!String(changePricesAtDate ?? "").trim()) {
         addError("startDateStr", "Enter a start date.");
-      } else if (!parseDateString(changePricesAtDate)) {
+      } else if (!parseDateStringParts(changePricesAtDate)) {
         addError("startDateStr", "Enter a valid start date.");
       }
     }
@@ -227,6 +407,7 @@ export function validateScheduleConfig({
       scheduleRecurrenceDayOfWeek,
       scheduleRecurrenceDayOfMonth,
       now,
+      timeZone,
     });
 
     if (oneTime) {
@@ -250,7 +431,7 @@ export function validateScheduleConfig({
   if (revertPrices === "true" || revertPrices === true) {
     if (!String(revertPricesAtDate ?? "").trim()) {
       addError("revertDateStr", "Enter a revert date.");
-    } else if (!parseDateString(revertPricesAtDate)) {
+    } else if (!parseDateStringParts(revertPricesAtDate)) {
       addError("revertDateStr", "Enter a valid revert date.");
     }
 
@@ -260,7 +441,7 @@ export function validateScheduleConfig({
       addError("revertTimeStr", "Enter a valid revert time.");
     }
 
-    revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime);
+    revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime, timeZone);
     if (
       String(revertPricesAtDate ?? "").trim() &&
       String(revertPricesAtTime ?? "").trim() &&
@@ -277,64 +458,94 @@ export function validateScheduleConfig({
   return { errors, fieldErrors, scheduledAt, revertAt };
 }
 
-export function formatScheduleDateTime(date) {
+export function formatScheduleDateTime(date, timeZone) {
   if (!date) return "";
   try {
-    return new Date(date).toLocaleString();
+    return new Date(date).toLocaleString(undefined, timeZone ? { timeZone } : undefined);
   } catch {
     return String(date);
   }
 }
 
-export function formatDateMDY(date) {
-  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+export function formatDateMDY(date, timeZone) {
+  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  return `${parts.month}/${parts.day}/${parts.year}`;
 }
 
-export function formatDateIso(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+export function formatDateIso(date, timeZone) {
+  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  const month = String(parts.month).padStart(2, "0");
+  const day = String(parts.day).padStart(2, "0");
+  return `${parts.year}-${month}-${day}`;
 }
 
-export function parseIsoDate(iso) {
+export function parseIsoDate(iso, timeZone) {
   const parts = String(iso || "").trim().split("-");
   if (parts.length !== 3) return null;
 
   const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
+  const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
 
-  if (month < 0 || month > 11 || day < 1 || day > 31 || year < 2000) {
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 2000) {
     return null;
   }
 
-  const date = new Date(year, month, day);
-  if (Number.isNaN(date.getTime())) return null;
-  if (date.getMonth() !== month || date.getDate() !== day || date.getFullYear() !== year) {
-    return null;
-  }
-
-  return date;
+  return wallClockToDate({
+    year,
+    month,
+    day,
+    hours: 0,
+    minutes: 0,
+    timeZone,
+  });
 }
 
-export function formatTime12Hour(date) {
-  let hours = date.getHours();
-  const minutes = date.getMinutes();
+export function formatTime12Hour(date, timeZone) {
+  const parts = getZonedDateTimeParts(new Date(date), timeZone);
+  let hours = parts.hours;
+  const minutes = parts.minutes;
   const meridiem = hours >= 12 ? "PM" : "AM";
   hours = hours % 12;
   if (hours === 0) hours = 12;
   return `${hours}:${String(minutes).padStart(2, "0")} ${meridiem}`;
 }
 
-export function getDefaultScheduleDateTime(minutesFromNow = 60) {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() + minutesFromNow, 0, 0);
-  return date;
+export function formatCurrentTimeInTimezone(timeZone) {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+  } catch {
+    return "";
+  }
 }
 
-export function getDefaultRevertDateTime(startDate, hoursAfter = 24) {
-  const date = new Date(startDate);
-  date.setHours(date.getHours() + hoursAfter);
-  return date;
+export function getDefaultScheduleDateTime(minutesFromNow = 60, timeZone) {
+  const target = new Date(Date.now() + minutesFromNow * 60 * 1000);
+  const parts = getZonedDateTimeParts(target, timeZone);
+  return wallClockToDate({
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hours: parts.hours,
+    minutes: parts.minutes,
+    timeZone,
+  });
+}
+
+export function getDefaultRevertDateTime(startDate, hoursAfter = 24, timeZone) {
+  const target = new Date(new Date(startDate).getTime() + hoursAfter * 60 * 60 * 1000);
+  const parts = getZonedDateTimeParts(target, timeZone);
+  return wallClockToDate({
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hours: parts.hours,
+    minutes: parts.minutes,
+    timeZone,
+  });
 }

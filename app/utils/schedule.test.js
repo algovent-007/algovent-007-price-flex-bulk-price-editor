@@ -3,6 +3,8 @@ import {
   computeScheduledAt,
   parseScheduleDateTime,
   validateScheduleConfig,
+  formatDateMDY,
+  formatTime12Hour,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -198,6 +200,26 @@ test("validateScheduleConfig skips schedule fields when running now", () => {
   });
 
   assert.equal(result.errors.length, 0);
+});
+
+test("one-time schedule respects shop timezone", () => {
+  const scheduledAt = parseScheduleDateTime("7/11/2026", "04:34 PM", "Asia/Kolkata");
+  assert.ok(scheduledAt);
+  assert.equal(formatDateMDY(scheduledAt, "Asia/Kolkata"), "7/11/2026");
+  assert.equal(formatTime12Hour(scheduledAt, "Asia/Kolkata"), "4:34 PM");
+});
+
+test("daily schedule uses shop timezone for next occurrence", () => {
+  const now = new Date("2026-07-18T06:00:00.000Z"); // 11:30 AM IST
+  const scheduledAt = computeScheduledAt({
+    recurrenceType: "daily",
+    changePricesAtTime: "04:30 PM",
+    now,
+    timeZone: "Asia/Kolkata",
+  });
+
+  assert.equal(formatDateMDY(scheduledAt, "Asia/Kolkata"), "7/18/2026");
+  assert.equal(formatTime12Hour(scheduledAt, "Asia/Kolkata"), "4:30 PM");
 });
 
 console.log("All schedule tests passed.");
