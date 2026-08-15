@@ -65,6 +65,7 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
   const [searchQuery, setSearchQuery] = useState("");
   const rawModalId = useId();
   const modalId = `price-change-preview-${rawModalId.replace(/:/g, "")}`;
+  const tooltipId = `price-preview-help-${rawModalId.replace(/:/g, "")}`;
   const modalRef = useRef(null);
   const tableId = useId().replace(/:/g, "");
   const trimmedSearchQuery = searchQuery.trim().toLowerCase();
@@ -139,9 +140,9 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
       onHide={handleHide}
     >
       <s-stack direction="block" gap="base">
-        <s-stack direction="inline" gap="small" alignItems="center">
-          <s-icon type="info" interestFor="price-preview-help" />
-          <s-tooltip id="price-preview-help">
+        <s-stack direction="inline" gap="small-100" alignItems="center">
+          <s-icon type="info" interestFor={tooltipId} />
+          <s-tooltip id={tooltipId}>
             Preview of price changes based on your current pricing rules
           </s-tooltip>
         </s-stack>
@@ -154,16 +155,15 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
 
         {previewVariants.length > 0 && (
           <>
-            <s-stack direction="inline" gap="base" alignItems="end">
-              <s-box inlineSize="100%">
-                <s-search-field
-                  label="Search preview"
-                  labelAccessibilityVisibility="exclusive"
-                  placeholder="Search products or variants..."
-                  value={searchQuery}
-                  onInput={(e) => setSearchQuery(e.target.value)}
-                />
-              </s-box>
+            <s-search-field
+              label="Search preview"
+              labelAccessibilityVisibility="exclusive"
+              placeholder="Search products or variants..."
+              value={searchQuery}
+              onInput={(e) => setSearchQuery(e.target.value)}
+            />
+
+            <s-stack direction="inline" justifyContent="start">
               <s-button
                 variant="secondary"
                 onClick={handleExportCsv}
@@ -207,17 +207,17 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
                         </s-table-cell>
                         <s-table-cell>{formatCurrency(variant.currentPrice)}</s-table-cell>
                         <s-table-cell>
-                          <s-stack direction="inline" gap="small-100">
-                            {priceChanged && (
-                              <>
-                                <s-text color="subdued" type="redundant">
-                                  {formatCurrency(variant.currentPrice)}
-                                </s-text>
-                                <s-text color="subdued">→</s-text>
-                              </>
-                            )}
-                            <s-text type="strong">{formatCurrency(variant.newPrice)}</s-text>
-                          </s-stack>
+                          {priceChanged ? (
+                            <s-stack direction="inline" gap="small-100">
+                              <s-text color="subdued" type="redundant">
+                                {formatCurrency(variant.currentPrice)}
+                              </s-text>
+                              <s-text color="subdued">→</s-text>
+                              <s-text type="strong">{formatCurrency(variant.newPrice)}</s-text>
+                            </s-stack>
+                          ) : (
+                            <s-text>{formatCurrency(variant.newPrice)}</s-text>
+                          )}
                         </s-table-cell>
                       </s-table-row>
                     );
