@@ -28,15 +28,19 @@ export default function TaskProgressCard({ task }) {
   if (!task) return null;
 
   const actionData = parseActionDetails(task);
-  const processedProducts = Number(actionData.processedProductsCount ?? 0);
-  const totalProducts = Number(task.totalItems || 0);
+  const isCsvTask =
+    actionData.editType === "csv-all" || actionData.editType === "csv-direct";
+  const processedCount = isCsvTask
+    ? Number(task.processedItems ?? 0)
+    : Number(actionData.processedProductsCount ?? 0);
+  const totalCount = Number(task.totalItems || 0);
   const updatedProducts = Number(actionData.updatedProductsCount ?? 0);
   const successCount = Number(actionData.successCount ?? actionData.updatedVariantsCount ?? task.processedItems ?? 0);
   const failureCount = Number(actionData.failureCount ?? (task.status === "failed" ? 1 : 0));
   const warnings = Array.isArray(actionData.warnings) ? actionData.warnings : [];
   const progressValue =
-    totalProducts > 0
-      ? Math.min(100, Math.round((processedProducts / totalProducts) * 100))
+    totalCount > 0
+      ? Math.min(100, Math.round((processedCount / totalCount) * 100))
       : isTaskTerminal(task.status)
         ? 100
         : 0;
@@ -86,9 +90,9 @@ export default function TaskProgressCard({ task }) {
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap="base">
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="small-100">
-              <s-text color="subdued">Products processed</s-text>
+              <s-text color="subdued">{isCsvTask ? "Variants processed" : "Products processed"}</s-text>
               <s-text type="strong">
-                {processedProducts} / {totalProducts}
+                {processedCount} / {totalCount}
               </s-text>
             </s-stack>
           </s-box>
@@ -116,6 +120,13 @@ export default function TaskProgressCard({ task }) {
 
         {actionData.error && (
           <s-banner tone="critical">{actionData.error}</s-banner>
+        )}
+
+        {warnings.length > 0 && (
+          <s-banner tone="warning">
+            {warnings.slice(0, 3).join(" ")}
+            {warnings.length > 3 ? ` (+${warnings.length - 3} more)` : ""}
+          </s-banner>
         )}
 
         {isTaskTerminal(task.status) && (

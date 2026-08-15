@@ -3,9 +3,9 @@ import CollectionCard from "./CollectionCard";
 import CsvUploadCard from "./CsvUploadCard";
 import ScheduleSettingsCard from "./ScheduleSettingsCard";
 import AdvancedSettingsCard from "./AdvancedSettingsCard";
-import PriceChangePreview from "./PriceChangePreview";
 import { createNumericInputHandlers } from "../../utils/numeric-input";
 import { EDIT_TYPE_OPTIONS, isCsvEditType } from "./constants";
+import styles from "./ProductSelectionSection.module.css";
 
 export default function TaskConfigurationForm({
   readOnly = false,
@@ -19,7 +19,6 @@ export default function TaskConfigurationForm({
   productSearchError = "",
   fieldErrors = {},
   clearFieldError,
-  previewVariants = [],
   timezoneStr = "",
   hasSavedTimezone = true,
   currentTimeStr = "",
@@ -28,7 +27,6 @@ export default function TaskConfigurationForm({
     editType,
     matchType,
     conditions,
-    searchResults,
     selectedCollectionId,
     csvFileName,
     csvRowCount,
@@ -146,25 +144,40 @@ export default function TaskConfigurationForm({
       {/* Section 1: Select Products */}
       <s-section heading="1. Select the products that you want to edit">
         <s-stack direction="block" gap="loose">
-          <s-select
-            label="Select the products that you want to edit"
-            value={editType || "all"}
-            disabled={readOnly}
-            onInput={
-              readOnly
-                ? undefined
-                : (e) => {
-                    const next = e.target?.value;
-                    if (next) setEditType(next);
-                  }
-            }
-          >
-            {EDIT_TYPE_OPTIONS.map((option) => (
-              <s-option key={option.value} value={option.value}>
-                {option.label}
-              </s-option>
-            ))}
-          </s-select>
+          <div className={styles.productSelectionRow}>
+            <div className={styles.productSelectionChoices}>
+              <s-choice-list
+                name="edit_type"
+                label="Select the products that you want to edit"
+                labelAccessibilityVisibility="exclusive"
+                variant="list"
+                values={[editType || "all"]}
+                disabled={readOnly}
+                onInput={
+                  readOnly
+                    ? undefined
+                    : (e) => {
+                        const next = e.currentTarget?.values?.[0] ?? e.target?.value;
+                        if (next && next !== editType) setEditType(next);
+                      }
+                }
+              >
+                {EDIT_TYPE_OPTIONS.map((option) => (
+                  <s-choice key={option.value} value={option.value}>
+                    {option.label}
+                  </s-choice>
+                ))}
+              </s-choice-list>
+            </div>
+
+            {!readOnly && editType === "all" && (
+              <div className={styles.productSelectionAction}>
+                <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
+                  Search For Products
+                </s-button>
+              </div>
+            )}
+          </div>
 
           {!readOnly && productSearchError && (
             <s-banner tone="critical">{productSearchError}</s-banner>
@@ -181,8 +194,6 @@ export default function TaskConfigurationForm({
               removeCondition={readOnly ? undefined : removeCondition}
               handleSearch={readOnly ? undefined : handleSearch}
               isSearching={isSearching}
-              searchResults={searchResults}
-              previewVariants={previewVariants}
               locations={locations}
               collections={collections}
               fieldErrors={fieldErrors}
@@ -198,8 +209,6 @@ export default function TaskConfigurationForm({
               setSelectedCollectionId={readOnly ? undefined : setSelectedCollectionId}
               handleSearch={readOnly ? undefined : handleSearch}
               isSearching={isSearching}
-              searchResults={searchResults}
-              previewVariants={previewVariants}
               fieldErrors={fieldErrors}
               clearFieldError={clearFieldError}
             />
@@ -232,28 +241,8 @@ export default function TaskConfigurationForm({
                   </s-button>
                 </s-stack>
               )}
-              {searchResults && (
-                <PriceChangePreview previewVariants={previewVariants} visible />
-              )}
             </>
           )}
-
-          {editType !== "conditions" &&
-            !isCsvEditType(editType) &&
-            editType !== "collection" && (
-              <s-stack direction="block" gap="base">
-                {!readOnly && (
-                  <s-stack direction="inline" justifyContent="end">
-                    <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                      Search For Products
-                    </s-button>
-                  </s-stack>
-                )}
-                {searchResults && (
-                  <PriceChangePreview previewVariants={previewVariants} visible />
-                )}
-              </s-stack>
-            )}
         </s-stack>
       </s-section>
 

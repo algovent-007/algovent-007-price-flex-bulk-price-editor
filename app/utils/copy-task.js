@@ -41,6 +41,8 @@ export function applyStoredTaskCopy(copyData, setters) {
     setMatchType,
     setConditions,
     setSelectedCollectionId,
+    setCsvFileName,
+    setCsvRows,
     setChangePrice,
     setPercentType,
     setPercentValue,
@@ -73,6 +75,8 @@ export function applyStoredTaskCopy(copyData, setters) {
   } = setters;
 
   if (payload.editType) setEditType(payload.editType);
+  if (payload.csvFileName) setCsvFileName(payload.csvFileName);
+  if (Array.isArray(payload.csvRows)) setCsvRows(payload.csvRows);
   if (payload.matchType) setMatchType(payload.matchType);
   if (payload.conditionsStr) {
     try {

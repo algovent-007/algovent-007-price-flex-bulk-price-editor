@@ -49,11 +49,12 @@ model Task {
 }
 
 model ShopSettings {
-  shop      String   @id
-  name      String?
-  email     String?
-  timezone  String?
-  updatedAt DateTime @updatedAt
+  shop                     String   @id
+  name                     String?
+  email                    String?
+  timezone                 String?
+  taskFinishedEmailEnabled Boolean  @default(false)
+  updatedAt                DateTime @updatedAt
 }
 
 model Subscription {

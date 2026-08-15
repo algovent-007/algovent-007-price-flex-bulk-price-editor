@@ -6,6 +6,7 @@ import {
   PRODUCT_CONDITION_FIELDS,
   PRODUCT_CONDITION_VARIANT_FIELDS,
 } from "../utils/product-conditions";
+import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
 
 export { buildProductQuery, filterProductsByConditions };
 
@@ -170,6 +171,11 @@ export async function fetchProductsByQuery(
 }
 
 export async function executePriceEditTask({ admin, taskId, runPayload }) {
+  if (runPayload.editType === "csv-all" || runPayload.editType === "csv-direct") {
+    const { executeCsvPriceEditTask } = await import("./csv-bulk-edit.server");
+    return executeCsvPriceEditTask({ admin, taskId, runPayload });
+  }
+
   const shopifyQuery = async (query, variables = {}) => {
     const response = await admin.graphql(query, { variables });
     const json = await response.json();
@@ -243,6 +249,12 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
       where: { id: taskId },
       data: updateData,
     });
+
+    if (status === "completed" || status === "failed") {
+      void notifyTaskFinishedIfEnabled(taskId).catch((error) => {
+        console.error(`Failed to send task finished email for ${taskId}:`, error);
+      });
+    }
   };
 
   await prisma.task.update({

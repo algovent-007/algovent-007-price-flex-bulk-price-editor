@@ -1,4 +1,3 @@
-import PriceChangePreview from "./PriceChangePreview";
 import { getFieldValue } from "../../utils/numeric-input";
 import ConditionDateValueField from "./ConditionDateValueField";
 import ConditionMetafieldValueField from "./ConditionMetafieldValueField";
@@ -44,8 +43,6 @@ export default function ConditionsCard({
   removeCondition,
   handleSearch,
   isSearching,
-  searchResults,
-  previewVariants,
   locations = [],
   collections = [],
   fieldErrors = {},
@@ -339,10 +336,6 @@ export default function ConditionsCard({
               </s-button>
             </s-stack>
           </>
-        )}
-
-        {searchResults && (
-          <PriceChangePreview previewVariants={previewVariants} visible />
         )}
       </s-stack>
     </s-box>

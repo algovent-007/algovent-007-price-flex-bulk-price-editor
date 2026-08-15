@@ -3,53 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import prisma from "../db.server";
-
-async function getShopSettings(shop) {
-  if (prisma.shopSettings) {
-    return prisma.shopSettings.findUnique({ where: { shop } });
-  }
-
-  const rows = await prisma.$queryRaw`
-    SELECT "name", "email", "timezone"
-    FROM "ShopSettings"
-    WHERE "shop" = ${shop}
-    LIMIT 1
-  `;
-
-  return rows[0] || null;
-}
-
-async function saveShopSettings({ shop, name, email, timezone }) {
-  if (prisma.shopSettings) {
-    return prisma.shopSettings.upsert({
-      where: { shop },
-      create: {
-        shop,
-        name,
-        email,
-        timezone,
-      },
-      update: {
-        name,
-        email,
-        timezone,
-      },
-    });
-  }
-
-  await prisma.$executeRaw`
-    INSERT INTO "ShopSettings" ("shop", "name", "email", "timezone", "updatedAt")
-    VALUES (${shop}, ${name}, ${email}, ${timezone}, NOW())
-    ON CONFLICT ("shop") DO UPDATE SET
-      "name" = EXCLUDED."name",
-      "email" = EXCLUDED."email",
-      "timezone" = EXCLUDED."timezone",
-      "updatedAt" = NOW()
-  `;
-
-  return { name, email, timezone };
-}
+import { getShopSettings, saveShopSettings } from "../models/shop-settings.server";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);

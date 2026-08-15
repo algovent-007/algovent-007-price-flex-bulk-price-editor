@@ -1,13 +1,15 @@
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
-import { useLoaderData, useNavigate, useRevalidator, useSearchParams } from "react-router";
+import { useFetcher, useLoaderData, useNavigate, useRevalidator, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import prisma from "../db.server";
 import TaskProgressCard, { isTaskTerminal } from "../components/TaskProgressCard";
 import HomeGetStartedBanner from "../components/HomeGetStartedBanner";
 import HomeEmptyState from "../components/HomeEmptyState";
 import HomePageFooter from "../components/HomePageFooter";
-import { APP_NAME } from "../constants/branding";
+import HomeSidebar from "../components/HomeSidebar";
+import { getShopSettings, setTaskFinishedEmailEnabled } from "../models/shop-settings.server";
 import styles from "../components/HomePage.module.css";
 
 const EXECUTING_TASK_STATUSES = ["running"];
@@ -18,6 +20,7 @@ export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const taskId = url.searchParams.get("taskId");
+  const settings = await getShopSettings(session.shop);
 
   const activeTask = taskId
     ? await prisma.task.findFirst({
@@ -43,7 +46,28 @@ export const loader = async ({ request }) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return Response.json({ activeTask, lastCompletedTask });
+  return Response.json({
+    activeTask,
+    lastCompletedTask,
+    taskFinishedEmailEnabled: Boolean(settings?.taskFinishedEmailEnabled),
+  });
+};
+
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "update_task_finished_email") {
+    const enabled = formData.get("enabled") === "true";
+    await setTaskFinishedEmailEnabled(session.shop, enabled);
+    return Response.json({
+      success: true,
+      taskFinishedEmailEnabled: enabled,
+    });
+  }
+
+  return Response.json({ success: false, error: "Unknown action." }, { status: 400 });
 };
 
 function readGetStartedDismissed() {
@@ -52,13 +76,20 @@ function readGetStartedDismissed() {
 }
 
 export default function Index() {
-  const { activeTask, lastCompletedTask } = useLoaderData();
+  const { activeTask, lastCompletedTask, taskFinishedEmailEnabled } = useLoaderData();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const appBridge = useAppBridge();
+  const settingsFetcher = useFetcher();
   const [searchParams] = useSearchParams();
   const [getStartedDismissed, setGetStartedDismissed] = useState(readGetStartedDismissed);
+  const [emailEnabled, setEmailEnabled] = useState(taskFinishedEmailEnabled);
   const taskId = searchParams.get("taskId");
   const shouldPoll = activeTask && !isTaskTerminal(activeTask.status);
+
+  useEffect(() => {
+    setEmailEnabled(taskFinishedEmailEnabled);
+  }, [taskFinishedEmailEnabled]);
 
   useEffect(() => {
     const storedTaskId = localStorage.getItem("price_flex_active_task_id");
@@ -86,6 +117,24 @@ export default function Index() {
     return () => clearInterval(interval);
   }, [revalidator, shouldPoll]);
 
+  useEffect(() => {
+    if (settingsFetcher.state !== "idle" || !settingsFetcher.data) return;
+
+    if (settingsFetcher.data.success) {
+      setEmailEnabled(settingsFetcher.data.taskFinishedEmailEnabled);
+      appBridge.toast.show(
+        settingsFetcher.data.taskFinishedEmailEnabled
+          ? "Task finished emails enabled"
+          : "Task finished emails disabled",
+      );
+      return;
+    }
+
+    if (settingsFetcher.data.error) {
+      appBridge.toast.show(settingsFetcher.data.error, { isError: true });
+    }
+  }, [appBridge, settingsFetcher.data, settingsFetcher.state]);
+
   const handleCreateJob = () => navigate("/app/new");
 
   const handleDismissGetStarted = () => {
@@ -93,34 +142,58 @@ export default function Index() {
     localStorage.setItem(GET_STARTED_DISMISSED_KEY, "true");
   };
 
+  const handleTaskFinishedEmailChange = (event) => {
+    const nextEnabled = Boolean(event.currentTarget?.checked ?? event.target?.checked);
+    setEmailEnabled(nextEnabled);
+    settingsFetcher.submit(
+      {
+        intent: "update_task_finished_email",
+        enabled: String(nextEnabled),
+      },
+      { method: "POST" },
+    );
+  };
+
   return (
-    <s-page heading={APP_NAME} inlineSize="base">
-      <div className={styles.pageStack}>
-        {!getStartedDismissed && (
+    <s-page heading="Current" inlineSize="base">
+      <div className={styles.pageLayout}>
+        <div className={styles.mainColumn}>
+          {!getStartedDismissed && (
+            <s-section>
+              <HomeGetStartedBanner
+                onDismiss={handleDismissGetStarted}
+                onCreateJob={handleCreateJob}
+              />
+            </s-section>
+          )}
+
           <s-section>
-            <HomeGetStartedBanner
-              onDismiss={handleDismissGetStarted}
-              onCreateJob={handleCreateJob}
-            />
+            {activeTask ? (
+              <TaskProgressCard task={activeTask} />
+            ) : (
+              <HomeEmptyState onCreateJob={handleCreateJob} />
+            )}
           </s-section>
-        )}
 
-        <s-section>
-          {activeTask ? <TaskProgressCard task={activeTask} /> : <HomeEmptyState onCreateJob={handleCreateJob} />}
-        </s-section>
+          {lastCompletedTask && !activeTask && (
+            <s-section>
+              <s-paragraph>
+                Last completed task:{" "}
+                <s-link href="/app/history">
+                  {lastCompletedTask.name} ({lastCompletedTask.processedItems} items)
+                </s-link>
+              </s-paragraph>
+            </s-section>
+          )}
 
-        {lastCompletedTask && !activeTask && (
-          <s-section>
-            <s-paragraph>
-              Last completed task:{" "}
-              <s-link href="/app/history">
-                {lastCompletedTask.name} ({lastCompletedTask.processedItems} items)
-              </s-link>
-            </s-paragraph>
-          </s-section>
-        )}
+          <HomePageFooter />
+        </div>
 
-        <HomePageFooter />
+        <HomeSidebar
+          taskFinishedEmailEnabled={emailEnabled}
+          onTaskFinishedEmailChange={handleTaskFinishedEmailChange}
+          isSaving={settingsFetcher.state !== "idle"}
+        />
       </div>
     </s-page>
   );

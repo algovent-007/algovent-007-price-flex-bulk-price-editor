@@ -100,3 +100,29 @@
   flex-direction: column;
   gap: 16px;
 }
+
+.pageLayout {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .pageLayout {
+    grid-template-columns: 1fr;
+  }
+}

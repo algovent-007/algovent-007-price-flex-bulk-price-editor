@@ -1,0 +1,29 @@
+.productSelectionRow {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.productSelectionChoices {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.productSelectionAction {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  padding-top: 2px;
+}
+
+@media (max-width: 720px) {
+  .productSelectionRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .productSelectionAction {
+    align-self: flex-end;
+    padding-top: 0;
+  }
+}

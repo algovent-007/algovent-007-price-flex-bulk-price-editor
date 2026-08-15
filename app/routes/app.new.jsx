@@ -25,6 +25,7 @@ import {
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
+import PriceChangePreview from "../components/new-task/PriceChangePreview";
 import {
   getDefaultOperatorForField,
   getDefaultValueForField,
@@ -512,7 +513,7 @@ export default function NewTask() {
   const [conditions, setConditions] = useState([
     { field: "title", operator: "equals", value: "" }
   ]);
-  const [searchResults, setSearchResults] = useState(null);
+  const [showPricePreview, setShowPricePreview] = useState(false);
   const [productsList, setProductsList] = useState([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState("");
   const [csvFileName, setCsvFileName] = useState(null);
@@ -713,15 +714,7 @@ export default function NewTask() {
       const products = fetcher.data.products || [];
       setProductsList(products);
       setProductSearchError("");
-      const variantCount = products.reduce(
-        (sum, product) => sum + (product.variants?.nodes?.length || 0),
-        0,
-      );
-      setSearchResults(
-        editType === "csv-all" || editType === "csv-direct"
-          ? `Loaded ${variantCount} variant${variantCount === 1 ? "" : "s"} from CSV across ${products.length} product${products.length === 1 ? "" : "s"}.`
-          : `Found ${products.length} products matching your criteria.`,
-      );
+      setShowPricePreview(true);
       if (fetcher.data.warnings?.length) {
         const warningCount = fetcher.data.warnings.length;
         const firstWarning = fetcher.data.warnings[0];
@@ -735,11 +728,11 @@ export default function NewTask() {
     }
 
     setProductsList([]);
-    setSearchResults(null);
+    setShowPricePreview(false);
     setProductSearchError(
       fetcher.data.error || "No products found matching your criteria."
     );
-  }, [fetcher.data, editType, appBridge]);
+  }, [fetcher.data, appBridge]);
 
   useEffect(() => {
     if (collections.length > 0 && !selectedCollectionId) {
@@ -988,7 +981,7 @@ export default function NewTask() {
     setCsvFileName(null);
     setCsvRows([]);
     setProductsList([]);
-    setSearchResults(null);
+    setShowPricePreview(false);
     if (nextEditType === "collection" && collections.length > 0 && !selectedCollectionId) {
       setSelectedCollectionId(collections[0].id);
     }
@@ -1039,7 +1032,7 @@ export default function NewTask() {
     clearFieldError("csvFile");
     setProductSearchError("");
     setProductsList([]);
-    setSearchResults(null);
+    setShowPricePreview(false);
 
     try {
       const text = await file.text();
@@ -1075,12 +1068,13 @@ export default function NewTask() {
     const validationError = validateProductSearch();
     if (validationError) {
       setProductsList([]);
-      setSearchResults(null);
+      setShowPricePreview(false);
       setProductSearchError(validationError);
       return;
     }
 
     setProductSearchError("");
+    setShowPricePreview(false);
     const payload = {
       intent: "search",
       editType,
@@ -1283,7 +1277,6 @@ export default function NewTask() {
           editType,
           matchType,
           conditions,
-          searchResults,
           selectedCollectionId,
           csvFileName,
           csvRowCount: csvRows.length,
@@ -1391,10 +1384,15 @@ export default function NewTask() {
         productSearchError={productSearchError}
         fieldErrors={fieldErrors}
         clearFieldError={clearFieldError}
-        previewVariants={previewVariants}
         timezoneStr={timezoneStr}
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
+      />
+      <PriceChangePreview
+        key={editType}
+        previewVariants={previewVariants}
+        open={showPricePreview}
+        onClose={() => setShowPricePreview(false)}
       />
     </s-page>
   );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { formatPrice } from "../../utils/pricing";
 import { PREVIEW_PAGE_SIZE } from "./constants";
 
@@ -60,9 +60,12 @@ function downloadCsv(filename, csvContent) {
   URL.revokeObjectURL(url);
 }
 
-export default function PriceChangePreview({ previewVariants, visible }) {
+export default function PriceChangePreview({ previewVariants, open, onClose }) {
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const rawModalId = useId();
+  const modalId = `price-change-preview-${rawModalId.replace(/:/g, "")}`;
+  const modalRef = useRef(null);
   const tableId = useId().replace(/:/g, "");
   const trimmedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredVariants = trimmedSearchQuery
@@ -73,11 +76,21 @@ export default function PriceChangePreview({ previewVariants, visible }) {
 
   useEffect(() => {
     setPage(0);
+    setSearchQuery("");
   }, [previewVariants]);
 
   useEffect(() => {
     setPage(0);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (open) {
+      modalRef.current?.showOverlay?.();
+      return;
+    }
+
+    modalRef.current?.hideOverlay?.();
+  }, [open]);
 
   const totalPages = Math.max(1, Math.ceil(filteredVariants.length / PREVIEW_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -98,8 +111,12 @@ export default function PriceChangePreview({ previewVariants, visible }) {
     downloadCsv("price-change-preview.csv", csv);
   };
 
+  const handleHide = () => {
+    onClose?.();
+  };
+
   useEffect(() => {
-    if (!showPagination) return undefined;
+    if (!showPagination || !open) return undefined;
 
     const table = document.getElementById(tableId);
     if (!table) return undefined;
@@ -111,20 +128,23 @@ export default function PriceChangePreview({ previewVariants, visible }) {
       table.removeEventListener("previouspage", handlePreviousPage);
       table.removeEventListener("nextpage", handleNextPage);
     };
-  }, [handleNextPage, handlePreviousPage, showPagination, tableId, visible]);
-
-  if (!visible) return null;
+  }, [handleNextPage, handlePreviousPage, open, showPagination, tableId]);
 
   return (
-    <s-box paddingBlockStart="base" borderBlockStartWidth="base" borderColor="base">
+    <s-modal
+      id={modalId}
+      ref={modalRef}
+      heading="Price change preview"
+      size="large-100"
+      onHide={handleHide}
+    >
       <s-stack direction="block" gap="base">
         <s-stack direction="inline" gap="small" alignItems="center">
-          <s-heading>Price change preview</s-heading>
           <s-icon type="info" interestFor="price-preview-help" />
+          <s-tooltip id="price-preview-help">
+            Preview of price changes based on your current pricing rules
+          </s-tooltip>
         </s-stack>
-        <s-tooltip id="price-preview-help">
-          Preview of price changes based on your current pricing rules
-        </s-tooltip>
 
         <s-paragraph>
           {filteredVariants.length > 0
@@ -208,6 +228,10 @@ export default function PriceChangePreview({ previewVariants, visible }) {
           </>
         )}
       </s-stack>
-    </s-box>
+
+      <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
+        Close
+      </s-button>
+    </s-modal>
   );
 }

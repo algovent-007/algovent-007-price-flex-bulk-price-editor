@@ -1,6 +1,18 @@
 import { isValidWeightConditionValue } from "../../utils/weight-conditions";
 import { isValidInventoryLocationConditionValue } from "../../utils/inventory-location-conditions";
 
+export const EDIT_TYPE_OPTIONS = [
+  { value: "all", label: "All products" },
+  { value: "conditions", label: "Products based on condition(s)" },
+  { value: "collection", label: "All products in a collection" },
+  { value: "csv-all", label: "All products in a CSV" },
+  { value: "csv-direct", label: "Direct Edit with CSV" },
+];
+
+export function isCsvEditType(editType) {
+  return editType === "csv-all" || editType === "csv-direct";
+}
+
 export const CONDITION_FIELDS = [
   { value: "title", label: "Product Title" },
   { value: "type", label: "Product Type" },
