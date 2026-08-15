@@ -142,7 +142,10 @@ async function buildReturnUrl({ admin, session, planName, request }) {
     });
   }
 
-  const appUrl = process.env.SHOPIFY_APP_URL || "";
+  const appUrl = process.env.SHOPIFY_APP_URL || requestUrl?.origin || "";
+  if (!appUrl) {
+    throw new Error("SHOPIFY_APP_URL is not configured");
+  }
   let url = new URL("/app/billing/callback", appUrl);
   url.searchParams.set("plan", planName);
   url.searchParams.set("shop", session.shop);

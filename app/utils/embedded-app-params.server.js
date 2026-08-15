@@ -9,13 +9,28 @@ const EMBEDDED_APP_PARAM_KEYS = [
   "hmac",
 ];
 
+function toUrl(value, base) {
+  if (value instanceof URL) {
+    return new URL(value.toString());
+  }
+
+  if (typeof value === "string") {
+    return base ? new URL(value, base) : new URL(value);
+  }
+
+  if (value?.url) {
+    return new URL(value.url);
+  }
+
+  throw new TypeError("Invalid URL input");
+}
+
 export function copyEmbeddedAppParams(sourceUrl, destinationUrl) {
-  const source =
-    typeof sourceUrl === "string" ? new URL(sourceUrl) : new URL(sourceUrl.url);
+  const source = toUrl(sourceUrl);
   const destination =
     typeof destinationUrl === "string"
       ? new URL(destinationUrl, source.origin)
-      : new URL(destinationUrl.url);
+      : toUrl(destinationUrl);
 
   for (const key of EMBEDDED_APP_PARAM_KEYS) {
     const value = source.searchParams.get(key);
@@ -28,8 +43,7 @@ export function copyEmbeddedAppParams(sourceUrl, destinationUrl) {
 }
 
 export function appendEmbeddedAppParams(sourceUrl, path) {
-  const source =
-    typeof sourceUrl === "string" ? new URL(sourceUrl) : new URL(sourceUrl.url);
+  const source = toUrl(sourceUrl);
   const destination = copyEmbeddedAppParams(source, new URL(path, source.origin));
   return `${destination.pathname}${destination.search}`;
 }
