@@ -53,6 +53,32 @@ export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTask
   });
 }
 
+async function recoverStaleRunningTasks(shop) {
+  const runningTasks = await prisma.task.findMany({
+    where: { shop, status: "running" },
+  });
+
+  for (const task of runningTasks) {
+    let actionData = {};
+    try {
+      actionData = JSON.parse(task.actionDetails || "{}");
+    } catch {
+      actionData = {};
+    }
+
+    const isScheduledWorkerTask =
+      actionData.taskType === "scheduled_edit" ||
+      actionData.taskType === "scheduled_rollback";
+
+    if (isScheduledWorkerTask) {
+      await prisma.task.update({
+        where: { id: task.id },
+        data: { status: "scheduled" },
+      });
+    }
+  }
+}
+
 async function processScheduledEditTask({ admin, shop, task, actionData }) {
   const scheduleMeta = {
     scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
@@ -62,16 +88,6 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
       actionData.changePricesAtTime || formatTime12Hour(new Date(task.scheduledAt)),
     revertEnabled: actionData.revertEnabled,
   };
-
-  const result = await executePriceEditTask({
-    admin,
-    taskId: task.id,
-    runPayload: actionData.runPayload,
-  });
-
-  if (!result.success) {
-    return result;
-  }
 
   const isRecurring = !isOneTimeScheduleRecurrence(scheduleMeta.scheduleRecurrenceType);
 
@@ -86,9 +102,24 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
         where: { id: task.id },
         data: { status: "completed" },
       });
-      return result;
+      return {
+        success: false,
+        error: "Recurring tasks require a Pro or Super plan.",
+      };
     }
+  }
 
+  const result = await executePriceEditTask({
+    admin,
+    taskId: task.id,
+    runPayload: actionData.runPayload,
+  });
+
+  if (!result.success) {
+    return result;
+  }
+
+  if (isRecurring) {
     const nextScheduledAt = computeScheduledAt({
       recurrenceType: scheduleMeta.scheduleRecurrenceType,
       changePricesAtTime: scheduleMeta.changePricesAtTime,
@@ -139,18 +170,6 @@ async function markScheduledTaskFailed(taskId, err) {
   } catch (updateErr) {
     console.error(`Failed to mark scheduled task ${taskId} as failed:`, updateErr);
   }
-}
-
-function startScheduledEditTask({ admin, shop, task, actionData }) {
-  processScheduledEditTask({ admin, shop, task, actionData }).catch((err) => {
-    markScheduledTaskFailed(task.id, err);
-  });
-}
-
-function startScheduledRollbackTask({ admin, task, actionData }) {
-  processScheduledRollbackTask({ admin, task, actionData }).catch((err) => {
-    markScheduledTaskFailed(task.id, err);
-  });
 }
 
 async function claimScheduledTask(taskId, shop) {
@@ -255,6 +274,8 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
 }
 
 export async function processDueTasksForShop({ admin, shop }) {
+  await recoverStaleRunningTasks(shop);
+
   const now = new Date();
   const dueTasks = await prisma.task.findMany({
     where: {
@@ -287,8 +308,8 @@ export async function processDueTasksForShop({ admin, shop }) {
           continue;
         }
 
-        startScheduledRollbackTask({ admin, task, actionData });
-        processed.push({ taskId: task.id, started: true });
+        const result = await processScheduledRollbackTask({ admin, task, actionData });
+        processed.push({ taskId: task.id, ...result });
         continue;
       }
 
@@ -297,8 +318,8 @@ export async function processDueTasksForShop({ admin, shop }) {
         continue;
       }
 
-      startScheduledEditTask({ admin, shop, task, actionData });
-      processed.push({ taskId: task.id, started: true });
+      const result = await processScheduledEditTask({ admin, shop, task, actionData });
+      processed.push({ taskId: task.id, ...result });
     } catch (err) {
       await markScheduledTaskFailed(task.id, err);
       processed.push({ taskId: task.id, success: false, error: err.message });

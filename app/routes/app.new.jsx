@@ -625,11 +625,13 @@ export default function NewTask() {
   useEffect(() => {
     if (!runFetcher.data?.success || !runFetcher.data.taskId) return;
 
-    localStorage.setItem("price_flex_active_task_id", runFetcher.data.taskId);
-
     if (runFetcher.data.taskStarted) {
+      localStorage.setItem("price_flex_active_task_id", runFetcher.data.taskId);
       navigate(`/app?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
-    } else if (runFetcher.data.scheduled) {
+      return;
+    }
+
+    if (runFetcher.data.scheduled) {
       navigate("/app/scheduled");
     }
   }, [navigate, runFetcher.data]);

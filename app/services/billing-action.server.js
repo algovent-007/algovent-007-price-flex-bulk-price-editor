@@ -3,6 +3,8 @@ import {
   cancelBillingSubscription,
   createBillingRequest,
 } from "./billing.server";
+import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
+
 export async function handleBillingAction({ request }) {
   const { admin, session, redirect } = await authenticate.admin(request);
   const formData = await request.formData();
@@ -15,14 +17,17 @@ export async function handleBillingAction({ request }) {
       return Response.json({ success: false, error: result.error }, { status: 400 });
     }
     if (result.redirectTo) {
-      return redirect(result.redirectTo);
+      return redirect(appendEmbeddedAppParams(request, result.redirectTo));
     }
     return Response.json({ success: true });
   }
 
   if (!planName) {
     return redirect(
-      `/app/plans?billing=error&error=${encodeURIComponent("Plan name is required.")}`,
+      appendEmbeddedAppParams(
+        request,
+        `/app/plans?billing=error&error=${encodeURIComponent("Plan name is required.")}`,
+      ),
     );
   }
 
@@ -35,7 +40,10 @@ export async function handleBillingAction({ request }) {
 
   if (result.error) {
     return redirect(
-      `/app/plans?billing=error&error=${encodeURIComponent(result.error)}`,
+      appendEmbeddedAppParams(
+        request,
+        `/app/plans?billing=error&error=${encodeURIComponent(result.error)}`,
+      ),
     );
   }
 
