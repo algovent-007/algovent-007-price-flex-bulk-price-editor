@@ -33,6 +33,7 @@ export default function TaskProgressCard({ task }) {
   const updatedProducts = Number(actionData.updatedProductsCount ?? 0);
   const successCount = Number(actionData.successCount ?? actionData.updatedVariantsCount ?? task.processedItems ?? 0);
   const failureCount = Number(actionData.failureCount ?? (task.status === "failed" ? 1 : 0));
+  const warnings = Array.isArray(actionData.warnings) ? actionData.warnings : [];
   const progressValue =
     totalProducts > 0
       ? Math.min(100, Math.round((processedProducts / totalProducts) * 100))

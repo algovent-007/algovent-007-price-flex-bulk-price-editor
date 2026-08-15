@@ -37,6 +37,9 @@ export const SEARCH_PREVIEW_FIELDS = `
     url
   }
   variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    pageInfo {
+      hasNextPage
+    }
     nodes {
       ${PRICING_VARIANT_FIELDS}
     }
@@ -47,6 +50,9 @@ export const TASK_EXECUTION_FIELDS = `
   id
   title
   variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    pageInfo {
+      hasNextPage
+    }
     nodes {
       ${PRICING_VARIANT_FIELDS}
     }
@@ -60,6 +66,9 @@ export const SEARCH_PRODUCT_FIELDS = `
     url
   }
   variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    pageInfo {
+      hasNextPage
+    }
     nodes {
       ${PRODUCT_CONDITION_VARIANT_FIELDS}
       image {
@@ -73,6 +82,9 @@ export const TASK_PRODUCT_FIELDS = `
   id
   ${PRODUCT_CONDITION_FIELDS}
   variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
+    pageInfo {
+      hasNextPage
+    }
     nodes {
       ${PRODUCT_CONDITION_VARIANT_FIELDS}
     }
@@ -200,6 +212,7 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
   } = runPayload;
 
   const logsList = [];
+  const warningsList = [];
   const productIdsList = [];
   let updatedVariantsCount = 0;
   let updatedProductsCount = 0;
@@ -217,6 +230,7 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
       tagsToRemove: tagsToRemoveList,
       productIds: productIdsList,
       logs,
+      warnings: warningsList,
       ...extra,
     });
 
@@ -275,6 +289,12 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
     for (const prod of products) {
       let productUpdated = false;
       productIdsList.push(prod.id);
+
+      if (prod.variants?.pageInfo?.hasNextPage) {
+        warningsList.push(
+          `${prod.title || prod.id}: only the first ${PRODUCT_VARIANTS_LIMIT} variants were processed.`,
+        );
+      }
 
       const variants = prod.variants?.nodes || [];
       const variantsToUpdate = [];

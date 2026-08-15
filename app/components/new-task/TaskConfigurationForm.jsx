@@ -170,8 +170,6 @@ export default function TaskConfigurationForm({
             <s-choice value="all">All products</s-choice>
             <s-choice value="conditions">Products based on condition(s)</s-choice>
             <s-choice value="collection">All products in a collection</s-choice>
-            <s-choice value="csv-all">All products in a CSV</s-choice>
-            <s-choice value="csv-direct">Direct Edit with CSV</s-choice>
           </s-choice-list>
 
           {!readOnly && productSearchError && (

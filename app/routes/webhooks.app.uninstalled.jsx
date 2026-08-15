@@ -13,6 +13,8 @@ export const action = async ({ request }) => {
     await db.session.deleteMany({ where: { shop } });
   }
 
+  await db.task.deleteMany({ where: { shop } });
+  await db.shopSettings.deleteMany({ where: { shop } });
   await clearSubscriptionForShop(shop);
 
   return new Response();

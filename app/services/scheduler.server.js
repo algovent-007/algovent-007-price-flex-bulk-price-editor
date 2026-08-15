@@ -328,3 +328,17 @@ export async function processDueTasksForShop({ admin, shop }) {
 
   return processed;
 }
+
+export async function findShopsWithDueTasks() {
+  const now = new Date();
+  const groups = await prisma.task.groupBy({
+    by: ["shop"],
+    where: {
+      shop: { not: null },
+      status: "scheduled",
+      scheduledAt: { lte: now },
+    },
+  });
+
+  return groups.map((group) => group.shop).filter(Boolean);
+}

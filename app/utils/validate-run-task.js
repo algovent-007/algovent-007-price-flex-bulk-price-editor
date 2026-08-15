@@ -49,9 +49,7 @@ function isConditionComplete(condition) {
 
 function validateProductSelection(formState, addError) {
   if (formState.editType === "csv-all" || formState.editType === "csv-direct") {
-    if (!formState.csvFileName) {
-      addError("csvFile", "Please upload a CSV file before running the task.");
-    }
+    addError("editType", "CSV product selection is not available yet. Choose another product source.");
     return;
   }
 

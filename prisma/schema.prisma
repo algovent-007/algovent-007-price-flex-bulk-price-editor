@@ -44,6 +44,8 @@ model Task {
   revertAt       DateTime?
   shop           String?
   actionDetails  String
+
+  @@index([shop, status, scheduledAt])
 }
 
 model ShopSettings {
