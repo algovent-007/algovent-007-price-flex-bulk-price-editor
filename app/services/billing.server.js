@@ -7,7 +7,8 @@ import {
 } from "../constants/billing";
 import { getSubscriptionByShop, upsertSubscription } from "../models/subscription.server";
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
-import { copyEmbeddedAppParams } from "../utils/embedded-app-params.server";
+
+const SHOPIFY_RETURN_URL_MAX_LENGTH = 255;
 
 const ACTIVE_SUBSCRIPTION_QUERY = `#graphql
   query ActiveAppSubscription {
@@ -119,7 +120,12 @@ export async function fetchActiveShopifySubscription(admin) {
 
 async function buildReturnUrl({ admin, session, planName, request }) {
   const requestUrl = request ? new URL(request.url) : null;
-  const host = requestUrl?.searchParams.get("host");
+
+  const appendBillingCallbackParams = (url) => {
+    url.searchParams.set("plan", planName);
+    url.searchParams.set("shop", session.shop);
+    return url;
+  };
 
   try {
     const data = await runGraphql(admin, APP_LAUNCH_URL_QUERY);
@@ -127,13 +133,16 @@ async function buildReturnUrl({ admin, session, planName, request }) {
 
     if (launchUrl) {
       const base = launchUrl.replace(/\/$/, "");
-      let url = new URL(`${base}/app/billing/callback`);
-      url.searchParams.set("plan", planName);
-      url.searchParams.set("shop", session.shop);
-      if (requestUrl) {
-        url = copyEmbeddedAppParams(requestUrl, url);
+      const url = appendBillingCallbackParams(new URL(`${base}/app/billing/callback`));
+      const returnUrl = url.toString();
+
+      if (returnUrl.length > SHOPIFY_RETURN_URL_MAX_LENGTH) {
+        throw new Error(
+          `Billing return URL exceeds Shopify limit (${returnUrl.length}/${SHOPIFY_RETURN_URL_MAX_LENGTH} characters).`,
+        );
       }
-      return url.toString();
+
+      return returnUrl;
     }
   } catch (error) {
     logBillingError("billing_return_url", error, {
@@ -146,17 +155,18 @@ async function buildReturnUrl({ admin, session, planName, request }) {
   if (!appUrl) {
     throw new Error("SHOPIFY_APP_URL is not configured");
   }
-  let url = new URL("/app/billing/callback", appUrl);
-  url.searchParams.set("plan", planName);
-  url.searchParams.set("shop", session.shop);
-  if (requestUrl) {
-    url = copyEmbeddedAppParams(requestUrl, url);
-  } else if (host) {
-    url.searchParams.set("host", host);
-    url.searchParams.set("embedded", "1");
+
+  const returnUrl = appendBillingCallbackParams(
+    new URL("/app/billing/callback", appUrl),
+  ).toString();
+
+  if (returnUrl.length > SHOPIFY_RETURN_URL_MAX_LENGTH) {
+    throw new Error(
+      `Billing return URL exceeds Shopify limit (${returnUrl.length}/${SHOPIFY_RETURN_URL_MAX_LENGTH} characters).`,
+    );
   }
 
-  return url.toString();
+  return returnUrl;
 }
 
 function buildLineItems(plan) {
