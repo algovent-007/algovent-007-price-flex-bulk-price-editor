@@ -45,7 +45,8 @@ import { isOneTimeScheduleRecurrence } from "../utils/schedule";
 import { assertPlanFeature } from "../services/subscription.server";
 import { BILLING_FEATURES } from "../constants/billing";
 import { parseCsvAllRows, parseCsvDirectRows, validateCsvRowsForRun } from "../utils/csv-bulk-edit";
-import { getShopTimezone } from "../utils/shop-timezone.server";
+import { getShopTimezoneContext, resolveScheduleTimezone, ensureShopTimezoneSaved } from "../utils/shop-timezone.server";
+import { resolveClientScheduleTimezone, getBrowserTimezone } from "../utils/shop-timezone";
 import {
   formatScheduleDateTime,
   formatCurrentTimeInTimezone,
@@ -80,7 +81,7 @@ export const loader = async ({ request }) => {
       collections: json.data?.collections?.nodes || [],
       locations: json.data?.locations?.nodes || [],
       shop: session.shop,
-      timezone: await getShopTimezone({ shop: session.shop, admin }),
+      ...(await getShopTimezoneContext({ shop: session.shop, admin })),
     };
   } catch (err) {
     console.error("Error fetching collections:", err);
@@ -88,7 +89,7 @@ export const loader = async ({ request }) => {
       collections: [],
       locations: [],
       shop: session.shop,
-      timezone: await getShopTimezone({ shop: session.shop, admin }),
+      ...(await getShopTimezoneContext({ shop: session.shop, admin })),
     };
   }
 };
@@ -183,7 +184,13 @@ export const action = async ({ request }) => {
   if (intent === "run_task") {
     const { admin, session } = await authenticate.admin(request);
     const shop = session.shop;
-    const timezone = await getShopTimezone({ shop, admin });
+    const browserTimezone = formData.get("browserTimezone");
+    const formScheduleTimezone = formData.get("scheduleTimezone");
+    const timezone = await resolveScheduleTimezone({
+      shop,
+      admin,
+      browserTimezone: formScheduleTimezone || browserTimezone,
+    });
 
     const editType = formData.get("editType");
     const matchType = formData.get("matchType");
@@ -396,6 +403,10 @@ export const action = async ({ request }) => {
             scheduleTimezone: timezone,
           });
         }
+
+        if (changePricesSchedule === "later") {
+          await ensureShopTimezoneSaved({ shop, timezone, admin });
+        }
       } catch (e) {
         console.error("Failed to create scheduled task:", e);
         return Response.json({ success: false, error: "Failed to schedule task" });
@@ -487,10 +498,16 @@ export default function NewTask() {
   fetcherRef.current = fetcher;
   const navigate = useNavigate();
   const appBridge = useAppBridge();
-  const { collections, locations, shop, timezone } = useLoaderData();
+  const { collections, locations, shop, timezone, hasSavedTimezone } = useLoaderData();
+  const scheduleTimezone = useMemo(
+    () => resolveClientScheduleTimezone({ loaderTimezone: timezone, hasSavedTimezone }),
+    [timezone, hasSavedTimezone]
+  );
 
-  // Section 1 States
-  const [editType, setEditType] = useState("all");
+  const initialSchedule = useMemo(
+    () => createInitialScheduleState(scheduleTimezone),
+    [scheduleTimezone]
+  );
   const [matchType, setMatchType] = useState("all");
   const [conditions, setConditions] = useState([
     { field: "title", operator: "equals", value: "" }
@@ -540,9 +557,8 @@ export default function NewTask() {
   const [tagToRemoveInput, setTagToRemoveInput] = useState("");
   const [tagsToRemove, setTagsToRemove] = useState([]);
 
-  const initialSchedule = useMemo(() => createInitialScheduleState(timezone), [timezone]);
-
-  // Section 5 States
+  // Section 1 States
+  const [editType, setEditType] = useState("all");
   const [scheduleType, setScheduleType] = useState("now"); // "now" or "later"
   const [scheduleRecurrenceType, setScheduleRecurrenceType] = useState("one_time");
   const [scheduleRecurrenceDayOfWeek, setScheduleRecurrenceDayOfWeek] = useState("1");
@@ -559,8 +575,10 @@ export default function NewTask() {
   const [revertTimeStr, setRevertTimeStr] = useState(initialSchedule.revertTimeStr);
 
   // Timezone and live clock states
-  const [currentTimeStr, setCurrentTimeStr] = useState(() => formatCurrentTimeInTimezone(timezone));
-  const timezoneStr = timezone;
+  const [currentTimeStr, setCurrentTimeStr] = useState(() =>
+    formatCurrentTimeInTimezone(scheduleTimezone)
+  );
+  const timezoneStr = scheduleTimezone;
 
   const [taskName, setTaskName] = useState(() => "sale-" + Math.floor(1000000000 + Math.random() * 9000000000));
 
@@ -658,34 +676,34 @@ export default function NewTask() {
 
   useEffect(() => {
     const updateTime = () => {
-      setCurrentTimeStr(formatCurrentTimeInTimezone(timezone));
+      setCurrentTimeStr(formatCurrentTimeInTimezone(scheduleTimezone));
     };
 
     updateTime();
     const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
-  }, [timezone]);
+  }, [scheduleTimezone]);
 
   const handleStartDateChange = (val) => {
     setStartDateStr(val);
-    const parsed = parseDateString(val, timezone);
+    const parsed = parseDateString(val, scheduleTimezone);
     if (parsed) setStartDate(parsed);
   };
 
   const handleRevertDateChange = (val) => {
     setRevertDateStr(val);
-    const parsed = parseDateString(val, timezone);
+    const parsed = parseDateString(val, scheduleTimezone);
     if (parsed) setRevertDate(parsed);
   };
 
   const handleStartDateSelect = (date) => {
     setStartDate(date);
-    setStartDateStr(formatDateMDY(date, timezone));
+    setStartDateStr(formatDateMDY(date, scheduleTimezone));
   };
 
   const handleRevertDateSelect = (date) => {
     setRevertDate(date);
-    setRevertDateStr(formatDateMDY(date, timezone));
+    setRevertDateStr(formatDateMDY(date, scheduleTimezone));
   };
 
   useEffect(() => {
@@ -827,7 +845,7 @@ export default function NewTask() {
 
     const { fieldErrors: nextFieldErrors, messages } = validateRunTaskForm({
       shop,
-      timezone,
+      timezone: scheduleTimezone,
       editType,
       matchType,
       conditions,
@@ -920,6 +938,8 @@ export default function NewTask() {
       tagsToAdd: JSON.stringify(effectiveTagsToAdd),
       tagsToRemove: JSON.stringify(effectiveTagsToRemove),
       taskName,
+      browserTimezone: getBrowserTimezone(),
+      scheduleTimezone,
       changePricesSchedule: scheduleType,
       scheduleRecurrenceType,
       scheduleRecurrenceDayOfWeek,
@@ -1239,9 +1259,9 @@ export default function NewTask() {
       {runFetcher.data && runFetcher.data.success && runFetcher.data.scheduled && (
         <s-banner tone="success">
           Task "{runFetcher.data.taskName}" scheduled for{" "}
-          {formatScheduleDateTime(runFetcher.data.scheduledAt, timezone)}
+          {formatScheduleDateTime(runFetcher.data.scheduledAt, scheduleTimezone)}
           {runFetcher.data.revertAt
-            ? ` with automatic revert at ${formatScheduleDateTime(runFetcher.data.revertAt, timezone)}.`
+            ? ` with automatic revert at ${formatScheduleDateTime(runFetcher.data.revertAt, scheduleTimezone)}.`
             : "."}
         </s-banner>
       )}
@@ -1373,6 +1393,7 @@ export default function NewTask() {
         clearFieldError={clearFieldError}
         previewVariants={previewVariants}
         timezoneStr={timezoneStr}
+        hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
       />
     </s-page>

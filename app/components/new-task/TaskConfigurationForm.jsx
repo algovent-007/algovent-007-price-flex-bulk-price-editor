@@ -5,6 +5,7 @@ import ScheduleSettingsCard from "./ScheduleSettingsCard";
 import AdvancedSettingsCard from "./AdvancedSettingsCard";
 import PriceChangePreview from "./PriceChangePreview";
 import { createNumericInputHandlers } from "../../utils/numeric-input";
+import { EDIT_TYPE_OPTIONS, isCsvEditType } from "./constants";
 
 export default function TaskConfigurationForm({
   readOnly = false,
@@ -20,6 +21,7 @@ export default function TaskConfigurationForm({
   clearFieldError,
   previewVariants = [],
   timezoneStr = "",
+  hasSavedTimezone = true,
   currentTimeStr = "",
 }) {
   const {
@@ -29,6 +31,7 @@ export default function TaskConfigurationForm({
     searchResults,
     selectedCollectionId,
     csvFileName,
+    csvRowCount,
     changePrice,
     percentType,
     percentValue,
@@ -74,8 +77,6 @@ export default function TaskConfigurationForm({
 
   const {
     setEditType,
-    setSearchResults,
-    setCsvFileName,
     setSelectedCollectionId,
     setMatchType,
     handleConditionChange,
@@ -145,32 +146,25 @@ export default function TaskConfigurationForm({
       {/* Section 1: Select Products */}
       <s-section heading="1. Select the products that you want to edit">
         <s-stack direction="block" gap="loose">
-          <s-choice-list
-            name="edit-type"
-            values={[editType || "all"]}
+          <s-select
+            label="Select the products that you want to edit"
+            value={editType || "all"}
             disabled={readOnly}
             onInput={
               readOnly
                 ? undefined
                 : (e) => {
-                    const next = e.currentTarget?.values?.[0] ?? e.target?.value;
-                    if (next) {
-                      setEditType(next);
-                      setSearchResults(null);
-                      setCsvFileName(null);
-                      if (next === "collection" && collections.length > 0) {
-                        setSelectedCollectionId(collections[0].id);
-                      }
-                    }
+                    const next = e.target?.value;
+                    if (next) setEditType(next);
                   }
             }
-            label="Select the products that you want to edit"
-            labelAccessibilityVisibility="exclusive"
           >
-            <s-choice value="all">All products</s-choice>
-            <s-choice value="conditions">Products based on condition(s)</s-choice>
-            <s-choice value="collection">All products in a collection</s-choice>
-          </s-choice-list>
+            {EDIT_TYPE_OPTIONS.map((option) => (
+              <s-option key={option.value} value={option.value}>
+                {option.label}
+              </s-option>
+            ))}
+          </s-select>
 
           {!readOnly && productSearchError && (
             <s-banner tone="critical">{productSearchError}</s-banner>
@@ -211,22 +205,41 @@ export default function TaskConfigurationForm({
             />
           )}
 
-          {(editType === "csv-all" || editType === "csv-direct") && (
-            <CsvUploadCard
-              readOnly={readOnly}
-              csvFileInputRef={csvFileInputRef}
-              csvFileName={csvFileName}
-              onFileChange={readOnly ? undefined : handleCsvFileChange}
-              onUploadClick={
-                readOnly ? undefined : () => csvFileInputRef.current?.click()
-              }
-              error={fieldError("csvFile")}
-            />
+          {isCsvEditType(editType) && (
+            <>
+              {editType === "csv-direct" && (
+                <s-banner tone="info">
+                  Direct CSV mode applies the prices from your uploaded file. Pricing rules in step 2
+                  are ignored.
+                </s-banner>
+              )}
+              <CsvUploadCard
+                readOnly={readOnly}
+                editType={editType}
+                csvFileInputRef={csvFileInputRef}
+                csvFileName={csvFileName}
+                csvRowCount={csvRowCount}
+                onFileChange={readOnly ? undefined : handleCsvFileChange}
+                onUploadClick={
+                  readOnly ? undefined : () => csvFileInputRef.current?.click()
+                }
+                error={fieldError("csvFile")}
+              />
+              {!readOnly && (
+                <s-stack direction="inline" justifyContent="end">
+                  <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
+                    Load Products From CSV
+                  </s-button>
+                </s-stack>
+              )}
+              {searchResults && (
+                <PriceChangePreview previewVariants={previewVariants} visible />
+              )}
+            </>
           )}
 
           {editType !== "conditions" &&
-            editType !== "csv-all" &&
-            editType !== "csv-direct" &&
+            !isCsvEditType(editType) &&
             editType !== "collection" && (
               <s-stack direction="block" gap="base">
                 {!readOnly && (
@@ -716,6 +729,7 @@ export default function TaskConfigurationForm({
             revertDate={revertDate}
             onRevertDateSelect={readOnly ? undefined : handleRevertDateSelect}
             timezoneStr={timezoneStr}
+            hasSavedTimezone={hasSavedTimezone}
             currentTimeStr={currentTimeStr}
             fieldErrors={fieldErrors}
             clearFieldError={clearFieldError}

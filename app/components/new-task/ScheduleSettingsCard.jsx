@@ -376,6 +376,7 @@ export default function ScheduleSettingsCard({
   revertDate,
   onRevertDateSelect,
   timezoneStr,
+  hasSavedTimezone = true,
   currentTimeStr,
   fieldErrors = {},
   clearFieldError,
@@ -498,8 +499,10 @@ export default function ScheduleSettingsCard({
 
         <s-box paddingBlockStart="base">
           <s-banner tone="info">
-            Dates and times shown above use {timezoneStr} as the timezone, where the current time is{" "}
-            {currentTimeStr}.
+            Dates and times use {timezoneStr}. The current time is {currentTimeStr}.
+            {!hasSavedTimezone
+              ? " Save your timezone on the Account page to lock this in for all devices."
+              : ""}
           </s-banner>
         </s-box>
       </s-stack>
