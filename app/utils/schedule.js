@@ -483,6 +483,29 @@ export function getTaskScheduleTimezone(actionData, shopTimezone) {
   return actionData?.scheduleTimezone || shopTimezone || undefined;
 }
 
+export function formatScheduledTaskLabel({
+  actionData,
+  scheduledAt,
+  dateField,
+  timeField,
+  shopTimezone,
+}) {
+  const dateStr = String(actionData?.[dateField] ?? "").trim();
+  const timeStr = String(actionData?.[timeField] ?? "").trim();
+
+  if (dateStr && timeStr) {
+    return `${dateStr}, ${timeStr}`;
+  }
+
+  if (timeStr && scheduledAt) {
+    const taskTimezone = getTaskScheduleTimezone(actionData, shopTimezone);
+    return `${formatDateMDY(scheduledAt, taskTimezone)}, ${timeStr}`;
+  }
+
+  const taskTimezone = getTaskScheduleTimezone(actionData, shopTimezone);
+  return formatScheduleDateTime(scheduledAt, taskTimezone);
+}
+
 export function formatScheduleDateTime(date, timeZone) {
   const parsed = parseStoredDate(date);
   if (!parsed) return "";
@@ -508,13 +531,29 @@ export function serializeScheduledTasks(tasks, shopTimezone) {
     const taskTimezone = getTaskScheduleTimezone(actionData, shopTimezone);
     const scheduledAt = parseStoredDate(task.scheduledAt);
     const revertAt = parseStoredDate(task.revertAt);
+    const isRollback = actionData.taskType === "scheduled_rollback";
 
     return {
       ...task,
       scheduledAt: scheduledAt?.toISOString() ?? null,
       revertAt: revertAt?.toISOString() ?? null,
-      runsAtLabel: formatScheduleDateTime(scheduledAt, taskTimezone),
-      revertAtLabel: revertAt ? formatScheduleDateTime(revertAt, taskTimezone) : null,
+      runsAtLabel: formatScheduledTaskLabel({
+        actionData,
+        scheduledAt,
+        dateField: isRollback ? "revertPricesAtDate" : "changePricesAtDate",
+        timeField: isRollback ? "revertPricesAtTime" : "changePricesAtTime",
+        shopTimezone,
+      }),
+      revertAtLabel:
+        !isRollback && revertAt
+          ? formatScheduledTaskLabel({
+              actionData,
+              scheduledAt: revertAt,
+              dateField: "revertPricesAtDate",
+              timeField: "revertPricesAtTime",
+              shopTimezone,
+            })
+          : null,
       scheduleTimezone: taskTimezone || shopTimezone,
     };
   });

@@ -2,10 +2,21 @@ import { getShopSettings } from "../models/shop-settings.server";
 
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
+const TIMEZONE_ALIASES = {
+  "Asia/Calcutta": "Asia/Kolkata",
+};
+
+export function normalizeShopTimezone(timezone) {
+  const trimmed = String(timezone || "").trim();
+  if (!trimmed) return "";
+  return TIMEZONE_ALIASES[trimmed] || trimmed;
+}
+
 export async function getShopTimezone({ shop, admin }) {
   const settings = await getShopSettings(shop);
-  if (settings?.timezone) {
-    return settings.timezone;
+  const savedTimezone = normalizeShopTimezone(settings?.timezone);
+  if (savedTimezone) {
+    return savedTimezone;
   }
 
   if (admin) {
@@ -19,7 +30,7 @@ export async function getShopTimezone({ shop, admin }) {
         }`
       );
       const json = await response.json();
-      return json.data?.shop?.ianaTimezone || DEFAULT_TIMEZONE;
+      return normalizeShopTimezone(json.data?.shop?.ianaTimezone) || DEFAULT_TIMEZONE;
     } catch {
       return DEFAULT_TIMEZONE;
     }

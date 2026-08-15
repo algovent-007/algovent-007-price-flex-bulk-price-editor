@@ -7,6 +7,7 @@ import {
   formatTime12Hour,
   formatScheduleDateTime,
   parseStoredDate,
+  formatScheduledTaskLabel,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -232,6 +233,22 @@ test("parseStoredDate treats timezone-less ISO values as UTC", () => {
 test("formatScheduleDateTime matches entered shop-local schedule time", () => {
   const scheduledAt = parseScheduleDateTime("8/15/2026", "10:30 PM", "Asia/Kolkata");
   assert.equal(formatScheduleDateTime(scheduledAt, "Asia/Kolkata"), "8/15/2026, 10:30 PM");
+});
+
+test("formatScheduledTaskLabel prefers stored user-entered schedule strings", () => {
+  const label = formatScheduledTaskLabel({
+    actionData: {
+      changePricesAtDate: "8/15/2026",
+      changePricesAtTime: "10:30 PM",
+      scheduleTimezone: "Asia/Kolkata",
+    },
+    scheduledAt: "2026-08-15T21:10:00.000Z",
+    dateField: "changePricesAtDate",
+    timeField: "changePricesAtTime",
+    shopTimezone: "Asia/Kolkata",
+  });
+
+  assert.equal(label, "8/15/2026, 10:30 PM");
 });
 
 console.log("All schedule tests passed.");

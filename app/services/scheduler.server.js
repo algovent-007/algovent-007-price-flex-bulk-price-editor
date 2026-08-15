@@ -13,8 +13,24 @@ import {
   isOneTimeScheduleRecurrence,
 } from "../utils/schedule";
 
-export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTaskName, revertAt }) {
+export async function createScheduledRevertTask({
+  shop,
+  sourceTaskId,
+  sourceTaskName,
+  revertAt,
+  revertPricesAtDate,
+  revertPricesAtTime,
+  scheduleTimezone,
+}) {
   const revertTaskId = `scheduled-rollback-${sourceTaskId}`;
+  const actionDetails = JSON.stringify({
+    taskType: "scheduled_rollback",
+    sourceTaskId,
+    sourceTaskName,
+    revertPricesAtDate,
+    revertPricesAtTime,
+    scheduleTimezone,
+  });
 
   const existing = await prisma.task.findUnique({ where: { id: revertTaskId } });
   if (existing) {
@@ -26,11 +42,7 @@ export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTask
           shop,
           scheduledAt: revertAt,
           name: `Scheduled rollback: ${sourceTaskName}`,
-          actionDetails: JSON.stringify({
-            taskType: "scheduled_rollback",
-            sourceTaskId,
-            sourceTaskName,
-          }),
+          actionDetails,
         },
       });
     }
@@ -44,11 +56,7 @@ export async function createScheduledRevertTask({ shop, sourceTaskId, sourceTask
       status: "scheduled",
       shop,
       scheduledAt: revertAt,
-      actionDetails: JSON.stringify({
-        taskType: "scheduled_rollback",
-        sourceTaskId,
-        sourceTaskName,
-      }),
+      actionDetails,
     },
   });
 }
@@ -158,6 +166,9 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
       sourceTaskId: task.id,
       sourceTaskName: task.name,
       revertAt: task.revertAt,
+      revertPricesAtDate: actionData.revertPricesAtDate,
+      revertPricesAtTime: actionData.revertPricesAtTime,
+      scheduleTimezone: actionData.scheduleTimezone,
     });
   }
 

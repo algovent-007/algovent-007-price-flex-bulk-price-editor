@@ -377,6 +377,8 @@ export const action = async ({ request }) => {
               scheduleTimezone: timezone,
               runPayload,
               revertEnabled: revertPrices,
+              revertPricesAtDate,
+              revertPricesAtTime,
               scheduledAt: scheduledAt.toISOString(),
               revertAt: revertAt?.toISOString() || null,
             }),
@@ -389,6 +391,9 @@ export const action = async ({ request }) => {
             sourceTaskId: taskName,
             sourceTaskName: taskName,
             revertAt,
+            revertPricesAtDate,
+            revertPricesAtTime,
+            scheduleTimezone: timezone,
           });
         }
       } catch (e) {
@@ -442,6 +447,9 @@ export const action = async ({ request }) => {
             sourceTaskId: taskName,
             sourceTaskName: taskName,
             revertAt,
+            revertPricesAtDate,
+            revertPricesAtTime,
+            scheduleTimezone: timezone,
           });
         }
       })
