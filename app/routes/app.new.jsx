@@ -1055,6 +1055,19 @@ export default function NewTask() {
         delete next.productSearch;
         return next;
       });
+      setProductSearchError("");
+      setShowPricePreview(false);
+      fetcher.submit(
+        {
+          intent: "search",
+          editType,
+          matchType,
+          conditions: JSON.stringify(conditions),
+          collectionId: selectedCollectionId,
+          csvRows: JSON.stringify(parsed.rows),
+        },
+        { method: "POST" },
+      );
     } catch (error) {
       setCsvFileName(null);
       setCsvRows([]);

@@ -3,6 +3,8 @@ export default function CollectionCard({
   collections,
   selectedCollectionId,
   setSelectedCollectionId,
+  handleSearch,
+  isSearching,
   fieldErrors = {},
   clearFieldError,
 }) {
@@ -34,8 +36,18 @@ export default function CollectionCard({
           )}
         </s-select>
 
-        {!readOnly && fieldErrors?.productSearch && (
-          <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+        {!readOnly && (
+          <>
+            {fieldErrors?.productSearch && (
+              <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+            )}
+
+            <s-stack direction="inline" justifyContent="end">
+              <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
+                Search For Products
+              </s-button>
+            </s-stack>
+          </>
         )}
       </s-stack>
     </s-box>
