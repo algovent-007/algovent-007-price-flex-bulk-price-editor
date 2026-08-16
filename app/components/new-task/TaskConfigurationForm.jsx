@@ -143,27 +143,30 @@ export default function TaskConfigurationForm({
     handleRunTask,
   } = handlers ?? {};
 
-  const numericFieldProps = (setter, key) =>
+  const numericFieldProps = (setter, key, disabled = readOnly) =>
     createNumericInputHandlers((value) => {
       clearFieldError?.(key);
       setter(value);
-    }, readOnly);
+    }, disabled);
 
   const fieldError = (key) => fieldErrors?.[key];
   const isDirectCsvMode = editType === "csv-direct";
   const advancedStepNumber = isDirectCsvMode ? 2 : 4;
   const scheduleStepNumber = isDirectCsvMode ? 3 : 5;
-  const percentPlaceholder = pricingPlaceholders.percentValue ?? "Enter value";
-  const fixedPlaceholder = pricingPlaceholders.fixedValue ?? "Enter value";
-  const fixedPricePlaceholder = pricingPlaceholders.fixedPriceAmount ?? "Enter amount";
-  const comparePercentPlaceholder = pricingPlaceholders.comparePercentValue ?? "Enter value";
-  const compareFixedPlaceholder = pricingPlaceholders.compareFixedValue ?? "Enter value";
+  const percentPlaceholder = pricingPlaceholders.percentValue ?? "10";
+  const fixedPlaceholder = pricingPlaceholders.fixedValue ?? "20.00";
+  const fixedPricePlaceholder = pricingPlaceholders.fixedPriceAmount ?? "20.00";
+  const comparePercentPlaceholder = pricingPlaceholders.comparePercentValue ?? "10";
+  const compareFixedPlaceholder = pricingPlaceholders.compareFixedValue ?? "20.00";
   const compareFixedPricePlaceholder =
-    pricingPlaceholders.compareFixedPriceAmount ?? "Enter amount";
-  const costPercentPlaceholder = pricingPlaceholders.costPercentValue ?? "Enter value";
-  const costFixedPlaceholder = pricingPlaceholders.costFixedValue ?? "Enter value";
-  const costFixedPricePlaceholder = pricingPlaceholders.costFixedPriceAmount ?? "Enter amount";
+    pricingPlaceholders.compareFixedPriceAmount ?? "20.00";
+  const costPercentPlaceholder = pricingPlaceholders.costPercentValue ?? "10";
+  const costFixedPlaceholder = pricingPlaceholders.costFixedValue ?? "20.00";
+  const costFixedPricePlaceholder = pricingPlaceholders.costFixedPriceAmount ?? "20.00";
   const compareFormulaPlaceholder = pricingPlaceholders.comparePriceFormula ?? "price * 1.2";
+
+  const isPercentValueDisabled = (type) => readOnly || type === "3";
+  const isFixedValueDisabled = (type) => readOnly || type === "3";
 
   return (
     <>
@@ -304,8 +307,12 @@ export default function TaskConfigurationForm({
                       value={percentValue}
                       placeholder={percentPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setPercentValue, "percentValue")}
+                      disabled={isPercentValueDisabled(percentType)}
+                      {...numericFieldProps(
+                        setPercentValue,
+                        "percentValue",
+                        isPercentValueDisabled(percentType)
+                      )}
                       error={fieldError("percentValue")}
                     ></s-text-field>
                     <s-text color="subdued">{percentType === "4" ? "USD" : "%"}</s-text>
@@ -332,8 +339,12 @@ export default function TaskConfigurationForm({
                       value={fixedValue}
                       placeholder={fixedPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setFixedValue, "fixedValue")}
+                      disabled={isFixedValueDisabled(fixedType)}
+                      {...numericFieldProps(
+                        setFixedValue,
+                        "fixedValue",
+                        isFixedValueDisabled(fixedType)
+                      )}
                       error={fieldError("fixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
@@ -420,8 +431,12 @@ export default function TaskConfigurationForm({
                       value={comparePercentValue}
                       placeholder={comparePercentPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setComparePercentValue, "comparePercentValue")}
+                      disabled={isPercentValueDisabled(comparePercentType)}
+                      {...numericFieldProps(
+                        setComparePercentValue,
+                        "comparePercentValue",
+                        isPercentValueDisabled(comparePercentType)
+                      )}
                       error={fieldError("comparePercentValue")}
                     ></s-text-field>
                     <s-text color="subdued">
@@ -452,8 +467,12 @@ export default function TaskConfigurationForm({
                       value={compareFixedValue}
                       placeholder={compareFixedPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setCompareFixedValue, "compareFixedValue")}
+                      disabled={isFixedValueDisabled(compareFixedType)}
+                      {...numericFieldProps(
+                        setCompareFixedValue,
+                        "compareFixedValue",
+                        isFixedValueDisabled(compareFixedType)
+                      )}
                       error={fieldError("compareFixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
@@ -565,8 +584,12 @@ export default function TaskConfigurationForm({
                       value={costPercentValue}
                       placeholder={costPercentPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setCostPercentValue, "costPercentValue")}
+                      disabled={isPercentValueDisabled(costPercentType)}
+                      {...numericFieldProps(
+                        setCostPercentValue,
+                        "costPercentValue",
+                        isPercentValueDisabled(costPercentType)
+                      )}
                       error={fieldError("costPercentValue")}
                     ></s-text-field>
                     <s-text color="subdued">{costPercentType === "4" ? "USD" : "%"}</s-text>
@@ -593,8 +616,12 @@ export default function TaskConfigurationForm({
                       value={costFixedValue}
                       placeholder={costFixedPlaceholder}
                       inputMode="decimal"
-                      disabled={readOnly}
-                      {...numericFieldProps(setCostFixedValue, "costFixedValue")}
+                      disabled={isFixedValueDisabled(costFixedType)}
+                      {...numericFieldProps(
+                        setCostFixedValue,
+                        "costFixedValue",
+                        isFixedValueDisabled(costFixedType)
+                      )}
                       error={fieldError("costFixedValue")}
                     ></s-text-field>
                     <s-text color="subdued">USD</s-text>
