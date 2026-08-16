@@ -170,7 +170,7 @@ export default function TaskConfigurationForm({
               </s-choice-list>
             </div>
 
-            {!readOnly && (
+            {!readOnly && editType !== "conditions" && (
               <div className={styles.productSelectionAction}>
                 <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
                   Search For Products
@@ -192,6 +192,8 @@ export default function TaskConfigurationForm({
               handleConditionChange={readOnly ? undefined : handleConditionChange}
               addCondition={readOnly ? undefined : addCondition}
               removeCondition={readOnly ? undefined : removeCondition}
+              handleSearch={readOnly ? undefined : handleSearch}
+              isSearching={isSearching}
               locations={locations}
               collections={collections}
               fieldErrors={fieldErrors}
