@@ -7,6 +7,7 @@ import { startRollbackForTask } from "../services/rollback.server";
 import TaskLogsTable from "../components/TaskLogsTable";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
+import { canViewTaskConfiguration } from "../utils/task-config";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { formatCurrentTimeInTimezone } from "../utils/schedule";
 
