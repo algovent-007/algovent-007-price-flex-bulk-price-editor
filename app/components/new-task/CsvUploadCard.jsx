@@ -19,6 +19,13 @@ export default function CsvUploadCard({
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="base">
+        {editType === "csv-direct" && (
+          <s-banner tone="info">
+            Direct CSV mode applies the prices from your uploaded file. Pricing rules in step 2 are
+            ignored.
+          </s-banner>
+        )}
+
         <s-text type="strong">Upload CSV</s-text>
         <s-text color="subdued">{modeLabel}</s-text>
         {!readOnly && <s-link href="/app/support">Know more</s-link>}

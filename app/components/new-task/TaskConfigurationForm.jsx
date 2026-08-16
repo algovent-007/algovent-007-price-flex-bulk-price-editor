@@ -216,12 +216,6 @@ export default function TaskConfigurationForm({
 
           {isCsvEditType(editType) && (
             <>
-              {editType === "csv-direct" && (
-                <s-banner tone="info">
-                  Direct CSV mode applies the prices from your uploaded file. Pricing rules in step 2
-                  are ignored.
-                </s-banner>
-              )}
               <CsvUploadCard
                 readOnly={readOnly}
                 editType={editType}
