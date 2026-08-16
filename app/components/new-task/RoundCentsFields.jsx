@@ -113,7 +113,7 @@ export default function RoundCentsFields({
   };
 
   const handlePatternChange = (nextPattern) => {
-    const encoded = encodeRoundCents(ROUNDING_MODES.END_CUSTOM, direction, nextPattern);
+    const encoded = encodeRoundCents(mode, direction, nextPattern);
     setRoundCents(encoded.roundCents);
     setRoundCentsDigit(encoded.roundCentsDigit);
     clearFieldError?.(errorKey);
@@ -133,7 +133,8 @@ export default function RoundCentsFields({
           readOnly
             ? undefined
             : (e) => {
-                handleModeChange(e.target.value);
+                const next = e.currentTarget?.value ?? e.target?.value;
+                handleModeChange(next);
               }
         }
       >

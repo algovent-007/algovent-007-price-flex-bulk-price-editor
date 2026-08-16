@@ -7,6 +7,7 @@ import {
   removeWholeDigit,
   serializeEndingPattern,
 } from "../../utils/ending-price-pattern";
+import { usePatternDraft } from "./usePatternDraft";
 
 function sanitizeDigitInput(value) {
   const next = String(value ?? "").slice(-1);
@@ -21,35 +22,73 @@ export default function EndPricePatternInput({
   onPatternChange,
   error,
 }) {
-  const normalized = normalizeEndingPattern(pattern ?? DEFAULT_END_PATTERN);
-  const endingLabel = formatEndingSummary(normalized);
-  const canAddDigit = normalized.whole.length < 6;
-  const canRemoveDigit = normalized.whole.length > 1;
+  const { draft, commitPattern } = usePatternDraft(
+    pattern,
+    DEFAULT_END_PATTERN,
+    serializeEndingPattern
+  );
+  const endingLabel = formatEndingSummary(draft);
+  const canAddDigit = draft.whole.length < 6;
+  const canRemoveDigit = draft.whole.length > 1;
 
   const updatePattern = (nextPattern) => {
-    onPatternChange?.(normalizeEndingPattern(nextPattern));
+    commitPattern(nextPattern, onPatternChange);
   };
 
-  const handleWholeDigitChange = (index, value) => {
-    const nextWhole = [...normalized.whole];
-    nextWhole[index] = sanitizeDigitInput(value) || "*";
-    updatePattern({ ...normalized, whole: nextWhole });
+  const applyDigit = (section, index, value) => {
+    if (readOnly) return;
+
+    if (section === "whole") {
+      const nextWhole = [...draft.whole];
+      nextWhole[index] = value;
+      updatePattern({ ...draft, whole: nextWhole });
+      return;
+    }
+
+    const nextCents = [...draft.cents];
+    nextCents[index] = value;
+    updatePattern({ ...draft, cents: nextCents });
   };
 
-  const handleCentDigitChange = (index, value) => {
-    const nextCents = [...normalized.cents];
-    nextCents[index] = sanitizeDigitInput(value) || "0";
-    updatePattern({ ...normalized, cents: nextCents });
+  const handleWholeDigitInput = (index, value) => {
+    applyDigit("whole", index, sanitizeDigitInput(value) || "*");
+  };
+
+  const handleCentDigitInput = (index, value) => {
+    applyDigit("cent", index, sanitizeDigitInput(value) || "0");
+  };
+
+  const handleDigitKeyDown = (section, index, event) => {
+    if (readOnly) return;
+
+    const { key } = event;
+    if (key === "Backspace" || key === "Delete") {
+      event.preventDefault();
+      applyDigit(section, index, section === "whole" ? "*" : "0");
+      return;
+    }
+
+    if (key === "*") {
+      if (section !== "whole") return;
+      event.preventDefault();
+      applyDigit("whole", index, "*");
+      return;
+    }
+
+    if (/^\d$/.test(key)) {
+      event.preventDefault();
+      applyDigit(section, index, key);
+    }
   };
 
   const handleAddDigit = () => {
     if (!canAddDigit || readOnly) return;
-    updatePattern(addWholeDigit(normalized));
+    updatePattern(addWholeDigit(draft));
   };
 
   const handleRemoveDigit = () => {
     if (!canRemoveDigit || readOnly) return;
-    updatePattern(removeWholeDigit(normalized));
+    updatePattern(removeWholeDigit(draft));
   };
 
   return (
@@ -57,31 +96,38 @@ export default function EndPricePatternInput({
       <div className={styles.patternSection}>
         <div className={styles.patternControls}>
           <div className={styles.patternRow}>
-            {normalized.whole.map((digit, index) => (
+            {draft.whole.map((digit, index) => (
               <input
                 key={`whole-${index}`}
                 className={styles.digitBox}
                 value={digit}
                 maxLength={1}
-                inputMode="text"
+                type="text"
+                autoComplete="off"
                 disabled={readOnly}
                 aria-label={`Whole number digit ${index + 1}`}
-                onChange={(event) => handleWholeDigitChange(index, event.target.value)}
+                onChange={(event) => handleWholeDigitInput(index, event.target.value)}
+                onInput={(event) => handleWholeDigitInput(index, event.currentTarget.value)}
+                onKeyDown={(event) => handleDigitKeyDown("whole", index, event)}
               />
             ))}
             <span className={styles.decimalPoint} aria-hidden="true">
               .
             </span>
-            {normalized.cents.map((digit, index) => (
+            {draft.cents.map((digit, index) => (
               <input
                 key={`cent-${index}`}
                 className={styles.digitBox}
                 value={digit}
                 maxLength={1}
+                type="text"
                 inputMode="numeric"
+                autoComplete="off"
                 disabled={readOnly}
                 aria-label={`Cents digit ${index + 1}`}
-                onChange={(event) => handleCentDigitChange(index, event.target.value)}
+                onChange={(event) => handleCentDigitInput(index, event.target.value)}
+                onInput={(event) => handleCentDigitInput(index, event.currentTarget.value)}
+                onKeyDown={(event) => handleDigitKeyDown("cent", index, event)}
               />
             ))}
           </div>
@@ -119,5 +165,3 @@ export default function EndPricePatternInput({
     </s-stack>
   );
 }
-
-export { serializeEndingPattern };
