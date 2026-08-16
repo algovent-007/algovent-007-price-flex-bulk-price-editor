@@ -8,8 +8,7 @@ import {
   parseEndingPattern,
 } from "./ending-price-pattern.js";
 import {
-  multiplePatternToCents,
-  parseMultiplePattern,
+  parseMultipleValue,
 } from "./multiple-price-pattern.js";
 
 function parseDecimalPlaces(roundCentsDigit) {
@@ -18,15 +17,55 @@ function parseDecimalPlaces(roundCentsDigit) {
   return Math.min(parsed, 4);
 }
 
-function parseMultiple(roundCentsDigit) {
-  const raw = String(roundCentsDigit ?? "5");
-  if (raw.startsWith("m:")) {
-    return Math.min(multiplePatternToCents(parseMultiplePattern(raw)), 10000);
+function toCents(value) {
+  return Math.round(Number(value) * 100);
+}
+
+function fromCents(cents) {
+  return cents / 100;
+}
+
+/**
+ * Round a price to the nearest increment of a positive multiple.
+ * Uses integer cents math to avoid floating-point drift.
+ */
+export function roundToMultiple(price, multiple, direction = "closest") {
+  const priceCents = toCents(clampPrice(price));
+  const multipleCents = toCents(multiple);
+
+  if (multipleCents <= 0) {
+    return clampPrice(price);
   }
-  if (raw.startsWith("p:")) return 5;
-  const parsed = parseInt(raw, 10);
-  if (Number.isNaN(parsed) || parsed <= 0) return 5;
-  return Math.min(parsed, 100);
+
+  const quotient = priceCents / multipleCents;
+  let units;
+
+  if (direction === "down") {
+    units = Math.floor(quotient + 1e-9);
+  } else if (direction === "up") {
+    units = Math.ceil(quotient - 1e-9);
+  } else {
+    const floorUnits = Math.floor(quotient + 1e-9);
+    const ceilUnits = Math.ceil(quotient - 1e-9);
+    const lowerCents = floorUnits * multipleCents;
+    const upperCents = ceilUnits * multipleCents;
+    const distanceLower = priceCents - lowerCents;
+    const distanceUpper = upperCents - priceCents;
+
+    if (distanceLower < distanceUpper) {
+      units = floorUnits;
+    } else if (distanceUpper < distanceLower) {
+      units = ceilUnits;
+    } else {
+      units = floorUnits;
+    }
+  }
+
+  return fromCents(units * multipleCents);
+}
+
+function parseMultiple(roundCentsDigit) {
+  return parseMultipleValue(roundCentsDigit);
 }
 
 export function roundValue(p, roundCentsVal, roundCentsDigit) {
@@ -50,14 +89,11 @@ export function roundValue(p, roundCentsVal, roundCentsDigit) {
   } else if (roundCentsVal === "5") {
     val = Math.floor(val);
   } else if (roundCentsVal === "6") {
-    const factor = 100 / parseMultiple(roundCentsDigit);
-    val = Math.round(val * factor) / factor;
+    val = roundToMultiple(val, parseMultiple(roundCentsDigit), "closest");
   } else if (roundCentsVal === "7") {
-    const factor = 100 / parseMultiple(roundCentsDigit);
-    val = Math.ceil(val * factor) / factor;
+    val = roundToMultiple(val, parseMultiple(roundCentsDigit), "up");
   } else if (roundCentsVal === "8") {
-    const factor = 100 / parseMultiple(roundCentsDigit);
-    val = Math.floor(val * factor) / factor;
+    val = roundToMultiple(val, parseMultiple(roundCentsDigit), "down");
   } else if (roundCentsVal === "9") {
     const raw = String(roundCentsDigit ?? "");
     if (isLegacyEndingDigits(raw)) {

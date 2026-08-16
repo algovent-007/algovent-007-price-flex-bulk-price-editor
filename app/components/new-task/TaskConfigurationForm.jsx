@@ -24,6 +24,7 @@ export default function TaskConfigurationForm({
   previewVariants = [],
   showPricePreview = false,
   onClosePricePreview,
+  pricingPlaceholders = {},
   timezoneStr = "",
   hasSavedTimezone = true,
   currentTimeStr = "",
@@ -152,6 +153,17 @@ export default function TaskConfigurationForm({
   const isDirectCsvMode = editType === "csv-direct";
   const advancedStepNumber = isDirectCsvMode ? 2 : 4;
   const scheduleStepNumber = isDirectCsvMode ? 3 : 5;
+  const percentPlaceholder = pricingPlaceholders.percentValue ?? "Enter value";
+  const fixedPlaceholder = pricingPlaceholders.fixedValue ?? "Enter value";
+  const fixedPricePlaceholder = pricingPlaceholders.fixedPriceAmount ?? "Enter amount";
+  const comparePercentPlaceholder = pricingPlaceholders.comparePercentValue ?? "Enter value";
+  const compareFixedPlaceholder = pricingPlaceholders.compareFixedValue ?? "Enter value";
+  const compareFixedPricePlaceholder =
+    pricingPlaceholders.compareFixedPriceAmount ?? "Enter amount";
+  const costPercentPlaceholder = pricingPlaceholders.costPercentValue ?? "Enter value";
+  const costFixedPlaceholder = pricingPlaceholders.costFixedValue ?? "Enter value";
+  const costFixedPricePlaceholder = pricingPlaceholders.costFixedPriceAmount ?? "Enter amount";
+  const compareFormulaPlaceholder = pricingPlaceholders.comparePriceFormula ?? "price * 1.2";
 
   return (
     <>
@@ -262,7 +274,7 @@ export default function TaskConfigurationForm({
             label="Change Price"
             value={changePrice}
             disabled={readOnly}
-            onInput={readOnly ? undefined : (e) => setChangePrice(e.target.value)}
+            onInput={readOnly ? undefined : (e) => setChangePrice(e.currentTarget?.value ?? e.target?.value)}
           >
             <s-option value="1">Based on Current Price</s-option>
             <s-option value="2">Based on Current Compare Price</s-option>
@@ -279,7 +291,7 @@ export default function TaskConfigurationForm({
                     label="Percent"
                     value={percentType}
                     disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setPercentType(e.target.value)}
+                    onInput={readOnly ? undefined : (e) => setPercentType(e.currentTarget?.value ?? e.target?.value)}
                   >
                     <s-option value="1">increase by</s-option>
                     <s-option value="2">decrease by</s-option>
@@ -290,7 +302,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={percentValue}
-                      placeholder="Enter value"
+                      placeholder={percentPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setPercentValue, "percentValue")}
@@ -307,7 +319,7 @@ export default function TaskConfigurationForm({
                     label="Fixed Amount"
                     value={fixedType}
                     disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setFixedType(e.target.value)}
+                    onInput={readOnly ? undefined : (e) => setFixedType(e.currentTarget?.value ?? e.target?.value)}
                   >
                     <s-option value="1">add</s-option>
                     <s-option value="2">subtract</s-option>
@@ -318,7 +330,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={fixedValue}
-                      placeholder="Enter value"
+                      placeholder={fixedPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setFixedValue, "fixedValue")}
@@ -337,7 +349,7 @@ export default function TaskConfigurationForm({
                 <s-text-field
                   label="Fixed price amount"
                   value={fixedPriceAmount}
-                  placeholder="Enter amount"
+                  placeholder={fixedPricePlaceholder}
                   inputMode="decimal"
                   disabled={readOnly}
                   {...numericFieldProps(setFixedPriceAmount, "fixedPriceAmount")}
@@ -368,7 +380,7 @@ export default function TaskConfigurationForm({
               label="Change Compare Price"
               value={comparePriceType}
               disabled={readOnly}
-              onInput={readOnly ? undefined : (e) => setComparePriceType(e.target.value)}
+              onInput={readOnly ? undefined : (e) => setComparePriceType(e.currentTarget?.value ?? e.target?.value)}
             >
               <s-option value="1">Based on Current Compare Price</s-option>
               <s-option value="2">Based on New Product Price</s-option>
@@ -394,7 +406,7 @@ export default function TaskConfigurationForm({
                     value={comparePercentType}
                     disabled={readOnly}
                     onInput={
-                      readOnly ? undefined : (e) => setComparePercentType(e.target.value)
+                      readOnly ? undefined : (e) => setComparePercentType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
                     <s-option value="1">increase by</s-option>
@@ -406,7 +418,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={comparePercentValue}
-                      placeholder="Enter value"
+                      placeholder={comparePercentPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setComparePercentValue, "comparePercentValue")}
@@ -426,7 +438,7 @@ export default function TaskConfigurationForm({
                     value={compareFixedType}
                     disabled={readOnly}
                     onInput={
-                      readOnly ? undefined : (e) => setCompareFixedType(e.target.value)
+                      readOnly ? undefined : (e) => setCompareFixedType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
                     <s-option value="1">add</s-option>
@@ -438,7 +450,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={compareFixedValue}
-                      placeholder="Enter value"
+                      placeholder={compareFixedPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setCompareFixedValue, "compareFixedValue")}
@@ -457,7 +469,7 @@ export default function TaskConfigurationForm({
                 <s-text-field
                   label="Fixed compare price amount"
                   value={compareFixedPriceAmount}
-                  placeholder="Enter amount"
+                  placeholder={compareFixedPricePlaceholder}
                   inputMode="decimal"
                   disabled={readOnly}
                   {...numericFieldProps(setCompareFixedPriceAmount, "compareFixedPriceAmount")}
@@ -484,7 +496,7 @@ export default function TaskConfigurationForm({
                         }
                   }
                   error={fieldError("comparePriceFormula")}
-                  placeholder="price * 1.2"
+                  placeholder={compareFormulaPlaceholder}
                 ></s-text-field>
                 <s-text color="subdued">
                   Use variables: <strong>price</strong>, <strong>compare</strong>,{" "}
@@ -516,7 +528,7 @@ export default function TaskConfigurationForm({
               label="Change Cost Price"
               value={costPriceType}
               disabled={readOnly}
-              onInput={readOnly ? undefined : (e) => setCostPriceType(e.target.value)}
+              onInput={readOnly ? undefined : (e) => setCostPriceType(e.currentTarget?.value ?? e.target?.value)}
             >
               <s-option value="1">Based on Current Product Price</s-option>
               <s-option value="4">Based on New Product Price</s-option>
@@ -539,7 +551,7 @@ export default function TaskConfigurationForm({
                     value={costPercentType}
                     disabled={readOnly}
                     onInput={
-                      readOnly ? undefined : (e) => setCostPercentType(e.target.value)
+                      readOnly ? undefined : (e) => setCostPercentType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
                     <s-option value="1">increase by</s-option>
@@ -551,7 +563,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={costPercentValue}
-                      placeholder="Enter value"
+                      placeholder={costPercentPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setCostPercentValue, "costPercentValue")}
@@ -568,7 +580,7 @@ export default function TaskConfigurationForm({
                     label="Fixed Amount"
                     value={costFixedType}
                     disabled={readOnly}
-                    onInput={readOnly ? undefined : (e) => setCostFixedType(e.target.value)}
+                    onInput={readOnly ? undefined : (e) => setCostFixedType(e.currentTarget?.value ?? e.target?.value)}
                   >
                     <s-option value="1">add</s-option>
                     <s-option value="2">subtract</s-option>
@@ -579,7 +591,7 @@ export default function TaskConfigurationForm({
                     <s-text-field
                       label="Value"
                       value={costFixedValue}
-                      placeholder="Enter value"
+                      placeholder={costFixedPlaceholder}
                       inputMode="decimal"
                       disabled={readOnly}
                       {...numericFieldProps(setCostFixedValue, "costFixedValue")}
@@ -598,7 +610,7 @@ export default function TaskConfigurationForm({
                 <s-text-field
                   label="Fixed cost price amount"
                   value={costFixedPriceAmount}
-                  placeholder="Enter amount"
+                  placeholder={costFixedPricePlaceholder}
                   inputMode="decimal"
                   disabled={readOnly}
                   {...numericFieldProps(setCostFixedPriceAmount, "costFixedPriceAmount")}

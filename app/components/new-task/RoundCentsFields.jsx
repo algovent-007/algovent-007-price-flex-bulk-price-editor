@@ -26,6 +26,8 @@ export default function RoundCentsFields({
   errorKey = "roundCentsDigit",
 }) {
   const rawId = useId();
+  const endingTooltipId = `round-ending-help-${rawId.replace(/:/g, "")}-${errorKey}`;
+  const multipleTooltipId = `round-multiple-help-${rawId.replace(/:/g, "")}-${errorKey}`;
   const directionTooltipId = `round-direction-help-${rawId.replace(/:/g, "")}-${errorKey}`;
   const fieldId = errorKey.replace(/[^a-z0-9-]/gi, "-");
 
@@ -147,31 +149,69 @@ export default function RoundCentsFields({
       </s-select>
 
       {showEndingPattern && (
-        <EndPricePatternInput
-          pattern={endingPattern ?? DEFAULT_END_PATTERN}
-          readOnly={readOnly}
-          onPatternChange={handlePatternChange}
-          error={fieldError?.(errorKey)}
-        />
+        <s-stack direction="block" gap="small">
+          <s-stack direction="inline" gap="small-100" alignItems="center">
+            <s-text type="strong">End prices in a certain number</s-text>
+            <s-tooltip id={endingTooltipId}>
+              Sets the digit pattern that prices should end in. Use * for any digit. For example,
+              ending in .50 rounds prices to amounts like $12.50 or $99.50.
+            </s-tooltip>
+            <s-button
+              variant="tertiary"
+              interestFor={endingTooltipId}
+              accessibilityLabel="Help for end prices in a certain number"
+            >
+              <s-icon type="info"></s-icon>
+            </s-button>
+          </s-stack>
+          <EndPricePatternInput
+            pattern={endingPattern ?? DEFAULT_END_PATTERN}
+            readOnly={readOnly}
+            onPatternChange={handlePatternChange}
+            error={fieldError?.(errorKey)}
+          />
+        </s-stack>
       )}
 
       {showMultipleValue && (
-        <MultiplePatternInput
-          pattern={multiplePattern ?? DEFAULT_MULTIPLE_PATTERN}
-          readOnly={readOnly}
-          onPatternChange={handleMultiplePatternChange}
-          error={fieldError?.(errorKey)}
-        />
+        <s-stack direction="block" gap="small">
+          <s-stack direction="inline" gap="small-100" alignItems="center">
+            <s-text type="strong">Round prices to a certain multiple</s-text>
+            <s-tooltip id={multipleTooltipId}>
+              Rounds the price to the nearest multiple of the specified value. For example, a
+              multiple of 0.40 rounds prices to $X.00, $X.40, $X.80, $X.20, $X.60, etc.
+            </s-tooltip>
+            <s-button
+              variant="tertiary"
+              interestFor={multipleTooltipId}
+              accessibilityLabel="Help for round prices to a certain multiple"
+            >
+              <s-icon type="info"></s-icon>
+            </s-button>
+          </s-stack>
+          <MultiplePatternInput
+            pattern={multiplePattern ?? DEFAULT_MULTIPLE_PATTERN}
+            readOnly={readOnly}
+            onPatternChange={handleMultiplePatternChange}
+            error={fieldError?.(errorKey)}
+          />
+        </s-stack>
       )}
 
       {showDirection && (
         <s-stack direction="block" gap="small">
           <s-stack direction="inline" gap="small-100" alignItems="center">
             <s-text type="strong">Rounding direction</s-text>
-            <s-icon type="info" interestFor={directionTooltipId} />
             <s-tooltip id={directionTooltipId}>
               Choose whether prices should round to the closest match, always up, or always down.
             </s-tooltip>
+            <s-button
+              variant="tertiary"
+              interestFor={directionTooltipId}
+              accessibilityLabel="Help for rounding direction"
+            >
+              <s-icon type="info"></s-icon>
+            </s-button>
           </s-stack>
           <s-choice-list
             name={`rounding-direction-${fieldId}`}

@@ -49,14 +49,43 @@ export function formatMultipleSummary(pattern) {
   return `${normalized.whole.join("")}${centsLabel}`;
 }
 
-export function multiplePatternToCents(pattern) {
+export function multiplePatternToValue(pattern) {
   const normalized = normalizeEndingPattern(pattern);
   const wholeStr = normalized.whole.map((digit) => (digit === "*" ? "0" : digit)).join("");
   const wholeNum = parseInt(wholeStr, 10) || 0;
   const centsNum = parseInt(normalized.cents.join(""), 10) || 0;
-  const totalCents = wholeNum * 100 + centsNum;
+  const value = wholeNum + centsNum / 100;
 
-  return totalCents > 0 ? totalCents : 10;
+  if (value <= 0) {
+    return 0.1;
+  }
+
+  return Math.min(value, 1000);
+}
+
+/** @deprecated Use multiplePatternToValue instead. */
+export function multiplePatternToCents(pattern) {
+  return Math.round(multiplePatternToValue(pattern) * 100);
+}
+
+export function parseMultipleValue(roundCentsDigit) {
+  const raw = String(roundCentsDigit ?? "");
+
+  if (raw.startsWith("m:")) {
+    return multiplePatternToValue(parseMultiplePattern(raw));
+  }
+
+  if (raw.startsWith("p:")) {
+    return 0.05;
+  }
+
+  const parsed = parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return 0.05;
+  }
+
+  // Legacy values store the increment in cents (for example, 5 => $0.05).
+  return Math.min(parsed, 10000) / 100;
 }
 
 export { addWholeDigit, removeWholeDigit };

@@ -136,8 +136,6 @@ export default function EndPricePatternInput({
             Make prices end in <span className={styles.summaryValue}>{endingLabel}</span>
           </p>
 
-          <s-link href="/app/support">Learn more about &apos;End prices in a certain number&apos; rounding</s-link>
-
           {error && <s-banner tone="critical">{error}</s-banner>}
         </div>
 

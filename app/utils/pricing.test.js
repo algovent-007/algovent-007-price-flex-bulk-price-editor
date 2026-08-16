@@ -6,6 +6,8 @@ import {
   evaluateFormula,
   validatePricingConfig,
   roundValue,
+  roundToMultiple,
+  formatPrice,
 } from "./pricing.js";
 
 function test(name, fn) {
@@ -336,6 +338,7 @@ test("round up to nearest cent", () => {
 test("custom multiple rounding", () => {
   assert.equal(roundValue(12.34, "6", "5"), 12.35);
   assert.equal(roundValue(12.31, "7", "5"), 12.35);
+  assert.equal(roundValue(12.39, "8", "5"), 12.35);
 });
 
 test("pattern multiple rounding", () => {
@@ -344,6 +347,46 @@ test("pattern multiple rounding", () => {
   assert.equal(roundValue(12.36, "6", pattern), 12.4);
   assert.equal(roundValue(12.31, "7", pattern), 12.4);
   assert.equal(roundValue(12.39, "8", pattern), 12.3);
+});
+
+test("multiple 0.40 rounds to divisible increments", () => {
+  const pattern = 'm:{"whole":["*","*"],"cents":["4","0"]}';
+
+  assert.equal(roundValue(100.3, "8", pattern), 100);
+  assert.equal(roundValue(100.3, "7", pattern), 100.4);
+  assert.equal(roundValue(100.3, "6", pattern), 100.4);
+
+  assert.equal(roundValue(100.2, "8", pattern), 100);
+  assert.equal(roundValue(100.2, "7", pattern), 100.4);
+  assert.equal(roundValue(100.2, "6", pattern), 100);
+
+  assert.equal(roundValue(100.4, "6", pattern), 100.4);
+  assert.equal(roundValue(100, "6", pattern), 100);
+  assert.equal(formatPrice(roundValue(100.3, "6", pattern)), "100.40");
+});
+
+test("multiple 0.25 and whole-number multiple", () => {
+  const quarterPattern = 'm:{"whole":["*","*"],"cents":["2","5"]}';
+  assert.equal(roundValue(10.12, "6", quarterPattern), 10);
+  assert.equal(roundValue(10.13, "6", quarterPattern), 10.25);
+
+  const fivePattern = 'm:{"whole":["5"],"cents":["0","0"]}';
+  assert.equal(roundValue(12, "6", fivePattern), 10);
+  assert.equal(roundValue(13, "7", fivePattern), 15);
+  assert.equal(roundValue(12.5, "8", fivePattern), 10);
+});
+
+test("multiple rounding handles zero price", () => {
+  const pattern = 'm:{"whole":["*","*"],"cents":["4","0"]}';
+  assert.equal(roundValue(0, "6", pattern), 0);
+  assert.equal(roundValue(-1, "6", pattern), 0);
+});
+
+test("roundToMultiple uses interval not decimal ending", () => {
+  assert.equal(roundToMultiple(100.8, 0.4, "closest"), 100.8);
+  assert.equal(roundToMultiple(101, 0.4, "closest"), 100.8);
+  assert.equal(roundToMultiple(101.1, 0.4, "closest"), 101.2);
+  assert.equal(roundToMultiple(101.2, 0.4, "closest"), 101.2);
 });
 
 test("fixed whole ending pattern supports direction", () => {

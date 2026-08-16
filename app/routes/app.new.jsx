@@ -24,6 +24,7 @@ import {
   getProductSearchQueryConfig,
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
+import { generatePricingPlaceholders } from "../utils/pricing-rules-presets";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import {
   getDefaultOperatorForField,
@@ -527,6 +528,8 @@ export default function NewTask() {
   const csvFileInputRef = useRef(null);
 
   // Section 2 States
+  const [pricingPlaceholders] = useState(() => generatePricingPlaceholders());
+
   const [changePrice, setChangePrice] = useState("1");
   const [percentType, setPercentType] = useState("1");
   const [percentValue, setPercentValue] = useState("");
@@ -1435,6 +1438,7 @@ export default function NewTask() {
         previewVariants={previewVariants}
         showPricePreview={showPricePreview}
         onClosePricePreview={() => setShowPricePreview(false)}
+        pricingPlaceholders={pricingPlaceholders}
         timezoneStr={timezoneStr}
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
