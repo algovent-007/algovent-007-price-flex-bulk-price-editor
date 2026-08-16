@@ -2,10 +2,25 @@
  * Shared pricing calculation logic for preview and bulk task execution.
  */
 
-export function roundValue(p, roundCentsVal) {
+function parseDecimalPlaces(roundCentsDigit) {
+  const parsed = parseInt(String(roundCentsDigit ?? "2"), 10);
+  if (Number.isNaN(parsed) || parsed < 0) return 2;
+  return Math.min(parsed, 4);
+}
+
+function parseEndingDigits(roundCentsDigit) {
+  const cleaned = String(roundCentsDigit ?? "99").replace(/\D/g, "");
+  if (!cleaned) return 0.99;
+  const normalized = cleaned.slice(-2).padStart(2, "0");
+  return parseInt(normalized, 10) / 100;
+}
+
+export function roundValue(p, roundCentsVal, roundCentsDigit) {
   let val = p;
   if (roundCentsVal === "2") {
-    val = Math.round(val * 100) / 100;
+    const places = parseDecimalPlaces(roundCentsDigit);
+    const factor = 10 ** places;
+    val = Math.round(val * factor) / factor;
   } else if (roundCentsVal === "3") {
     val = Math.round(val);
   } else if (roundCentsVal === "4") {
@@ -19,7 +34,7 @@ export function roundValue(p, roundCentsVal) {
   } else if (roundCentsVal === "8") {
     val = Math.floor(val * 20) / 20;
   } else if (roundCentsVal === "9") {
-    val = Math.floor(val) + 0.99;
+    val = Math.floor(val) + parseEndingDigits(roundCentsDigit);
   }
   return val;
 }
@@ -162,6 +177,7 @@ export function calculateNewValue({
   fixedVal,
   fixedPriceAmt,
   roundCentsVal,
+  roundCentsDigit,
   formula = "",
 }) {
   const ctx = {
@@ -192,7 +208,11 @@ export function calculateNewValue({
     if (fixedPriceAmt === "" || fixedPriceAmt == null || Number.isNaN(fixed)) {
       return { value: Number(currentVal) || 0, skipped: true, error: "Fixed amount is required" };
     }
-    return { value: roundValue(clampPrice(fixed), roundCentsVal), skipped: false, error: null };
+    return {
+      value: roundValue(clampPrice(fixed), roundCentsVal, roundCentsDigit),
+      skipped: false,
+      error: null,
+    };
   }
 
   if (baseType === "8") {
@@ -204,7 +224,11 @@ export function calculateNewValue({
     if (error || value === null) {
       return { value: Number(currentVal) || 0, skipped: true, error: error || "Invalid formula" };
     }
-    return { value: roundValue(clampPrice(value), roundCentsVal), skipped: false, error: null };
+    return {
+      value: roundValue(clampPrice(value), roundCentsVal, roundCentsDigit),
+      skipped: false,
+      error: null,
+    };
   }
 
   const baseResult = resolveBaseValue(baseType, fieldKind, ctx);
@@ -215,7 +239,7 @@ export function calculateNewValue({
   let p = baseResult.value;
   p = applyPercentAdjustment(p, percentType, percentVal);
   p = applyFixedAdjustment(p, fixedType, fixedVal);
-  p = roundValue(clampPrice(p), roundCentsVal);
+  p = roundValue(clampPrice(p), roundCentsVal, roundCentsDigit);
 
   return { value: p, skipped: false, error: null };
 }
@@ -228,6 +252,7 @@ export function calculateVariantPricing({
   fixedValue,
   fixedPriceAmount,
   roundCents,
+  roundCentsDigit,
   priceFormula,
   comparePriceType,
   comparePercentType,
@@ -236,6 +261,7 @@ export function calculateVariantPricing({
   compareFixedValue,
   compareFixedPriceAmount,
   compareRoundCents,
+  compareRoundCentsDigit,
   comparePriceFormula,
   costPriceType,
   costPercentType,
@@ -244,6 +270,7 @@ export function calculateVariantPricing({
   costFixedValue,
   costFixedPriceAmount,
   costRoundCents,
+  costRoundCentsDigit,
   originalPrice,
   originalCompare,
   originalCost,
@@ -271,6 +298,7 @@ export function calculateVariantPricing({
           fixedVal: fixedValue,
           fixedPriceAmt: fixedPriceAmount,
           roundCentsVal: roundCents,
+          roundCentsDigit,
           formula: priceFormula,
         });
 
@@ -302,6 +330,7 @@ export function calculateVariantPricing({
       fixedVal: compareFixedValue,
       fixedPriceAmt: compareFixedPriceAmount,
       roundCentsVal: compareRoundCents,
+      roundCentsDigit: compareRoundCentsDigit,
       formula: comparePriceFormula,
     });
     if (compareResult.error) warnings.push(`Compare-at: ${compareResult.error}`);
@@ -329,6 +358,7 @@ export function calculateVariantPricing({
       fixedVal: costFixedValue,
       fixedPriceAmt: costFixedPriceAmount,
       roundCentsVal: costRoundCents,
+      roundCentsDigit: costRoundCentsDigit,
       formula: "",
     });
     if (costResult.error) warnings.push(`Cost: ${costResult.error}`);

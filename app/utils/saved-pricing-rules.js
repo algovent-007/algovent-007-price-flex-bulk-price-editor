@@ -12,6 +12,7 @@ export function buildPricingRulesSnapshot(values) {
     fixedType: values.fixedType,
     fixedValue: values.fixedValue,
     roundCents: values.roundCents,
+    roundCentsDigit: values.roundCentsDigit,
     comparePriceType: values.comparePriceType,
     costPriceType: values.costPriceType,
     fixedPriceAmount: values.fixedPriceAmount,
@@ -23,12 +24,14 @@ export function buildPricingRulesSnapshot(values) {
     compareFixedValue: values.compareFixedValue,
     compareFixedPriceAmount: values.compareFixedPriceAmount,
     compareRoundCents: values.compareRoundCents,
+    compareRoundCentsDigit: values.compareRoundCentsDigit,
     costPercentType: values.costPercentType,
     costPercentValue: values.costPercentValue,
     costFixedType: values.costFixedType,
     costFixedValue: values.costFixedValue,
     costFixedPriceAmount: values.costFixedPriceAmount,
     costRoundCents: values.costRoundCents,
+    costRoundCentsDigit: values.costRoundCentsDigit,
   };
 }
 
@@ -57,6 +60,7 @@ export function applySavedPricingRules(rules, setters) {
     setFixedType,
     setFixedValue,
     setRoundCents,
+    setRoundCentsDigit,
     setComparePriceType,
     setCostPriceType,
     setFixedPriceAmount,
@@ -68,12 +72,14 @@ export function applySavedPricingRules(rules, setters) {
     setCompareFixedValue,
     setCompareFixedPriceAmount,
     setCompareRoundCents,
+    setCompareRoundCentsDigit,
     setCostPercentType,
     setCostPercentValue,
     setCostFixedType,
     setCostFixedValue,
     setCostFixedPriceAmount,
     setCostRoundCents,
+    setCostRoundCentsDigit,
   } = setters;
 
   if (rules.changePrice != null) setChangePrice(String(rules.changePrice));
@@ -82,6 +88,7 @@ export function applySavedPricingRules(rules, setters) {
   if (rules.fixedType != null) setFixedType(String(rules.fixedType));
   if (rules.fixedValue != null) setFixedValue(String(rules.fixedValue));
   if (rules.roundCents != null) setRoundCents(String(rules.roundCents));
+  if (rules.roundCentsDigit != null) setRoundCentsDigit(String(rules.roundCentsDigit));
   if (rules.comparePriceType != null) setComparePriceType(String(rules.comparePriceType));
   if (rules.costPriceType != null) setCostPriceType(String(rules.costPriceType));
   if (rules.fixedPriceAmount != null) setFixedPriceAmount(String(rules.fixedPriceAmount));
@@ -95,12 +102,16 @@ export function applySavedPricingRules(rules, setters) {
     setCompareFixedPriceAmount(String(rules.compareFixedPriceAmount));
   }
   if (rules.compareRoundCents != null) setCompareRoundCents(String(rules.compareRoundCents));
+  if (rules.compareRoundCentsDigit != null) {
+    setCompareRoundCentsDigit(String(rules.compareRoundCentsDigit));
+  }
   if (rules.costPercentType != null) setCostPercentType(String(rules.costPercentType));
   if (rules.costPercentValue != null) setCostPercentValue(String(rules.costPercentValue));
   if (rules.costFixedType != null) setCostFixedType(String(rules.costFixedType));
   if (rules.costFixedValue != null) setCostFixedValue(String(rules.costFixedValue));
   if (rules.costFixedPriceAmount != null) setCostFixedPriceAmount(String(rules.costFixedPriceAmount));
   if (rules.costRoundCents != null) setCostRoundCents(String(rules.costRoundCents));
+  if (rules.costRoundCentsDigit != null) setCostRoundCentsDigit(String(rules.costRoundCentsDigit));
 
   return true;
 }

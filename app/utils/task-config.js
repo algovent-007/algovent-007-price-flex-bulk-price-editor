@@ -19,6 +19,7 @@ export function getDefaultTaskConfigState(taskName = "") {
     fixedType: "3",
     fixedValue: "",
     roundCents: "1",
+    roundCentsDigit: "",
     comparePriceType: "6",
     costPriceType: "6",
     fixedPriceAmount: "",
@@ -30,12 +31,14 @@ export function getDefaultTaskConfigState(taskName = "") {
     compareFixedValue: "",
     compareFixedPriceAmount: "",
     compareRoundCents: "1",
+    compareRoundCentsDigit: "",
     costPercentType: "1",
     costPercentValue: "",
     costFixedType: "3",
     costFixedValue: "",
     costFixedPriceAmount: "",
     costRoundCents: "1",
+    costRoundCentsDigit: "",
     examplePrice: "22.99",
     exampleCompare: "24.99",
     exampleCost: "12.50",
@@ -92,6 +95,7 @@ export function buildTaskConfigState(task, actionData, timeZone) {
     config.fixedPriceAmount = String(payload.fixedPriceAmount);
   }
   if (payload.roundCents) config.roundCents = String(payload.roundCents);
+  if (payload.roundCentsDigit != null) config.roundCentsDigit = String(payload.roundCentsDigit);
   if (payload.priceFormula) config.priceFormula = payload.priceFormula;
 
   if (payload.comparePriceType) config.comparePriceType = String(payload.comparePriceType);
@@ -107,6 +111,9 @@ export function buildTaskConfigState(task, actionData, timeZone) {
     config.compareFixedPriceAmount = String(payload.compareFixedPriceAmount);
   }
   if (payload.compareRoundCents) config.compareRoundCents = String(payload.compareRoundCents);
+  if (payload.compareRoundCentsDigit != null) {
+    config.compareRoundCentsDigit = String(payload.compareRoundCentsDigit);
+  }
   if (payload.comparePriceFormula) config.comparePriceFormula = payload.comparePriceFormula;
 
   if (payload.costPriceType) config.costPriceType = String(payload.costPriceType);
@@ -120,6 +127,9 @@ export function buildTaskConfigState(task, actionData, timeZone) {
     config.costFixedPriceAmount = String(payload.costFixedPriceAmount);
   }
   if (payload.costRoundCents) config.costRoundCents = String(payload.costRoundCents);
+  if (payload.costRoundCentsDigit != null) {
+    config.costRoundCentsDigit = String(payload.costRoundCentsDigit);
+  }
 
   const tagsToAdd = Array.isArray(payload.tagsToAddList) ? payload.tagsToAddList : [];
   const tagsToRemove = Array.isArray(payload.tagsToRemoveList) ? payload.tagsToRemoveList : [];

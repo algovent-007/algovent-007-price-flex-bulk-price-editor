@@ -50,6 +50,7 @@ export function applyStoredTaskCopy(copyData, setters) {
     setFixedValue,
     setFixedPriceAmount,
     setRoundCents,
+    setRoundCentsDigit,
     setPriceFormula,
     setComparePriceType,
     setComparePercentType,
@@ -58,6 +59,7 @@ export function applyStoredTaskCopy(copyData, setters) {
     setCompareFixedValue,
     setCompareFixedPriceAmount,
     setCompareRoundCents,
+    setCompareRoundCentsDigit,
     setComparePriceFormula,
     setCostPriceType,
     setCostPercentType,
@@ -66,6 +68,7 @@ export function applyStoredTaskCopy(copyData, setters) {
     setCostFixedValue,
     setCostFixedPriceAmount,
     setCostRoundCents,
+    setCostRoundCentsDigit,
     setTagsToAdd,
     setTagsToRemove,
     setAddTagsActive,
@@ -94,6 +97,7 @@ export function applyStoredTaskCopy(copyData, setters) {
   if (payload.fixedValue != null) setFixedValue(String(payload.fixedValue));
   if (payload.fixedPriceAmount != null) setFixedPriceAmount(String(payload.fixedPriceAmount));
   if (payload.roundCents) setRoundCents(String(payload.roundCents));
+  if (payload.roundCentsDigit != null) setRoundCentsDigit(String(payload.roundCentsDigit));
   if (payload.priceFormula) setPriceFormula(payload.priceFormula);
 
   if (payload.comparePriceType) setComparePriceType(String(payload.comparePriceType));
@@ -107,6 +111,9 @@ export function applyStoredTaskCopy(copyData, setters) {
     setCompareFixedPriceAmount(String(payload.compareFixedPriceAmount));
   }
   if (payload.compareRoundCents) setCompareRoundCents(String(payload.compareRoundCents));
+  if (payload.compareRoundCentsDigit != null) {
+    setCompareRoundCentsDigit(String(payload.compareRoundCentsDigit));
+  }
   if (payload.comparePriceFormula) setComparePriceFormula(payload.comparePriceFormula);
 
   if (payload.costPriceType) setCostPriceType(String(payload.costPriceType));
@@ -118,6 +125,7 @@ export function applyStoredTaskCopy(copyData, setters) {
     setCostFixedPriceAmount(String(payload.costFixedPriceAmount));
   }
   if (payload.costRoundCents) setCostRoundCents(String(payload.costRoundCents));
+  if (payload.costRoundCentsDigit != null) setCostRoundCentsDigit(String(payload.costRoundCentsDigit));
 
   const tagsToAdd = Array.isArray(payload.tagsToAddList) ? payload.tagsToAddList : [];
   const tagsToRemove = Array.isArray(payload.tagsToRemoveList) ? payload.tagsToRemoveList : [];

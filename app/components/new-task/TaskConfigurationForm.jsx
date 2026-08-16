@@ -3,6 +3,7 @@ import CollectionCard from "./CollectionCard";
 import CsvUploadCard from "./CsvUploadCard";
 import ScheduleSettingsCard from "./ScheduleSettingsCard";
 import AdvancedSettingsCard from "./AdvancedSettingsCard";
+import RoundCentsFields from "./RoundCentsFields";
 import { createNumericInputHandlers } from "../../utils/numeric-input";
 import { EDIT_TYPE_OPTIONS, isCsvEditType } from "./constants";
 import styles from "./ProductSelectionSection.module.css";
@@ -36,6 +37,7 @@ export default function TaskConfigurationForm({
     fixedType,
     fixedValue,
     roundCents,
+    roundCentsDigit,
     comparePriceType,
     costPriceType,
     fixedPriceAmount,
@@ -47,12 +49,14 @@ export default function TaskConfigurationForm({
     compareFixedValue,
     compareFixedPriceAmount,
     compareRoundCents,
+    compareRoundCentsDigit,
     costPercentType,
     costPercentValue,
     costFixedType,
     costFixedValue,
     costFixedPriceAmount,
     costRoundCents,
+    costRoundCentsDigit,
     addTagsActive,
     removeTagsActive,
     tagToAddInput,
@@ -88,6 +92,7 @@ export default function TaskConfigurationForm({
     setFixedType,
     setFixedValue,
     setRoundCents,
+    setRoundCentsDigit,
     setComparePriceType,
     setCostPriceType,
     setFixedPriceAmount,
@@ -99,12 +104,14 @@ export default function TaskConfigurationForm({
     setCompareFixedValue,
     setCompareFixedPriceAmount,
     setCompareRoundCents,
+    setCompareRoundCentsDigit,
     setCostPercentType,
     setCostPercentValue,
     setCostFixedType,
     setCostFixedValue,
     setCostFixedPriceAmount,
     setCostRoundCents,
+    setCostRoundCentsDigit,
     setAddTagsActive,
     setRemoveTagsActive,
     setTagToAddInput,
@@ -332,22 +339,16 @@ export default function TaskConfigurationForm({
 
           {changePrice !== "6" && changePrice !== "9" && (
             <s-box paddingBlockStart="large">
-              <s-select
-                label="Round off cents"
-                value={roundCents}
-                disabled={readOnly}
-                onInput={readOnly ? undefined : (e) => setRoundCents(e.target.value)}
-              >
-                <s-option value="1">No</s-option>
-                <s-option value="2">Fixed Round Off</s-option>
-                <s-option value="3">Nearest Integer</s-option>
-                <s-option value="4">Nearest Integer Up</s-option>
-                <s-option value="5">Nearest Integer Down</s-option>
-                <s-option value="6">Nearest 5 Cent</s-option>
-                <s-option value="7">Nearest 5 Cent Up</s-option>
-                <s-option value="8">Nearest 5 Cent Down</s-option>
-                <s-option value="9">End prices in a certain number</s-option>
-              </s-select>
+              <RoundCentsFields
+                roundCents={roundCents}
+                roundCentsDigit={roundCentsDigit}
+                setRoundCents={setRoundCents}
+                setRoundCentsDigit={setRoundCentsDigit}
+                readOnly={readOnly}
+                fieldError={fieldError}
+                clearFieldError={clearFieldError}
+                errorKey="roundCentsDigit"
+              />
             </s-box>
           )}
 
@@ -486,24 +487,16 @@ export default function TaskConfigurationForm({
             comparePriceType !== "7" &&
             comparePriceType !== "9" && (
               <s-box paddingBlockStart="large">
-                <s-select
-                  label="Round off cents"
-                  value={compareRoundCents}
-                  disabled={readOnly}
-                  onInput={
-                    readOnly ? undefined : (e) => setCompareRoundCents(e.target.value)
-                  }
-                >
-                  <s-option value="1">No</s-option>
-                  <s-option value="2">Fixed Round Off</s-option>
-                  <s-option value="3">Nearest Integer</s-option>
-                  <s-option value="4">Nearest Integer Up</s-option>
-                  <s-option value="5">Nearest Integer Down</s-option>
-                  <s-option value="6">Nearest 5 Cent</s-option>
-                  <s-option value="7">Nearest 5 Cent Up</s-option>
-                  <s-option value="8">Nearest 5 Cent Down</s-option>
-                  <s-option value="9">End prices in a certain number</s-option>
-                </s-select>
+                <RoundCentsFields
+                  roundCents={compareRoundCents}
+                  roundCentsDigit={compareRoundCentsDigit}
+                  setRoundCents={setCompareRoundCents}
+                  setRoundCentsDigit={setCompareRoundCentsDigit}
+                  readOnly={readOnly}
+                  fieldError={fieldError}
+                  clearFieldError={clearFieldError}
+                  errorKey="compareRoundCentsDigit"
+                />
               </s-box>
             )}
 
@@ -607,22 +600,16 @@ export default function TaskConfigurationForm({
 
           {costPriceType !== "6" && (
             <s-box paddingBlockStart="large">
-              <s-select
-                label="Round off cents"
-                value={costRoundCents}
-                disabled={readOnly}
-                onInput={readOnly ? undefined : (e) => setCostRoundCents(e.target.value)}
-              >
-                <s-option value="1">No</s-option>
-                <s-option value="2">Fixed Round Off</s-option>
-                <s-option value="3">Nearest Integer</s-option>
-                <s-option value="4">Nearest Integer Up</s-option>
-                <s-option value="5">Nearest Integer Down</s-option>
-                <s-option value="6">Nearest 5 Cent</s-option>
-                <s-option value="7">Nearest 5 Cent Up</s-option>
-                <s-option value="8">Nearest 5 Cent Down</s-option>
-                <s-option value="9">End prices in a certain number</s-option>
-              </s-select>
+              <RoundCentsFields
+                roundCents={costRoundCents}
+                roundCentsDigit={costRoundCentsDigit}
+                setRoundCents={setCostRoundCents}
+                setRoundCentsDigit={setCostRoundCentsDigit}
+                readOnly={readOnly}
+                fieldError={fieldError}
+                clearFieldError={clearFieldError}
+                errorKey="costRoundCentsDigit"
+              />
             </s-box>
           )}
 

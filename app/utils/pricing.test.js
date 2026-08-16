@@ -5,6 +5,7 @@ import {
   calculateExamplePricing,
   evaluateFormula,
   validatePricingConfig,
+  roundValue,
 } from "./pricing.js";
 
 function test(name, fn) {
@@ -293,6 +294,17 @@ test("preview matches bulk calculation", () => {
   });
 
   assert.equal(preview.calcPrice, bulk.newPrice.toFixed(2));
+});
+
+test("end prices in a certain number uses ending digits", () => {
+  assert.equal(roundValue(12.34, "9", "99"), 12.99);
+  assert.equal(roundValue(12.87, "9", "95"), 12.95);
+  assert.equal(roundValue(12.87, "9", "00"), 12);
+});
+
+test("fixed round off uses decimal places", () => {
+  assert.equal(roundValue(12.3456, "2", "2"), 12.35);
+  assert.equal(roundValue(12.3456, "2", "0"), 12);
 });
 
 console.log("All pricing tests passed.");

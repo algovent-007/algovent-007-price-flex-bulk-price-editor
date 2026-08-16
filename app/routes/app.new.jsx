@@ -205,6 +205,7 @@ export const action = async ({ request }) => {
     const fixedValue = formData.get("fixedValue");
     const fixedPriceAmount = formData.get("fixedPriceAmount");
     const roundCents = formData.get("roundCents");
+    const roundCentsDigit = formData.get("roundCentsDigit");
     const priceFormula = formData.get("priceFormula") || "";
 
     const comparePriceType = formData.get("comparePriceType");
@@ -214,6 +215,7 @@ export const action = async ({ request }) => {
     const compareFixedValue = formData.get("compareFixedValue");
     const compareFixedPriceAmount = formData.get("compareFixedPriceAmount");
     const compareRoundCents = formData.get("compareRoundCents");
+    const compareRoundCentsDigit = formData.get("compareRoundCentsDigit");
     const comparePriceFormula = formData.get("comparePriceFormula") || "";
 
     const costPriceType = formData.get("costPriceType");
@@ -223,6 +225,7 @@ export const action = async ({ request }) => {
     const costFixedValue = formData.get("costFixedValue");
     const costFixedPriceAmount = formData.get("costFixedPriceAmount");
     const costRoundCents = formData.get("costRoundCents");
+    const costRoundCentsDigit = formData.get("costRoundCentsDigit");
 
     const addTagsActive = formData.get("addTagsActive") === "true";
     const removeTagsActive = formData.get("removeTagsActive") === "true";
@@ -336,6 +339,7 @@ export const action = async ({ request }) => {
       fixedValue,
       fixedPriceAmount,
       roundCents,
+      roundCentsDigit,
       priceFormula,
       comparePriceType,
       comparePercentType,
@@ -344,6 +348,7 @@ export const action = async ({ request }) => {
       compareFixedValue,
       compareFixedPriceAmount,
       compareRoundCents,
+      compareRoundCentsDigit,
       comparePriceFormula,
       costPriceType,
       costPercentType,
@@ -352,6 +357,7 @@ export const action = async ({ request }) => {
       costFixedValue,
       costFixedPriceAmount,
       costRoundCents,
+      costRoundCentsDigit,
       addTagsActive,
       removeTagsActive,
       tagsToAddList,
@@ -528,6 +534,7 @@ export default function NewTask() {
   const [fixedType, setFixedType] = useState("3");
   const [fixedValue, setFixedValue] = useState("");
   const [roundCents, setRoundCents] = useState("1");
+  const [roundCentsDigit, setRoundCentsDigit] = useState("");
   const [comparePriceType, setComparePriceType] = useState("6");
   const [costPriceType, setCostPriceType] = useState("6");
   const [fixedPriceAmount, setFixedPriceAmount] = useState("");
@@ -540,6 +547,7 @@ export default function NewTask() {
   const [compareFixedValue, setCompareFixedValue] = useState("");
   const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState("");
   const [compareRoundCents, setCompareRoundCents] = useState("1");
+  const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("");
 
   const [costPercentType, setCostPercentType] = useState("1");
   const [costPercentValue, setCostPercentValue] = useState("");
@@ -547,6 +555,7 @@ export default function NewTask() {
   const [costFixedValue, setCostFixedValue] = useState("");
   const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
   const [costRoundCents, setCostRoundCents] = useState("1");
+  const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("");
 
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -600,6 +609,7 @@ export default function NewTask() {
         setFixedValue,
         setFixedPriceAmount,
         setRoundCents,
+        setRoundCentsDigit,
         setPriceFormula,
         setComparePriceType,
         setComparePercentType,
@@ -608,6 +618,7 @@ export default function NewTask() {
         setCompareFixedValue,
         setCompareFixedPriceAmount,
         setCompareRoundCents,
+        setCompareRoundCentsDigit,
         setComparePriceFormula,
         setCostPriceType,
         setCostPercentType,
@@ -616,6 +627,7 @@ export default function NewTask() {
         setCostFixedValue,
         setCostFixedPriceAmount,
         setCostRoundCents,
+        setCostRoundCentsDigit,
         setTagsToAdd,
         setTagsToRemove,
         setAddTagsActive,
@@ -654,6 +666,7 @@ export default function NewTask() {
         setFixedType,
         setFixedValue,
         setRoundCents,
+        setRoundCentsDigit,
         setComparePriceType,
         setCostPriceType,
         setFixedPriceAmount,
@@ -665,12 +678,14 @@ export default function NewTask() {
         setCompareFixedValue,
         setCompareFixedPriceAmount,
         setCompareRoundCents,
+        setCompareRoundCentsDigit,
         setCostPercentType,
         setCostPercentValue,
         setCostFixedType,
         setCostFixedValue,
         setCostFixedPriceAmount,
         setCostRoundCents,
+        setCostRoundCentsDigit,
       });
     }
   }, [shop]);
@@ -805,6 +820,7 @@ export default function NewTask() {
         fixedType,
         fixedValue,
         roundCents,
+        roundCentsDigit,
         comparePriceType,
         costPriceType,
         fixedPriceAmount,
@@ -816,12 +832,14 @@ export default function NewTask() {
         compareFixedValue,
         compareFixedPriceAmount,
         compareRoundCents,
+        compareRoundCentsDigit,
         costPercentType,
         costPercentValue,
         costFixedType,
         costFixedValue,
         costFixedPriceAmount,
         costRoundCents,
+        costRoundCentsDigit,
       })
     );
     appBridge.toast.show("Pricing rules saved");
@@ -853,6 +871,7 @@ export default function NewTask() {
       fixedValue,
       fixedPriceAmount,
       roundCents,
+      roundCentsDigit,
       priceFormula,
       comparePriceType,
       comparePercentType,
@@ -861,6 +880,7 @@ export default function NewTask() {
       compareFixedValue,
       compareFixedPriceAmount,
       compareRoundCents,
+      compareRoundCentsDigit,
       comparePriceFormula,
       costPriceType,
       costPercentType,
@@ -869,6 +889,7 @@ export default function NewTask() {
       costFixedValue,
       costFixedPriceAmount,
       costRoundCents,
+      costRoundCentsDigit,
       taskName,
       scheduleType,
       scheduleRecurrenceType,
@@ -910,6 +931,7 @@ export default function NewTask() {
       fixedValue,
       fixedPriceAmount,
       roundCents,
+      roundCentsDigit,
       priceFormula,
       comparePriceType,
       comparePercentType,
@@ -918,6 +940,7 @@ export default function NewTask() {
       compareFixedValue,
       compareFixedPriceAmount,
       compareRoundCents,
+      compareRoundCentsDigit,
       comparePriceFormula,
       costPriceType,
       costPercentType,
@@ -926,6 +949,7 @@ export default function NewTask() {
       costFixedValue,
       costFixedPriceAmount,
       costRoundCents,
+      costRoundCentsDigit,
       addTagsActive: addTagsActive ? "true" : "false",
       removeTagsActive: removeTagsActive ? "true" : "false",
       tagsToAdd: JSON.stringify(effectiveTagsToAdd),
@@ -1119,6 +1143,7 @@ export default function NewTask() {
       fixedValue,
       fixedPriceAmount,
       roundCents,
+      roundCentsDigit,
       priceFormula,
       comparePriceType,
       comparePercentType,
@@ -1127,6 +1152,7 @@ export default function NewTask() {
       compareFixedValue,
       compareFixedPriceAmount,
       compareRoundCents,
+      compareRoundCentsDigit,
       comparePriceFormula,
       costPriceType,
       costPercentType,
@@ -1135,6 +1161,7 @@ export default function NewTask() {
       costFixedValue,
       costFixedPriceAmount,
       costRoundCents,
+      costRoundCentsDigit,
     };
 
     const items = [];
@@ -1205,6 +1232,7 @@ export default function NewTask() {
     fixedValue,
     fixedPriceAmount,
     roundCents,
+    roundCentsDigit,
     priceFormula,
     comparePriceType,
     comparePercentType,
@@ -1213,6 +1241,7 @@ export default function NewTask() {
     compareFixedValue,
     compareFixedPriceAmount,
     compareRoundCents,
+    compareRoundCentsDigit,
     comparePriceFormula,
     costPriceType,
     costPercentType,
@@ -1221,6 +1250,7 @@ export default function NewTask() {
     costFixedValue,
     costFixedPriceAmount,
     costRoundCents,
+    costRoundCentsDigit,
   ]);
 
   const handleTagToAddKeyDown = (e) => {
@@ -1299,6 +1329,7 @@ export default function NewTask() {
           fixedType,
           fixedValue,
           roundCents,
+          roundCentsDigit,
           comparePriceType,
           costPriceType,
           fixedPriceAmount,
@@ -1310,12 +1341,14 @@ export default function NewTask() {
           compareFixedValue,
           compareFixedPriceAmount,
           compareRoundCents,
+          compareRoundCentsDigit,
           costPercentType,
           costPercentValue,
           costFixedType,
           costFixedValue,
           costFixedPriceAmount,
           costRoundCents,
+          costRoundCentsDigit,
           addTagsActive,
           removeTagsActive,
           tagToAddInput,
@@ -1350,6 +1383,7 @@ export default function NewTask() {
           setFixedType,
           setFixedValue,
           setRoundCents,
+          setRoundCentsDigit,
           setComparePriceType,
           setCostPriceType,
           setFixedPriceAmount,
@@ -1361,12 +1395,14 @@ export default function NewTask() {
           setCompareFixedValue,
           setCompareFixedPriceAmount,
           setCompareRoundCents,
+          setCompareRoundCentsDigit,
           setCostPercentType,
           setCostPercentValue,
           setCostFixedType,
           setCostFixedValue,
           setCostFixedPriceAmount,
           setCostRoundCents,
+          setCostRoundCentsDigit,
           setAddTagsActive,
           setRemoveTagsActive,
           setTagToAddInput,
