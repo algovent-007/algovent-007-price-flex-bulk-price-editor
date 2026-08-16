@@ -24,7 +24,7 @@ import {
   getProductSearchQueryConfig,
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
-import { generatePricingPlaceholders } from "../utils/pricing-rules-presets";
+import { generatePricingPresets } from "../utils/pricing-rules-presets";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import {
   getDefaultOperatorForField,
@@ -528,34 +528,36 @@ export default function NewTask() {
   const csvFileInputRef = useRef(null);
 
   // Section 2 States
-  const [pricingPlaceholders] = useState(() => generatePricingPlaceholders());
+  const [pricingPresets] = useState(() => generatePricingPresets());
 
   const [changePrice, setChangePrice] = useState("1");
   const [percentType, setPercentType] = useState("1");
-  const [percentValue, setPercentValue] = useState("");
+  const [percentValue, setPercentValue] = useState(pricingPresets.percentValue);
   const [fixedType, setFixedType] = useState("3");
-  const [fixedValue, setFixedValue] = useState("");
+  const [fixedValue, setFixedValue] = useState(pricingPresets.fixedValue);
   const [roundCents, setRoundCents] = useState("2");
   const [roundCentsDigit, setRoundCentsDigit] = useState("2");
   const [comparePriceType, setComparePriceType] = useState("6");
   const [costPriceType, setCostPriceType] = useState("6");
-  const [fixedPriceAmount, setFixedPriceAmount] = useState("");
+  const [fixedPriceAmount, setFixedPriceAmount] = useState(pricingPresets.fixedPriceAmount);
   const [priceFormula, setPriceFormula] = useState("price * 1.1");
-  const [comparePriceFormula, setComparePriceFormula] = useState("price * 1.2");
+  const [comparePriceFormula, setComparePriceFormula] = useState(pricingPresets.comparePriceFormula);
 
   const [comparePercentType, setComparePercentType] = useState("1");
-  const [comparePercentValue, setComparePercentValue] = useState("");
+  const [comparePercentValue, setComparePercentValue] = useState(pricingPresets.comparePercentValue);
   const [compareFixedType, setCompareFixedType] = useState("3");
-  const [compareFixedValue, setCompareFixedValue] = useState("");
-  const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState("");
+  const [compareFixedValue, setCompareFixedValue] = useState(pricingPresets.compareFixedValue);
+  const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState(
+    pricingPresets.compareFixedPriceAmount
+  );
   const [compareRoundCents, setCompareRoundCents] = useState("2");
   const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("2");
 
   const [costPercentType, setCostPercentType] = useState("1");
-  const [costPercentValue, setCostPercentValue] = useState("");
+  const [costPercentValue, setCostPercentValue] = useState(pricingPresets.costPercentValue);
   const [costFixedType, setCostFixedType] = useState("3");
-  const [costFixedValue, setCostFixedValue] = useState("");
-  const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
+  const [costFixedValue, setCostFixedValue] = useState(pricingPresets.costFixedValue);
+  const [costFixedPriceAmount, setCostFixedPriceAmount] = useState(pricingPresets.costFixedPriceAmount);
   const [costRoundCents, setCostRoundCents] = useState("2");
   const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("2");
 
@@ -1438,7 +1440,7 @@ export default function NewTask() {
         previewVariants={previewVariants}
         showPricePreview={showPricePreview}
         onClosePricePreview={() => setShowPricePreview(false)}
-        pricingPlaceholders={pricingPlaceholders}
+        pricingPlaceholders={pricingPresets}
         timezoneStr={timezoneStr}
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}

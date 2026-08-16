@@ -21,8 +21,8 @@ export function getPresetComparePriceFormula() {
   return `price * ${multiplier}`;
 }
 
-/** Placeholder hints only — field values stay empty until the merchant enters them. */
-export function generatePricingPlaceholders() {
+/** Random predefined values for pricing fields (not applied to round off cents). */
+export function generatePricingPresets() {
   return {
     percentValue: getPresetPercentValue(),
     fixedValue: getPresetFixedValue(),
@@ -35,4 +35,9 @@ export function generatePricingPlaceholders() {
     costFixedValue: getPresetFixedValue(),
     costFixedPriceAmount: getPresetFixedPriceAmount(),
   };
+}
+
+/** @deprecated Use generatePricingPresets */
+export function generatePricingPlaceholders() {
+  return generatePricingPresets();
 }
