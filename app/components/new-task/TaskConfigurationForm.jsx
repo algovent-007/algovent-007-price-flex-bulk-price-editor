@@ -4,6 +4,7 @@ import CsvUploadCard from "./CsvUploadCard";
 import ScheduleSettingsCard from "./ScheduleSettingsCard";
 import AdvancedSettingsCard from "./AdvancedSettingsCard";
 import RoundCentsFields from "./RoundCentsFields";
+import PriceChangePreview from "./PriceChangePreview";
 import { createNumericInputHandlers } from "../../utils/numeric-input";
 import { EDIT_TYPE_OPTIONS, isCsvEditType } from "./constants";
 import styles from "./ProductSelectionSection.module.css";
@@ -20,6 +21,9 @@ export default function TaskConfigurationForm({
   productSearchError = "",
   fieldErrors = {},
   clearFieldError,
+  previewVariants = [],
+  showPricePreview = false,
+  onClosePricePreview,
   timezoneStr = "",
   hasSavedTimezone = true,
   currentTimeStr = "",
@@ -240,6 +244,13 @@ export default function TaskConfigurationForm({
               />
             </>
           )}
+
+          <PriceChangePreview
+            key={editType}
+            previewVariants={previewVariants}
+            visible={showPricePreview}
+            onClose={readOnly ? undefined : onClosePricePreview}
+          />
         </s-stack>
       </s-section>
 

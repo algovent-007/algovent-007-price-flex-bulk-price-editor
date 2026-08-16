@@ -25,7 +25,6 @@ import {
 } from "../services/task-runner.server";
 import { createScheduledRevertTask } from "../services/scheduler.server";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
-import PriceChangePreview from "../components/new-task/PriceChangePreview";
 import {
   getDefaultOperatorForField,
   getDefaultValueForField,
@@ -533,8 +532,8 @@ export default function NewTask() {
   const [percentValue, setPercentValue] = useState("");
   const [fixedType, setFixedType] = useState("3");
   const [fixedValue, setFixedValue] = useState("");
-  const [roundCents, setRoundCents] = useState("1");
-  const [roundCentsDigit, setRoundCentsDigit] = useState("");
+  const [roundCents, setRoundCents] = useState("2");
+  const [roundCentsDigit, setRoundCentsDigit] = useState("2");
   const [comparePriceType, setComparePriceType] = useState("6");
   const [costPriceType, setCostPriceType] = useState("6");
   const [fixedPriceAmount, setFixedPriceAmount] = useState("");
@@ -546,16 +545,16 @@ export default function NewTask() {
   const [compareFixedType, setCompareFixedType] = useState("3");
   const [compareFixedValue, setCompareFixedValue] = useState("");
   const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState("");
-  const [compareRoundCents, setCompareRoundCents] = useState("1");
-  const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("");
+  const [compareRoundCents, setCompareRoundCents] = useState("2");
+  const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("2");
 
   const [costPercentType, setCostPercentType] = useState("1");
   const [costPercentValue, setCostPercentValue] = useState("");
   const [costFixedType, setCostFixedType] = useState("3");
   const [costFixedValue, setCostFixedValue] = useState("");
   const [costFixedPriceAmount, setCostFixedPriceAmount] = useState("");
-  const [costRoundCents, setCostRoundCents] = useState("1");
-  const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("");
+  const [costRoundCents, setCostRoundCents] = useState("2");
+  const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("2");
 
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -1433,15 +1432,12 @@ export default function NewTask() {
         productSearchError={productSearchError}
         fieldErrors={fieldErrors}
         clearFieldError={clearFieldError}
+        previewVariants={previewVariants}
+        showPricePreview={showPricePreview}
+        onClosePricePreview={() => setShowPricePreview(false)}
         timezoneStr={timezoneStr}
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
-      />
-      <PriceChangePreview
-        key={editType}
-        previewVariants={previewVariants}
-        open={showPricePreview}
-        onClose={() => setShowPricePreview(false)}
       />
     </s-page>
   );

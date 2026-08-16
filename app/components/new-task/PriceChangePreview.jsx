@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { formatPrice } from "../../utils/pricing";
 import { PREVIEW_PAGE_SIZE } from "./constants";
 
@@ -60,14 +60,12 @@ function downloadCsv(filename, csvContent) {
   URL.revokeObjectURL(url);
 }
 
-export default function PriceChangePreview({ previewVariants, open, onClose }) {
+export default function PriceChangePreview({ previewVariants, visible = false, onClose }) {
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const rawModalId = useId();
-  const modalId = `price-change-preview-${rawModalId.replace(/:/g, "")}`;
-  const tooltipId = `price-preview-help-${rawModalId.replace(/:/g, "")}`;
-  const modalRef = useRef(null);
-  const tableId = useId().replace(/:/g, "");
+  const rawId = useId();
+  const tooltipId = `price-preview-help-${rawId.replace(/:/g, "")}`;
+  const tableId = `price-preview-table-${rawId.replace(/:/g, "")}`;
   const trimmedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredVariants = trimmedSearchQuery
     ? previewVariants.filter((variant) =>
@@ -83,15 +81,6 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
   useEffect(() => {
     setPage(0);
   }, [searchQuery]);
-
-  useEffect(() => {
-    if (open) {
-      modalRef.current?.showOverlay?.();
-      return;
-    }
-
-    modalRef.current?.hideOverlay?.();
-  }, [open]);
 
   const totalPages = Math.max(1, Math.ceil(filteredVariants.length / PREVIEW_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -112,12 +101,8 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
     downloadCsv("price-change-preview.csv", csv);
   };
 
-  const handleHide = () => {
-    onClose?.();
-  };
-
   useEffect(() => {
-    if (!showPagination || !open) return undefined;
+    if (!showPagination || !visible) return undefined;
 
     const table = document.getElementById(tableId);
     if (!table) return undefined;
@@ -129,29 +114,47 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
       table.removeEventListener("previouspage", handlePreviousPage);
       table.removeEventListener("nextpage", handleNextPage);
     };
-  }, [handleNextPage, handlePreviousPage, open, showPagination, tableId]);
+  }, [handleNextPage, handlePreviousPage, showPagination, tableId, visible]);
+
+  if (!visible) {
+    return null;
+  }
+
+  const hasSearchFilter = trimmedSearchQuery.length > 0;
+  const summaryText =
+    previewVariants.length === 0
+      ? "No product variants found matching your criteria."
+      : hasSearchFilter && filteredVariants.length === 0
+        ? `No product variants match your search. ${previewVariants.length} variant${
+            previewVariants.length === 1 ? "" : "s"
+          } would be affected in total.`
+        : hasSearchFilter
+          ? `${filteredVariants.length} of ${previewVariants.length} product variant${
+              previewVariants.length === 1 ? "" : "s"
+            } match your search:`
+          : `${previewVariants.length} product variant${
+              previewVariants.length === 1 ? "" : "s"
+            } would be affected by this price change:`;
 
   return (
-    <s-modal
-      id={modalId}
-      ref={modalRef}
-      heading="Price change preview"
-      size="large-100"
-      onHide={handleHide}
-    >
+    <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="base">
-        <s-stack direction="inline" gap="small-100" alignItems="center">
-          <s-icon type="info" interestFor={tooltipId} />
-          <s-tooltip id={tooltipId}>
-            Preview of price changes based on your current pricing rules
-          </s-tooltip>
+        <s-stack direction="inline" gap="small-100" alignItems="center" justifyContent="space-between">
+          <s-stack direction="inline" gap="small-100" alignItems="center">
+            <s-text type="strong">Price change preview</s-text>
+            <s-icon type="info" interestFor={tooltipId} />
+            <s-tooltip id={tooltipId}>
+              Preview of price changes based on your current pricing rules
+            </s-tooltip>
+          </s-stack>
+          {onClose && (
+            <s-button variant="tertiary" onClick={onClose}>
+              Close
+            </s-button>
+          )}
         </s-stack>
 
-        <s-paragraph>
-          {filteredVariants.length > 0
-            ? `${filteredVariants.length} product variant${filteredVariants.length === 1 ? "" : "s"} would be affected by this price change:`
-            : "No product variants found matching your criteria."}
-        </s-paragraph>
+        <s-paragraph>{summaryText}</s-paragraph>
 
         {previewVariants.length > 0 && (
           <>
@@ -172,66 +175,45 @@ export default function PriceChangePreview({ previewVariants, open, onClose }) {
                 Export CSV
               </s-button>
             </s-stack>
-
-            {filteredVariants.length > 0 && (
-              <s-table
-                id={tableId}
-                variant="auto"
-                paginate={showPagination}
-                hasPreviousPage={safePage > 0}
-                hasNextPage={safePage < totalPages - 1}
-                onPreviousPage={handlePreviousPage}
-                onNextPage={handleNextPage}
-              >
-                <s-table-header-row>
-                  <s-table-header listSlot="primary">Product</s-table-header>
-                  <s-table-header listSlot="labeled">Current price</s-table-header>
-                  <s-table-header listSlot="labeled">New price</s-table-header>
-                </s-table-header-row>
-                <s-table-body>
-                  {pageVariants.map((variant) => {
-                    const priceChanged =
-                      formatPrice(variant.newPrice) !== formatPrice(variant.currentPrice);
-
-                    return (
-                      <s-table-row key={variant.id}>
-                        <s-table-cell>
-                          <s-stack direction="inline" gap="small" alignItems="center">
-                            <s-thumbnail
-                              src={variant.imageUrl}
-                              alt={variant.title}
-                              size="small"
-                            />
-                            <s-text>{variant.title}</s-text>
-                          </s-stack>
-                        </s-table-cell>
-                        <s-table-cell>{formatCurrency(variant.currentPrice)}</s-table-cell>
-                        <s-table-cell>
-                          {priceChanged ? (
-                            <s-stack direction="inline" gap="small-100">
-                              <s-text color="subdued" type="redundant">
-                                {formatCurrency(variant.currentPrice)}
-                              </s-text>
-                              <s-text color="subdued">→</s-text>
-                              <s-text type="strong">{formatCurrency(variant.newPrice)}</s-text>
-                            </s-stack>
-                          ) : (
-                            <s-text>{formatCurrency(variant.newPrice)}</s-text>
-                          )}
-                        </s-table-cell>
-                      </s-table-row>
-                    );
-                  })}
-                </s-table-body>
-              </s-table>
-            )}
           </>
         )}
-      </s-stack>
 
-      <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
-        Close
-      </s-button>
-    </s-modal>
+        {filteredVariants.length > 0 && (
+          <s-table
+            id={tableId}
+            variant="auto"
+            paginate={showPagination}
+            hasPreviousPage={safePage > 0}
+            hasNextPage={safePage < totalPages - 1}
+            onPreviousPage={handlePreviousPage}
+            onNextPage={handleNextPage}
+          >
+            <s-table-header-row>
+              <s-table-header listSlot="primary">Product</s-table-header>
+              <s-table-header listSlot="labeled" format="currency">
+                Current price
+              </s-table-header>
+              <s-table-header listSlot="labeled" format="currency">
+                New price
+              </s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {pageVariants.map((variant) => (
+                <s-table-row key={variant.id}>
+                  <s-table-cell>
+                    <s-stack direction="inline" gap="small" alignItems="center">
+                      <s-thumbnail src={variant.imageUrl} alt={variant.title} size="small" />
+                      <s-text>{variant.title}</s-text>
+                    </s-stack>
+                  </s-table-cell>
+                  <s-table-cell>{formatCurrency(variant.currentPrice)}</s-table-cell>
+                  <s-table-cell>{formatCurrency(variant.newPrice)}</s-table-cell>
+                </s-table-row>
+              ))}
+            </s-table-body>
+          </s-table>
+        )}
+      </s-stack>
+    </s-box>
   );
 }

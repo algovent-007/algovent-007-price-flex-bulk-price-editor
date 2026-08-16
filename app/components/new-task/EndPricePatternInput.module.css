@@ -1,0 +1,72 @@
+.patternSection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.patternControls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.patternRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.digitBox {
+  border: 1px solid #c9cccf;
+  border-radius: 8px;
+  font-size: 16px;
+  height: 40px;
+  padding: 0;
+  text-align: center;
+  width: 40px;
+}
+
+.digitBox:disabled {
+  background: #f6f6f7;
+  color: #616161;
+}
+
+.decimalPoint {
+  color: #303030;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.patternActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 96px;
+}
+
+.patternActionButton {
+  background: none;
+  border: 0;
+  color: #005bd3;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.patternActionButton:disabled {
+  color: #b5b5b5;
+  cursor: not-allowed;
+}
+
+.summaryText {
+  color: #303030;
+  font-size: 13px;
+}
+
+.summaryValue {
+  font-weight: 650;
+}

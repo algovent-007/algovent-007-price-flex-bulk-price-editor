@@ -1,4 +1,19 @@
-import { createNumericInputHandlers } from "../../utils/numeric-input";
+import { useId, useMemo } from "react";
+import {
+  DEFAULT_END_PATTERN,
+  parseEndingPattern,
+  serializeEndingPattern,
+} from "../../utils/ending-price-pattern";
+import { DEFAULT_MULTIPLE_PATTERN } from "../../utils/multiple-price-pattern";
+import {
+  ROUNDING_DIRECTIONS,
+  ROUNDING_MODES,
+  decodeRoundCents,
+  encodeRoundCents,
+  modeSupportsDirection,
+} from "../../utils/round-cents-ui";
+import EndPricePatternInput from "./EndPricePatternInput";
+import MultiplePatternInput from "./MultiplePatternInput";
 
 export default function RoundCentsFields({
   roundCents,
@@ -10,59 +25,177 @@ export default function RoundCentsFields({
   clearFieldError,
   errorKey = "roundCentsDigit",
 }) {
-  const showDigitField = roundCents === "2" || roundCents === "9";
-  const digitLabel =
-    roundCents === "9" ? "Ending digits" : roundCents === "2" ? "Decimal places" : "";
-  const digitPlaceholder = roundCents === "9" ? "99" : "2";
-  const numericFieldProps = createNumericInputHandlers(clearFieldError);
+  const rawId = useId();
+  const directionTooltipId = `round-direction-help-${rawId.replace(/:/g, "")}-${errorKey}`;
+  const fieldId = errorKey.replace(/[^a-z0-9-]/gi, "-");
+
+  const { mode, direction, digit, endingPattern, multiplePattern } = useMemo(
+    () => decodeRoundCents(roundCents, roundCentsDigit),
+    [roundCents, roundCentsDigit]
+  );
+
+  const applyRoundCents = (nextMode, nextDirection = direction, nextDigit = digit) => {
+    const encoded = encodeRoundCents(nextMode, nextDirection, nextDigit);
+    setRoundCents(encoded.roundCents);
+    setRoundCentsDigit(encoded.roundCentsDigit);
+  };
+
+  const handleModeChange = (nextMode) => {
+    if (!nextMode || nextMode === mode) return;
+
+    let nextDigit = digit;
+    if (nextMode === ROUNDING_MODES.END_99) {
+      nextDigit =
+        typeof digit === "string" && digit.startsWith("p:")
+          ? parseEndingPattern(digit)
+          : { whole: ["*"], cents: ["9", "9"], direction };
+    } else if (nextMode === ROUNDING_MODES.END_CUSTOM) {
+      nextDigit = serializeEndingPattern(
+        endingPattern ?? {
+          ...DEFAULT_END_PATTERN,
+          direction,
+        }
+      );
+    } else if (nextMode === ROUNDING_MODES.MULTIPLE) {
+      nextDigit =
+        multiplePattern ?? {
+          ...DEFAULT_MULTIPLE_PATTERN,
+        };
+    } else if (nextMode === ROUNDING_MODES.NONE) {
+      nextDigit = "";
+    } else {
+      nextDigit = digit || "2";
+    }
+
+    const nextDirection = modeSupportsDirection(nextMode)
+      ? direction
+      : ROUNDING_DIRECTIONS.CLOSEST;
+    applyRoundCents(nextMode, nextDirection, nextDigit);
+  };
+
+  const handleDirectionChange = (nextDirection) => {
+    if (!nextDirection || nextDirection === direction) return;
+
+    if (mode === ROUNDING_MODES.END_CUSTOM) {
+      applyRoundCents(mode, nextDirection, {
+        ...(endingPattern ?? DEFAULT_END_PATTERN),
+        direction: nextDirection,
+      });
+      return;
+    }
+
+    if (mode === ROUNDING_MODES.END_99) {
+      const basePattern =
+        typeof digit === "string" && digit.startsWith("p:")
+          ? parseEndingPattern(digit)
+          : { whole: ["*"], cents: ["9", "9"], direction: nextDirection };
+      applyRoundCents(mode, nextDirection, {
+        ...basePattern,
+        cents: ["9", "9"],
+        direction: nextDirection,
+      });
+      return;
+    }
+
+    if (mode === ROUNDING_MODES.MULTIPLE) {
+      applyRoundCents(mode, nextDirection, multiplePattern ?? DEFAULT_MULTIPLE_PATTERN);
+      return;
+    }
+
+    applyRoundCents(mode, nextDirection, digit);
+  };
+
+  const handleMultiplePatternChange = (nextPattern) => {
+    const encoded = encodeRoundCents(mode, direction, nextPattern);
+    setRoundCents(encoded.roundCents);
+    setRoundCentsDigit(encoded.roundCentsDigit);
+    clearFieldError?.(errorKey);
+  };
+
+  const handlePatternChange = (nextPattern) => {
+    const encoded = encodeRoundCents(ROUNDING_MODES.END_CUSTOM, direction, nextPattern);
+    setRoundCents(encoded.roundCents);
+    setRoundCentsDigit(encoded.roundCentsDigit);
+    clearFieldError?.(errorKey);
+  };
+
+  const showDirection = modeSupportsDirection(mode);
+  const showEndingPattern = mode === ROUNDING_MODES.END_CUSTOM;
+  const showMultipleValue = mode === ROUNDING_MODES.MULTIPLE;
 
   return (
-    <>
+    <s-stack direction="block" gap="base">
       <s-select
         label="Round off cents"
-        value={roundCents}
+        value={mode}
         disabled={readOnly}
         onInput={
           readOnly
             ? undefined
             : (e) => {
-                const value = e.target.value;
-                setRoundCents(value);
-                if (value === "9" && !roundCentsDigit) {
-                  setRoundCentsDigit("99");
-                } else if (value === "2" && !roundCentsDigit) {
-                  setRoundCentsDigit("2");
-                }
+                handleModeChange(e.target.value);
               }
         }
       >
-        <s-option value="1">No</s-option>
-        <s-option value="2">Fixed Round Off</s-option>
-        <s-option value="3">Nearest Integer</s-option>
-        <s-option value="4">Nearest Integer Up</s-option>
-        <s-option value="5">Nearest Integer Down</s-option>
-        <s-option value="6">Nearest 5 Cent</s-option>
-        <s-option value="7">Nearest 5 Cent Up</s-option>
-        <s-option value="8">Nearest 5 Cent Down</s-option>
-        <s-option value="9">End prices in a certain number</s-option>
+        <s-option value={ROUNDING_MODES.NONE}>No</s-option>
+        <s-option value={ROUNDING_MODES.NEAREST_CENT}>Round to nearest .01</s-option>
+        <s-option value={ROUNDING_MODES.WHOLE_NUMBER}>Round to nearest whole number</s-option>
+        <s-option value={ROUNDING_MODES.END_99}>End prices in .99</s-option>
+        <s-option value={ROUNDING_MODES.END_CUSTOM}>End prices in a certain number</s-option>
+        <s-option value={ROUNDING_MODES.MULTIPLE}>Round prices to a certain multiple</s-option>
       </s-select>
 
-      {showDigitField && (
-        <s-box paddingBlockStart="small">
-          <s-text-field
-            label={digitLabel}
-            value={roundCentsDigit}
-            placeholder={digitPlaceholder}
-            inputMode="numeric"
-            disabled={readOnly}
-            {...numericFieldProps(setRoundCentsDigit, errorKey)}
-            error={fieldError?.(errorKey)}
-          ></s-text-field>
-          {roundCents === "9" && (
-            <s-text color="subdued">Example: enter 99 to end prices in .99</s-text>
-          )}
-        </s-box>
+      {showEndingPattern && (
+        <EndPricePatternInput
+          pattern={endingPattern ?? DEFAULT_END_PATTERN}
+          readOnly={readOnly}
+          onPatternChange={handlePatternChange}
+          error={fieldError?.(errorKey)}
+        />
       )}
-    </>
+
+      {showMultipleValue && (
+        <MultiplePatternInput
+          pattern={multiplePattern ?? DEFAULT_MULTIPLE_PATTERN}
+          readOnly={readOnly}
+          onPatternChange={handleMultiplePatternChange}
+          error={fieldError?.(errorKey)}
+        />
+      )}
+
+      {showDirection && (
+        <s-stack direction="block" gap="small">
+          <s-stack direction="inline" gap="small-100" alignItems="center">
+            <s-text type="strong">Rounding direction</s-text>
+            <s-icon type="info" interestFor={directionTooltipId} />
+            <s-tooltip id={directionTooltipId}>
+              Choose whether prices should round to the closest match, always up, or always down.
+            </s-tooltip>
+          </s-stack>
+          <s-choice-list
+            name={`rounding-direction-${fieldId}`}
+            label="Rounding direction"
+            labelAccessibilityVisibility="exclusive"
+            variant="list"
+            values={[direction]}
+            disabled={readOnly}
+            onInput={
+              readOnly
+                ? undefined
+                : (e) => {
+                    const next = e.currentTarget?.values?.[0] ?? e.target?.value;
+                    handleDirectionChange(next);
+                  }
+            }
+          >
+            <s-choice value={ROUNDING_DIRECTIONS.CLOSEST}>
+              Round up or down (whatever is closest)
+            </s-choice>
+            <s-choice value={ROUNDING_DIRECTIONS.UP}>Always round up</s-choice>
+            <s-choice value={ROUNDING_DIRECTIONS.DOWN}>Always round down</s-choice>
+          </s-choice-list>
+        </s-stack>
+      )}
+    </s-stack>
   );
 }

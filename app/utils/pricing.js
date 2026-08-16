@@ -2,17 +2,31 @@
  * Shared pricing calculation logic for preview and bulk task execution.
  */
 
+import {
+  applyEndingPattern,
+  isLegacyEndingDigits,
+  parseEndingPattern,
+} from "./ending-price-pattern.js";
+import {
+  multiplePatternToCents,
+  parseMultiplePattern,
+} from "./multiple-price-pattern.js";
+
 function parseDecimalPlaces(roundCentsDigit) {
   const parsed = parseInt(String(roundCentsDigit ?? "2"), 10);
   if (Number.isNaN(parsed) || parsed < 0) return 2;
   return Math.min(parsed, 4);
 }
 
-function parseEndingDigits(roundCentsDigit) {
-  const cleaned = String(roundCentsDigit ?? "99").replace(/\D/g, "");
-  if (!cleaned) return 0.99;
-  const normalized = cleaned.slice(-2).padStart(2, "0");
-  return parseInt(normalized, 10) / 100;
+function parseMultiple(roundCentsDigit) {
+  const raw = String(roundCentsDigit ?? "5");
+  if (raw.startsWith("m:")) {
+    return Math.min(multiplePatternToCents(parseMultiplePattern(raw)), 10000);
+  }
+  if (raw.startsWith("p:")) return 5;
+  const parsed = parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) return 5;
+  return Math.min(parsed, 100);
 }
 
 export function roundValue(p, roundCentsVal, roundCentsDigit) {
@@ -21,6 +35,14 @@ export function roundValue(p, roundCentsVal, roundCentsDigit) {
     const places = parseDecimalPlaces(roundCentsDigit);
     const factor = 10 ** places;
     val = Math.round(val * factor) / factor;
+  } else if (roundCentsVal === "10") {
+    const places = parseDecimalPlaces(roundCentsDigit);
+    const factor = 10 ** places;
+    val = Math.ceil(val * factor) / factor;
+  } else if (roundCentsVal === "11") {
+    const places = parseDecimalPlaces(roundCentsDigit);
+    const factor = 10 ** places;
+    val = Math.floor(val * factor) / factor;
   } else if (roundCentsVal === "3") {
     val = Math.round(val);
   } else if (roundCentsVal === "4") {
@@ -28,13 +50,23 @@ export function roundValue(p, roundCentsVal, roundCentsDigit) {
   } else if (roundCentsVal === "5") {
     val = Math.floor(val);
   } else if (roundCentsVal === "6") {
-    val = Math.round(val * 20) / 20;
+    const factor = 100 / parseMultiple(roundCentsDigit);
+    val = Math.round(val * factor) / factor;
   } else if (roundCentsVal === "7") {
-    val = Math.ceil(val * 20) / 20;
+    const factor = 100 / parseMultiple(roundCentsDigit);
+    val = Math.ceil(val * factor) / factor;
   } else if (roundCentsVal === "8") {
-    val = Math.floor(val * 20) / 20;
+    const factor = 100 / parseMultiple(roundCentsDigit);
+    val = Math.floor(val * factor) / factor;
   } else if (roundCentsVal === "9") {
-    val = Math.floor(val) + parseEndingDigits(roundCentsDigit);
+    const raw = String(roundCentsDigit ?? "");
+    if (isLegacyEndingDigits(raw)) {
+      const cleaned = raw.replace(/\D/g, "");
+      const ending = parseInt(cleaned.slice(-2).padStart(2, "0"), 10) / 100;
+      val = Math.floor(val) + ending;
+    } else {
+      val = applyEndingPattern(val, parseEndingPattern(roundCentsDigit));
+    }
   }
   return val;
 }

@@ -302,9 +302,53 @@ test("end prices in a certain number uses ending digits", () => {
   assert.equal(roundValue(12.87, "9", "00"), 12);
 });
 
+test("end prices pattern supports direction", () => {
+  const pattern = 'p:{"whole":["*","*"],"cents":["5","0"],"direction":"closest"}';
+  assert.equal(roundValue(12.34, "9", pattern), 12.5);
+  assert.equal(roundValue(12.51, "9", pattern), 12.5);
+
+  const upPattern = 'p:{"whole":["*","*"],"cents":["5","0"],"direction":"up"}';
+  assert.equal(roundValue(12.51, "9", upPattern), 13.5);
+
+  const downPattern = 'p:{"whole":["*","*"],"cents":["5","0"],"direction":"down"}';
+  assert.equal(roundValue(12.51, "9", downPattern), 12.5);
+});
+
+test("end prices in 99 supports round down", () => {
+  const downPattern = 'p:{"whole":["*"],"cents":["9","9"],"direction":"down"}';
+  assert.equal(roundValue(12.51, "9", downPattern), 11.99);
+});
+
+test("round down to nearest cent", () => {
+  assert.equal(roundValue(12.349, "11", "2"), 12.34);
+});
+
 test("fixed round off uses decimal places", () => {
   assert.equal(roundValue(12.3456, "2", "2"), 12.35);
   assert.equal(roundValue(12.3456, "2", "0"), 12);
+});
+
+test("round up to nearest cent", () => {
+  assert.equal(roundValue(12.341, "10", "2"), 12.35);
+  assert.equal(roundValue(12.001, "10", "2"), 12.01);
+});
+
+test("custom multiple rounding", () => {
+  assert.equal(roundValue(12.34, "6", "5"), 12.35);
+  assert.equal(roundValue(12.31, "7", "5"), 12.35);
+});
+
+test("pattern multiple rounding", () => {
+  const pattern = 'm:{"whole":["*","*"],"cents":["1","0"]}';
+  assert.equal(roundValue(12.34, "6", pattern), 12.3);
+  assert.equal(roundValue(12.36, "6", pattern), 12.4);
+  assert.equal(roundValue(12.31, "7", pattern), 12.4);
+  assert.equal(roundValue(12.39, "8", pattern), 12.3);
+});
+
+test("fixed whole ending pattern supports direction", () => {
+  const pattern = 'p:{"whole":["1","2"],"cents":["5","0"],"direction":"down"}';
+  assert.equal(roundValue(13.2, "9", pattern), 12.5);
 });
 
 console.log("All pricing tests passed.");
