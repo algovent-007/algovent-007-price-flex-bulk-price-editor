@@ -138,6 +138,9 @@ export default function TaskConfigurationForm({
     }, readOnly);
 
   const fieldError = (key) => fieldErrors?.[key];
+  const isDirectCsvMode = editType === "csv-direct";
+  const advancedStepNumber = isDirectCsvMode ? 2 : 4;
+  const scheduleStepNumber = isDirectCsvMode ? 3 : 5;
 
   return (
     <>
@@ -234,6 +237,7 @@ export default function TaskConfigurationForm({
       </s-section>
 
       {/* Section 2: Configure Pricing Rules */}
+      {!isDirectCsvMode && (
       <s-section heading="2. Configure pricing rules">
         <s-stack direction="block" gap="loose">
           <s-select
@@ -644,11 +648,14 @@ export default function TaskConfigurationForm({
           </s-box>
         </s-stack>
       </s-section>
+      )}
 
       {/* Section 4 & 5: Advanced settings & Run/Schedule Task */}
       <s-section>
         <s-stack direction="block" gap="loose">
-          <s-heading variant="headingMd">Step 4. Advanced settings (optional)</s-heading>
+          <s-heading variant="headingMd">
+            Step {advancedStepNumber}. Advanced settings (optional)
+          </s-heading>
 
           <AdvancedSettingsCard
             readOnly={readOnly}
@@ -673,7 +680,9 @@ export default function TaskConfigurationForm({
           <s-divider />
 
           <s-box paddingBlockStart="large">
-            <s-heading variant="headingMd">Step 5. Select when the prices should change</s-heading>
+            <s-heading variant="headingMd">
+              Step {scheduleStepNumber}. Select when the prices should change
+            </s-heading>
           </s-box>
 
           <ScheduleSettingsCard
