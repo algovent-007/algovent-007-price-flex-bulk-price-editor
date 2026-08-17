@@ -8,7 +8,7 @@ import TaskLogsTable from "../components/TaskLogsTable";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import { canCopyTask, storeTaskCopy } from "../utils/copy-task";
 import { canViewTaskConfiguration, buildTaskConfigState } from "../utils/task-config";
-import { formatTagChangeLines, getTaskTagChanges } from "../utils/task-log-display";
+import { getTaskTagChanges } from "../utils/task-log-display";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { formatCurrentTimeInTimezone } from "../utils/schedule";
 
@@ -261,7 +261,6 @@ export default function TasksHistory() {
               <s-table-header>Type</s-table-header>
               <s-table-header>Date Created</s-table-header>
               <s-table-header>Status</s-table-header>
-              <s-table-header>TAG</s-table-header>
               <s-table-header>Items Updated</s-table-header>
               <s-table-header>Actions</s-table-header>
             </s-table-header-row>
@@ -280,7 +279,6 @@ export default function TasksHistory() {
                 });
                 const displayedStatus =
                   !isRollbackTask && hasRollbackTask ? "rolled_back" : task.status;
-                const tagLines = formatTagChangeLines(getTaskTagChanges(actionData));
 
                 return (
                   <s-table-row key={task.id}>
@@ -308,17 +306,6 @@ export default function TasksHistory() {
                       <s-badge tone={getStatusTone(displayedStatus)}>
                         {displayedStatus.replace("_", " ")}
                       </s-badge>
-                    </s-table-cell>
-                    <s-table-cell>
-                      {tagLines.length === 0 ? (
-                        <s-text color="subdued">-</s-text>
-                      ) : (
-                        <s-stack direction="block" gap="small-100">
-                          {tagLines.map((line) => (
-                            <s-text key={line}>{line}</s-text>
-                          ))}
-                        </s-stack>
-                      )}
                     </s-table-cell>
                     <s-table-cell>
                       <s-button variant="tertiary" onClick={() => openLogsModal(task)}>
