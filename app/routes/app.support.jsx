@@ -6,7 +6,7 @@ import {
   SUPPORT_LIVE_CHAT_URL,
   SUPPORT_UPCOMING_FEATURES_URL,
 } from "../constants/branding";
-import styles from "./app.support.module.css";
+import styles from "../components/SupportPage.module.css";
 
 const SUPPORT_CHANNELS = [
   {
