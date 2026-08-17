@@ -1,5 +1,6 @@
 import prisma from "../db.server";
 import { calculateVariantPricing, formatPrice } from "../utils/pricing";
+import { attachProductTagChanges } from "../utils/task-log-display";
 import { normalizeVariantId } from "../utils/csv-bulk-edit";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
 
@@ -555,6 +556,10 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
           throw new Error(tagErrors[0].message);
         }
         productUpdated = true;
+      }
+
+      if (tagsToAddList.length > 0 || tagsToRemoveList.length > 0) {
+        attachProductTagChanges(logsList, prod.id, tagsToAddList, tagsToRemoveList);
       }
 
       if (productUpdated) {

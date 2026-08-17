@@ -1,4 +1,5 @@
 import prisma from "../db.server";
+import { attachProductTagChanges } from "../utils/task-log-display";
 
 function parseActionData(task) {
   try {
@@ -300,6 +301,10 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
 
           productUpdated = true;
         }
+      }
+
+      if (tagsToAdd.length > 0 || tagsToRemove.length > 0) {
+        attachProductTagChanges(rollbackLogs, productId, tagsToAdd, tagsToRemove);
       }
 
       if (productUpdated) {

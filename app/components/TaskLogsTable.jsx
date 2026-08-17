@@ -1,7 +1,14 @@
+/* eslint-disable react/prop-types -- this codebase does not use PropTypes */
 import { useEffect, useState } from "react";
 import ProductLogLink from "./ProductLogLink";
+import {
+  formatTagChangeLines,
+  getLogTagChanges,
+  getPriceChangeDisplay,
+} from "../utils/task-log-display";
 
 const LOGS_PAGE_SIZE = 10;
+const mutedText = "var(--p-color-text-secondary, #616161)";
 
 function formatVariantId(variantId) {
   return String(variantId || "-").split("/").pop();
@@ -17,7 +24,7 @@ const headerCellStyle = {
   textAlign: "left",
   padding: "10px 12px",
   borderBottom: "1px solid var(--p-color-border, #dfe3e8)",
-  color: "var(--p-color-text-secondary, #616161)",
+  color: mutedText,
   fontWeight: 500,
   whiteSpace: "nowrap",
 };
@@ -28,14 +35,55 @@ const bodyCellStyle = {
   verticalAlign: "top",
 };
 
+function PriceValue({ display, changedColor }) {
+  if (display.type === "blank") {
+    return <span style={{ color: mutedText }}>-</span>;
+  }
+
+  if (display.type === "unchanged") {
+    return (
+      <span>
+        <strong>{display.value}</strong>
+        <span style={{ color: mutedText }}> (No Change)</span>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span style={{ color: mutedText, textDecoration: "line-through" }}>{display.oldValue}</span>
+      <span style={{ color: mutedText, margin: "0 6px" }}>→</span>
+      <strong style={{ color: changedColor }}>{display.newValue}</strong>
+    </>
+  );
+}
+
+function TagChanges({ log, taskTagChanges }) {
+  const lines = formatTagChangeLines(getLogTagChanges(log, taskTagChanges));
+
+  if (lines.length === 0) {
+    return <span style={{ color: mutedText }}>-</span>;
+  }
+
+  return (
+    <span style={{ display: "flex", flexDirection: "column", gap: "2px", whiteSpace: "normal" }}>
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </span>
+  );
+}
+
 export default function TaskLogsTable({
   logs,
   isRollbackTask,
   searchQuery,
   shopDomain,
   onProductNavigate,
+  taskTagChanges = {},
 }) {
   const [page, setPage] = useState(0);
+  const changedColor = isRollbackTask ? "#005bd3" : "#008060";
 
   useEffect(() => {
     setPage(0);
@@ -72,6 +120,7 @@ export default function TaskLogsTable({
               <th style={headerCellStyle}>Price</th>
               <th style={headerCellStyle}>Compare-at Price</th>
               <th style={headerCellStyle}>Unit Cost</th>
+              <th style={headerCellStyle}>TAG</th>
             </tr>
           </thead>
           <tbody>
@@ -87,35 +136,28 @@ export default function TaskLogsTable({
                   </ProductLogLink>
                 </td>
                 <td style={bodyCellStyle}>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)" }}>
-                    {formatVariantId(log.variantId)}
-                  </span>
+                  <span style={{ color: mutedText }}>{formatVariantId(log.variantId)}</span>
                 </td>
                 <td style={bodyCellStyle}>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)", textDecoration: "line-through" }}>
-                    {log.oldPrice}
-                  </span>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
-                  <strong style={{ color: isRollbackTask ? "#005bd3" : "#008060" }}>{log.newPrice}</strong>
+                  <PriceValue
+                    display={getPriceChangeDisplay(log.oldPrice, log.newPrice)}
+                    changedColor={changedColor}
+                  />
                 </td>
                 <td style={bodyCellStyle}>
-                  <span
-                    style={{
-                      color: "var(--p-color-text-secondary, #616161)",
-                      textDecoration: log.oldCompare !== "-" ? "line-through" : "none",
-                    }}
-                  >
-                    {log.oldCompare}
-                  </span>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
-                  <strong>{log.newCompare}</strong>
+                  <PriceValue
+                    display={getPriceChangeDisplay(log.oldCompare, log.newCompare)}
+                    changedColor={changedColor}
+                  />
                 </td>
                 <td style={bodyCellStyle}>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)", textDecoration: "line-through" }}>
-                    {log.oldCost}
-                  </span>
-                  <span style={{ color: "var(--p-color-text-secondary, #616161)", margin: "0 6px" }}>→</span>
-                  <strong>{log.newCost}</strong>
+                  <PriceValue
+                    display={getPriceChangeDisplay(log.oldCost, log.newCost)}
+                    changedColor={changedColor}
+                  />
+                </td>
+                <td style={bodyCellStyle}>
+                  <TagChanges log={log} taskTagChanges={taskTagChanges} />
                 </td>
               </tr>
             ))}

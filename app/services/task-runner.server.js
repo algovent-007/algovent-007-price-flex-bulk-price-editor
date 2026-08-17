@@ -1,5 +1,6 @@
 import prisma from "../db.server";
 import { calculateVariantPricing, formatPrice } from "../utils/pricing";
+import { attachProductTagChanges } from "../utils/task-log-display";
 import {
   buildProductQuery,
   filterProductsByConditions,
@@ -479,6 +480,10 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
           return { success: false, error };
         }
         productUpdated = true;
+      }
+
+      if (tagsToAddList.length > 0 || tagsToRemoveList.length > 0) {
+        attachProductTagChanges(logsList, prod.id, tagsToAddList, tagsToRemoveList);
       }
 
       if (productUpdated) {
