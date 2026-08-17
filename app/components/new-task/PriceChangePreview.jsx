@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { formatPrice } from "../../utils/pricing";
 import { PREVIEW_PAGE_SIZE } from "./constants";
+import { useI18n } from "../../i18n/I18nProvider";
 
-function formatCurrency(value) {
+function formatFallbackCurrency(value) {
   return `$${formatPrice(parseFloat(value) || 0)}`;
-}
-
-function formatOptionalCurrency(value, hasValue = true) {
-  if (!hasValue || value == null) return "-";
-  return formatCurrency(value);
 }
 
 function escapeCsvCell(value) {
@@ -18,33 +14,6 @@ function escapeCsvCell(value) {
 
 function formatVariantId(id) {
   return String(id || "").split("/").pop();
-}
-
-function buildPreviewCsv(variants) {
-  const rows = [
-    [
-      "Product",
-      "Current price",
-      "New price",
-      "Current compare-at price",
-      "New compare-at price",
-      "Current cost price",
-      "New cost price",
-      "Variant ID",
-    ],
-    ...variants.map((variant) => [
-      variant.title,
-      formatCurrency(variant.currentPrice),
-      formatCurrency(variant.newPrice),
-      formatOptionalCurrency(variant.currentCompare, variant.hasCompare),
-      formatOptionalCurrency(variant.newCompare, variant.newCompare !== null),
-      formatOptionalCurrency(variant.currentCost, variant.hasCost),
-      formatOptionalCurrency(variant.newCost, variant.hasCost),
-      formatVariantId(variant.id),
-    ]),
-  ];
-
-  return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
 }
 
 function downloadCsv(filename, csvContent) {
@@ -61,6 +30,7 @@ function downloadCsv(filename, csvContent) {
 }
 
 export default function PriceChangePreview({ previewVariants, visible = false, onClose }) {
+  const { t, formatCurrency } = useI18n();
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const rawId = useId();
@@ -72,6 +42,44 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
         variant.title?.toLowerCase().includes(trimmedSearchQuery)
       )
     : previewVariants;
+
+  const formatMoney = (value) => {
+    const number = parseFloat(value);
+    if (!Number.isFinite(number)) return formatFallbackCurrency(value);
+    return formatCurrency(number, "USD");
+  };
+
+  const formatOptionalMoney = (value, hasValue = true) => {
+    if (!hasValue || value == null) return t("common.emDash");
+    return formatMoney(value);
+  };
+
+  const buildPreviewCsv = (variants) => {
+    const rows = [
+      [
+        t("preview.product"),
+        t("preview.currentPrice"),
+        t("preview.newPrice"),
+        t("preview.currentCompare"),
+        t("preview.newCompare"),
+        t("preview.currentCost"),
+        t("preview.newCost"),
+        t("preview.variantId"),
+      ],
+      ...variants.map((variant) => [
+        variant.title,
+        formatMoney(variant.currentPrice),
+        formatMoney(variant.newPrice),
+        formatOptionalMoney(variant.currentCompare, variant.hasCompare),
+        formatOptionalMoney(variant.newCompare, variant.newCompare !== null),
+        formatOptionalMoney(variant.currentCost, variant.hasCost),
+        formatOptionalMoney(variant.newCost, variant.hasCost),
+        formatVariantId(variant.id),
+      ]),
+    ];
+
+    return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
+  };
 
   useEffect(() => {
     setPage(0);
@@ -123,33 +131,31 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
   const hasSearchFilter = trimmedSearchQuery.length > 0;
   const summaryText =
     previewVariants.length === 0
-      ? "No product variants found matching your criteria."
+      ? t("preview.noneFound")
       : hasSearchFilter && filteredVariants.length === 0
-        ? `No product variants match your search. ${previewVariants.length} variant${
-            previewVariants.length === 1 ? "" : "s"
-          } would be affected in total.`
+        ? t("preview.noSearchMatch", { count: previewVariants.length })
         : hasSearchFilter
-          ? `${filteredVariants.length} of ${previewVariants.length} product variant${
-              previewVariants.length === 1 ? "" : "s"
-            } match your search:`
-          : `${previewVariants.length} product variant${
-              previewVariants.length === 1 ? "" : "s"
-            } would be affected by this price change:`;
+          ? t("preview.searchMatch", {
+              filtered: filteredVariants.length,
+              total: previewVariants.length,
+              count: filteredVariants.length,
+            })
+          : t("preview.affected", { count: previewVariants.length });
 
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="base">
         <s-stack direction="inline" gap="small-100" alignItems="center" justifyContent="space-between">
           <s-stack direction="inline" gap="small-100" alignItems="center">
-            <s-text type="strong">Price change preview</s-text>
+            <s-text type="strong">{t("preview.title")}</s-text>
             <s-icon type="info" interestFor={tooltipId} />
             <s-tooltip id={tooltipId}>
-              Preview of price changes based on your current pricing rules
+              {t("preview.tooltip")}
             </s-tooltip>
           </s-stack>
           {onClose && (
             <s-button variant="tertiary" onClick={onClose}>
-              Close
+              {t("common.close")}
             </s-button>
           )}
         </s-stack>
@@ -159,9 +165,9 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
         {previewVariants.length > 0 && (
           <>
             <s-search-field
-              label="Search preview"
+              label={t("preview.search")}
               labelAccessibilityVisibility="exclusive"
-              placeholder="Search products or variants..."
+              placeholder={t("preview.searchPlaceholder")}
               value={searchQuery}
               onInput={(e) => setSearchQuery(e.target.value)}
             />
@@ -172,7 +178,7 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
                 onClick={handleExportCsv}
                 disabled={filteredVariants.length === 0}
               >
-                Export CSV
+                {t("preview.exportCsv")}
               </s-button>
             </s-stack>
           </>
@@ -189,12 +195,12 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
             onNextPage={handleNextPage}
           >
             <s-table-header-row>
-              <s-table-header listSlot="primary">Product</s-table-header>
+              <s-table-header listSlot="primary">{t("preview.product")}</s-table-header>
               <s-table-header listSlot="labeled" format="currency">
-                Current price
+                {t("preview.currentPrice")}
               </s-table-header>
               <s-table-header listSlot="labeled" format="currency">
-                New price
+                {t("preview.newPrice")}
               </s-table-header>
             </s-table-header-row>
             <s-table-body>
@@ -206,8 +212,8 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
                       <s-text>{variant.title}</s-text>
                     </s-stack>
                   </s-table-cell>
-                  <s-table-cell>{formatCurrency(variant.currentPrice)}</s-table-cell>
-                  <s-table-cell>{formatCurrency(variant.newPrice)}</s-table-cell>
+                  <s-table-cell>{formatMoney(variant.currentPrice)}</s-table-cell>
+                  <s-table-cell>{formatMoney(variant.newPrice)}</s-table-cell>
                 </s-table-row>
               ))}
             </s-table-body>

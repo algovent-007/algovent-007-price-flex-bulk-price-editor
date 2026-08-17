@@ -6,25 +6,7 @@ import {
   getMetafieldDraftFromValue,
   metafieldConditionNeedsValue,
 } from "./constants";
-
-const METAFIELD_FIELD_CONFIG = {
-  product: {
-    modalIdPrefix: "product-metafield-config",
-    heading: "Provide Product Metafield Name and Value",
-    nameLabel: "Metafield Name",
-    valueLabel: "Metafield Value",
-    warningText:
-      "Click Add Condition to save; values are used when you click Search for products. The product selection rules contain metafield condition. This will make the update process slower than usual because of additional calls to the Shopify API.",
-  },
-  variant: {
-    modalIdPrefix: "variant-metafield-config",
-    heading: "Provide Product Variant Metafield Name and Value",
-    nameLabel: "Product Variant Metafield",
-    valueLabel: "Value",
-    warningText:
-      "Click Add Condition to save; values are used when you click Search for products. The product selection rules contain variant metafield condition. This will make the update process slower than usual because of additional calls to the Shopify API.",
-  },
-};
+import { useI18n } from "../../i18n/I18nProvider";
 
 export default function ConditionMetafieldValueField({
   value,
@@ -35,7 +17,15 @@ export default function ConditionMetafieldValueField({
   error = "",
   metafieldType = "product",
 }) {
-  const config = METAFIELD_FIELD_CONFIG[metafieldType] ?? METAFIELD_FIELD_CONFIG.product;
+  const { t } = useI18n();
+  const isVariant = metafieldType === "variant";
+  const config = {
+    modalIdPrefix: isVariant ? "variant-metafield-config" : "product-metafield-config",
+    heading: t(isVariant ? "conditions.metafield.variantHeading" : "conditions.metafield.productHeading"),
+    nameLabel: t(isVariant ? "conditions.metafield.variantNameLabel" : "conditions.metafield.productNameLabel"),
+    valueLabel: t(isVariant ? "conditions.metafield.variantValueLabel" : "conditions.metafield.productValueLabel"),
+    warningText: t(isVariant ? "conditions.metafield.variantWarning" : "conditions.metafield.productWarning"),
+  };
   const rawModalId = useId();
   const modalId = `${config.modalIdPrefix}-${index}-${rawModalId.replace(/:/g, "")}`;
   const modalRef = useRef(null);
@@ -76,7 +66,7 @@ export default function ConditionMetafieldValueField({
         {summary ? <s-text>{summary}</s-text> : null}
         {!readOnly ? (
           <s-button variant="secondary" onClick={openModal}>
-            Configure
+            {t("conditions.configure")}
           </s-button>
         ) : (
           summary && <s-text color="subdued">{summary}</s-text>
@@ -89,14 +79,14 @@ export default function ConditionMetafieldValueField({
           <s-stack direction="block" gap="base">
             <s-text-field
               label={config.nameLabel}
-              placeholder="Namespace.Key"
+              placeholder={t("conditions.metafield.placeholder")}
               value={draftName}
               onInput={(e) => setDraftName(getFieldValue(e))}
             />
 
             <s-text-field
               label={config.valueLabel}
-              placeholder="Value"
+              placeholder={t("conditions.valueLabel")}
               value={draftValue}
               onInput={(e) => setDraftValue(getFieldValue(e))}
             />
@@ -105,10 +95,10 @@ export default function ConditionMetafieldValueField({
           </s-stack>
 
           <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
-            Close
+            {t("common.close")}
           </s-button>
           <s-button slot="primary-action" variant="primary" onClick={applyCondition}>
-            Add Condition
+            {t("conditions.addCondition")}
           </s-button>
         </s-modal>
       )}

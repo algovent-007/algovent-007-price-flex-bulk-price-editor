@@ -7,6 +7,8 @@ import RoundCentsFields from "./RoundCentsFields";
 import PriceChangePreview from "./PriceChangePreview";
 import { createNumericInputHandlers } from "../../utils/numeric-input";
 import { EDIT_TYPE_OPTIONS, isCsvEditType } from "./constants";
+import { translateError } from "../../i18n/errors";
+import { useI18n } from "../../i18n/I18nProvider";
 import styles from "./ProductSelectionSection.module.css";
 
 export default function TaskConfigurationForm({
@@ -29,6 +31,7 @@ export default function TaskConfigurationForm({
   hasSavedTimezone = true,
   currentTimeStr = "",
 }) {
+  const { t } = useI18n();
   const {
     editType,
     matchType,
@@ -149,7 +152,7 @@ export default function TaskConfigurationForm({
       setter(value);
     }, disabled);
 
-  const fieldError = (key) => fieldErrors?.[key];
+  const fieldError = (key) => translateError(t, fieldErrors?.[key]);
   const isDirectCsvMode = editType === "csv-direct";
   const advancedStepNumber = isDirectCsvMode ? 2 : 4;
   const scheduleStepNumber = isDirectCsvMode ? 3 : 5;
@@ -171,13 +174,13 @@ export default function TaskConfigurationForm({
   return (
     <>
       {/* Section 1: Select Products */}
-      <s-section heading="1. Select the products that you want to edit">
+      <s-section heading={t("newTask.selectProducts")}>
         <s-stack direction="block" gap="loose">
           <div className={styles.productSelectionRow}>
             <div className={styles.productSelectionChoices}>
               <s-choice-list
                 name="edit_type"
-                label="Select the products that you want to edit"
+                label={t("newTask.selectProductsLabel")}
                 labelAccessibilityVisibility="exclusive"
                 variant="list"
                 values={[editType || "all"]}
@@ -193,7 +196,7 @@ export default function TaskConfigurationForm({
               >
                 {EDIT_TYPE_OPTIONS.map((option) => (
                   <s-choice key={option.value} value={option.value}>
-                    {option.label}
+                    {t(`newTask.editType.${option.value}`)}
                   </s-choice>
                 ))}
               </s-choice-list>
@@ -202,14 +205,14 @@ export default function TaskConfigurationForm({
             {!readOnly && editType === "all" && (
               <div className={styles.productSelectionAction}>
                 <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                  Search For Products
+                  {t("newTask.searchForProducts")}
                 </s-button>
               </div>
             )}
           </div>
 
           {!readOnly && productSearchError && (
-            <s-banner tone="critical">{productSearchError}</s-banner>
+            <s-banner tone="critical">{translateError(t, productSearchError)}</s-banner>
           )}
 
           {editType === "conditions" && (
@@ -271,19 +274,19 @@ export default function TaskConfigurationForm({
 
       {/* Section 2: Configure Pricing Rules */}
       {!isDirectCsvMode && (
-      <s-section heading="2. Configure pricing rules">
+      <s-section heading={t("newTask.configurePricing")}>
         <s-stack direction="block" gap="loose">
           <s-select
-            label="Change Price"
+            label={t("newTask.changePrice")}
             value={changePrice}
             disabled={readOnly}
             onInput={readOnly ? undefined : (e) => setChangePrice(e.currentTarget?.value ?? e.target?.value)}
           >
-            <s-option value="1">Based on Current Price</s-option>
-            <s-option value="2">Based on Current Compare Price</s-option>
-            <s-option value="3">Based on Cost per Item</s-option>
-            <s-option value="5">With Fixed Amount</s-option>
-            <s-option value="6">No Change</s-option>
+            <s-option value="1">{t("newTask.priceBasedOnCurrent")}</s-option>
+            <s-option value="2">{t("newTask.priceBasedOnCompare")}</s-option>
+            <s-option value="3">{t("newTask.priceBasedOnCost")}</s-option>
+            <s-option value="5">{t("newTask.priceFixedAmount")}</s-option>
+            <s-option value="6">{t("newTask.priceNoChange")}</s-option>
           </s-select>
 
           {(changePrice === "1" || changePrice === "2" || changePrice === "3") && (
@@ -291,19 +294,19 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Percent"
+                    label={t("newTask.percent")}
                     value={percentType}
                     disabled={readOnly}
                     onInput={readOnly ? undefined : (e) => setPercentType(e.currentTarget?.value ?? e.target?.value)}
                   >
-                    <s-option value="1">increase by</s-option>
-                    <s-option value="2">decrease by</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">fixed change</s-option>
+                    <s-option value="1">{t("newTask.increaseBy")}</s-option>
+                    <s-option value="2">{t("newTask.decreaseBy")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.fixedChange")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={percentValue}
                       placeholder={percentPlaceholder}
                       inputMode="decimal"
@@ -315,7 +318,7 @@ export default function TaskConfigurationForm({
                       )}
                       error={fieldError("percentValue")}
                     ></s-text-field>
-                    <s-text color="subdued">{percentType === "4" ? "USD" : "%"}</s-text>
+                    <s-text color="subdued">{percentType === "4" ? t("newTask.usd") : t("newTask.percentSign")}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -323,19 +326,19 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Fixed Amount"
+                    label={t("newTask.fixedAmount")}
                     value={fixedType}
                     disabled={readOnly}
                     onInput={readOnly ? undefined : (e) => setFixedType(e.currentTarget?.value ?? e.target?.value)}
                   >
-                    <s-option value="1">add</s-option>
-                    <s-option value="2">subtract</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">multiply</s-option>
+                    <s-option value="1">{t("newTask.addAmount")}</s-option>
+                    <s-option value="2">{t("newTask.subtractAmount")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.multiply")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={fixedValue}
                       placeholder={fixedPlaceholder}
                       inputMode="decimal"
@@ -347,7 +350,7 @@ export default function TaskConfigurationForm({
                       )}
                       error={fieldError("fixedValue")}
                     ></s-text-field>
-                    <s-text color="subdued">USD</s-text>
+                    <s-text color="subdued">{t("newTask.usd")}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -358,7 +361,7 @@ export default function TaskConfigurationForm({
             <s-box paddingBlockStart="large">
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
-                  label="Fixed price amount"
+                  label={t("newTask.fixedPriceAmount")}
                   value={fixedPriceAmount}
                   placeholder={fixedPricePlaceholder}
                   inputMode="decimal"
@@ -366,7 +369,7 @@ export default function TaskConfigurationForm({
                   {...numericFieldProps(setFixedPriceAmount, "fixedPriceAmount")}
                   error={fieldError("fixedPriceAmount")}
                 ></s-text-field>
-                <s-text color="subdued">USD</s-text>
+                <s-text color="subdued">{t("newTask.usd")}</s-text>
               </s-grid>
             </s-box>
           )}
@@ -388,20 +391,20 @@ export default function TaskConfigurationForm({
 
           <s-box paddingBlockStart="large">
             <s-select
-              label="Change Compare Price"
+              label={t("newTask.changeComparePrice")}
               value={comparePriceType}
               disabled={readOnly}
               onInput={readOnly ? undefined : (e) => setComparePriceType(e.currentTarget?.value ?? e.target?.value)}
             >
-              <s-option value="1">Based on Current Compare Price</s-option>
-              <s-option value="2">Based on New Product Price</s-option>
-              <s-option value="3">Based on Current Product Price</s-option>
-              <s-option value="4">Based on Cost per Item</s-option>
-              <s-option value="5">With Fixed Amount</s-option>
-              <s-option value="7">Make it NULL (Blank)</s-option>
-              <s-option value="8">Based On Formula</s-option>
-              <s-option value="9">Reset Fixed Compare Price</s-option>
-              <s-option value="6">No Change</s-option>
+              <s-option value="1">{t("newTask.compareBasedOnCurrentCompare")}</s-option>
+              <s-option value="2">{t("newTask.compareBasedOnNewPrice")}</s-option>
+              <s-option value="3">{t("newTask.compareBasedOnCurrentPrice")}</s-option>
+              <s-option value="4">{t("newTask.compareBasedOnCost")}</s-option>
+              <s-option value="5">{t("newTask.compareFixed")}</s-option>
+              <s-option value="7">{t("newTask.compareNull")}</s-option>
+              <s-option value="8">{t("newTask.compareFormulaOption")}</s-option>
+              <s-option value="9">{t("newTask.compareReset")}</s-option>
+              <s-option value="6">{t("newTask.priceNoChange")}</s-option>
             </s-select>
           </s-box>
 
@@ -413,21 +416,21 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Percent"
+                    label={t("newTask.percent")}
                     value={comparePercentType}
                     disabled={readOnly}
                     onInput={
                       readOnly ? undefined : (e) => setComparePercentType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
-                    <s-option value="1">increase by</s-option>
-                    <s-option value="2">decrease by</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">fixed change</s-option>
+                    <s-option value="1">{t("newTask.increaseBy")}</s-option>
+                    <s-option value="2">{t("newTask.decreaseBy")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.fixedChange")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={comparePercentValue}
                       placeholder={comparePercentPlaceholder}
                       inputMode="decimal"
@@ -440,7 +443,7 @@ export default function TaskConfigurationForm({
                       error={fieldError("comparePercentValue")}
                     ></s-text-field>
                     <s-text color="subdued">
-                      {comparePercentType === "4" ? "USD" : "%"}
+                      {comparePercentType === "4" ? t("newTask.usd") : t("newTask.percentSign")}
                     </s-text>
                   </s-grid>
                 </s-grid>
@@ -449,21 +452,21 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Fixed Amount"
+                    label={t("newTask.fixedAmount")}
                     value={compareFixedType}
                     disabled={readOnly}
                     onInput={
                       readOnly ? undefined : (e) => setCompareFixedType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
-                    <s-option value="1">add</s-option>
-                    <s-option value="2">subtract</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">multiply</s-option>
+                    <s-option value="1">{t("newTask.addAmount")}</s-option>
+                    <s-option value="2">{t("newTask.subtractAmount")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.multiply")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={compareFixedValue}
                       placeholder={compareFixedPlaceholder}
                       inputMode="decimal"
@@ -475,7 +478,7 @@ export default function TaskConfigurationForm({
                       )}
                       error={fieldError("compareFixedValue")}
                     ></s-text-field>
-                    <s-text color="subdued">USD</s-text>
+                    <s-text color="subdued">{t("newTask.usd")}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -486,7 +489,7 @@ export default function TaskConfigurationForm({
             <s-box paddingBlockStart="large">
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
-                  label="Fixed compare price amount"
+                  label={t("newTask.fixedCompareAmount")}
                   value={compareFixedPriceAmount}
                   placeholder={compareFixedPricePlaceholder}
                   inputMode="decimal"
@@ -494,7 +497,7 @@ export default function TaskConfigurationForm({
                   {...numericFieldProps(setCompareFixedPriceAmount, "compareFixedPriceAmount")}
                   error={fieldError("compareFixedPriceAmount")}
                 ></s-text-field>
-                <s-text color="subdued">USD</s-text>
+                <s-text color="subdued">{t("newTask.usd")}</s-text>
               </s-grid>
             </s-box>
           )}
@@ -503,7 +506,7 @@ export default function TaskConfigurationForm({
             <s-box paddingBlockStart="large">
               <div>
                 <s-text-field
-                  label="Compare-at price formula"
+                  label={t("newTask.compareFormula")}
                   value={comparePriceFormula}
                   disabled={readOnly}
                   onInput={
@@ -518,7 +521,7 @@ export default function TaskConfigurationForm({
                   placeholder={compareFormulaPlaceholder}
                 ></s-text-field>
                 <s-text color="subdued">
-                  Use variables: <strong>price</strong>, <strong>compare</strong>,{" "}
+                  {t("newTask.formulaHelpPrefix")} <strong>price</strong>, <strong>compare</strong>,{" "}
                   <strong>cost</strong>
                 </s-text>
               </div>
@@ -544,17 +547,17 @@ export default function TaskConfigurationForm({
 
           <s-box paddingBlockStart="large">
             <s-select
-              label="Change Cost Price"
+              label={t("newTask.changeCostPrice")}
               value={costPriceType}
               disabled={readOnly}
               onInput={readOnly ? undefined : (e) => setCostPriceType(e.currentTarget?.value ?? e.target?.value)}
             >
-              <s-option value="1">Based on Current Product Price</s-option>
-              <s-option value="4">Based on New Product Price</s-option>
-              <s-option value="2">Based on Current Compare Price</s-option>
-              <s-option value="3">Based on Cost per Item</s-option>
-              <s-option value="5">With Fixed Amount</s-option>
-              <s-option value="6">No Change</s-option>
+              <s-option value="1">{t("newTask.costBasedOnCurrentPrice")}</s-option>
+              <s-option value="4">{t("newTask.costBasedOnNewPrice")}</s-option>
+              <s-option value="2">{t("newTask.costBasedOnCompare")}</s-option>
+              <s-option value="3">{t("newTask.costBasedOnCost")}</s-option>
+              <s-option value="5">{t("newTask.priceFixedAmount")}</s-option>
+              <s-option value="6">{t("newTask.priceNoChange")}</s-option>
             </s-select>
           </s-box>
 
@@ -566,21 +569,21 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Percent"
+                    label={t("newTask.percent")}
                     value={costPercentType}
                     disabled={readOnly}
                     onInput={
                       readOnly ? undefined : (e) => setCostPercentType(e.currentTarget?.value ?? e.target?.value)
                     }
                   >
-                    <s-option value="1">increase by</s-option>
-                    <s-option value="2">decrease by</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">fixed change</s-option>
+                    <s-option value="1">{t("newTask.increaseBy")}</s-option>
+                    <s-option value="2">{t("newTask.decreaseBy")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.fixedChange")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={costPercentValue}
                       placeholder={costPercentPlaceholder}
                       inputMode="decimal"
@@ -592,7 +595,7 @@ export default function TaskConfigurationForm({
                       )}
                       error={fieldError("costPercentValue")}
                     ></s-text-field>
-                    <s-text color="subdued">{costPercentType === "4" ? "USD" : "%"}</s-text>
+                    <s-text color="subdued">{costPercentType === "4" ? t("newTask.usd") : t("newTask.percentSign")}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -600,19 +603,19 @@ export default function TaskConfigurationForm({
               <s-box paddingBlockStart="large">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
                   <s-select
-                    label="Fixed Amount"
+                    label={t("newTask.fixedAmount")}
                     value={costFixedType}
                     disabled={readOnly}
                     onInput={readOnly ? undefined : (e) => setCostFixedType(e.currentTarget?.value ?? e.target?.value)}
                   >
-                    <s-option value="1">add</s-option>
-                    <s-option value="2">subtract</s-option>
-                    <s-option value="3">No Change</s-option>
-                    <s-option value="4">multiply</s-option>
+                    <s-option value="1">{t("newTask.addAmount")}</s-option>
+                    <s-option value="2">{t("newTask.subtractAmount")}</s-option>
+                    <s-option value="3">{t("newTask.priceNoChange")}</s-option>
+                    <s-option value="4">{t("newTask.multiply")}</s-option>
                   </s-select>
                   <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                     <s-text-field
-                      label="Value"
+                      label={t("newTask.value")}
                       value={costFixedValue}
                       placeholder={costFixedPlaceholder}
                       inputMode="decimal"
@@ -624,7 +627,7 @@ export default function TaskConfigurationForm({
                       )}
                       error={fieldError("costFixedValue")}
                     ></s-text-field>
-                    <s-text color="subdued">USD</s-text>
+                    <s-text color="subdued">{t("newTask.usd")}</s-text>
                   </s-grid>
                 </s-grid>
               </s-box>
@@ -635,7 +638,7 @@ export default function TaskConfigurationForm({
             <s-box paddingBlockStart="large">
               <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                 <s-text-field
-                  label="Fixed cost price amount"
+                  label={t("newTask.fixedCostAmount")}
                   value={costFixedPriceAmount}
                   placeholder={costFixedPricePlaceholder}
                   inputMode="decimal"
@@ -643,7 +646,7 @@ export default function TaskConfigurationForm({
                   {...numericFieldProps(setCostFixedPriceAmount, "costFixedPriceAmount")}
                   error={fieldError("costFixedPriceAmount")}
                 ></s-text-field>
-                <s-text color="subdued">USD</s-text>
+                <s-text color="subdued">{t("newTask.usd")}</s-text>
               </s-grid>
             </s-box>
           )}
@@ -666,7 +669,7 @@ export default function TaskConfigurationForm({
           {!readOnly && (
             <s-box paddingBlockStart="large">
               <s-button variant="primary" onClick={handleSavePricingRules}>
-                Save pricing rules
+                {t("newTask.savePricingRules")}
               </s-button>
             </s-box>
           )}
@@ -679,8 +682,7 @@ export default function TaskConfigurationForm({
 
           <s-box paddingBlockStart="large">
             <s-banner tone="warning">
-              Note: Price / compare price is set to NULL (Blank). Prices / compare prices will
-              be set to 0 when the edit task is executed.
+              {t("newTask.nullPriceNote")}
             </s-banner>
           </s-box>
         </s-stack>
@@ -690,9 +692,9 @@ export default function TaskConfigurationForm({
       {/* Section 4 & 5: Advanced settings & Run/Schedule Task */}
       <s-section>
         <s-stack direction="block" gap="loose">
-          <s-heading variant="headingMd">
-            Step {advancedStepNumber}. Advanced settings (optional)
-          </s-heading>
+            <s-heading variant="headingMd">
+              {t("newTask.advancedSettings", { step: advancedStepNumber })}
+            </s-heading>
 
           <AdvancedSettingsCard
             readOnly={readOnly}
@@ -718,7 +720,7 @@ export default function TaskConfigurationForm({
 
           <s-box paddingBlockStart="large">
             <s-heading variant="headingMd">
-              Step {scheduleStepNumber}. Select when the prices should change
+              {t("newTask.whenPricesChange", { step: scheduleStepNumber })}
             </s-heading>
           </s-box>
 
@@ -759,7 +761,7 @@ export default function TaskConfigurationForm({
 
           <s-box paddingBlockStart="large">
             <s-text-field
-              label="Task Name"
+              label={t("newTask.taskName")}
               required
               value={taskName}
               disabled={readOnly}
@@ -785,11 +787,11 @@ export default function TaskConfigurationForm({
               >
                 {isRunning
                   ? scheduleType === "later"
-                    ? "Scheduling Task..."
-                    : "Running Task..."
+                    ? t("newTask.schedulingTask")
+                    : t("newTask.runningTask")
                   : scheduleType === "later"
-                    ? "Schedule Task"
-                    : "Run Task"}
+                    ? t("newTask.scheduleTask")
+                    : t("newTask.runTask")}
               </s-button>
             </s-box>
           )}

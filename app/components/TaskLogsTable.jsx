@@ -2,12 +2,12 @@
 import { useEffect, useState } from "react";
 import ProductLogLink from "./ProductLogLink";
 import {
-  formatTagChangeLines,
   getLogTagChanges,
   getPriceChangeDisplay,
 } from "../utils/task-log-display";
+import { useI18n } from "../i18n/I18nProvider";
 
-const LOGS_PAGE_SIZE = 10;
+const LOGS_PAGE_SIZE = 25;
 const mutedText = "var(--p-color-text-secondary, #616161)";
 
 function formatVariantId(variantId) {
@@ -35,7 +35,7 @@ const bodyCellStyle = {
   verticalAlign: "top",
 };
 
-function PriceValue({ display, changedColor }) {
+function PriceValue({ display, changedColor, noChangeLabel }) {
   if (display.type === "blank") {
     return <span style={{ color: mutedText }}>-</span>;
   }
@@ -44,7 +44,7 @@ function PriceValue({ display, changedColor }) {
     return (
       <span>
         <strong>{display.value}</strong>
-        <span style={{ color: mutedText }}> (No Change)</span>
+        <span style={{ color: mutedText }}> {noChangeLabel}</span>
       </span>
     );
   }
@@ -58,8 +58,15 @@ function PriceValue({ display, changedColor }) {
   );
 }
 
-function TagChanges({ log, taskTagChanges }) {
-  const lines = formatTagChangeLines(getLogTagChanges(log, taskTagChanges));
+function TagChanges({ log, taskTagChanges, t }) {
+  const changes = getLogTagChanges(log, taskTagChanges);
+  const lines = [];
+  if (changes.added.length > 0) {
+    lines.push(t("history.tagAdded", { tags: changes.added.join(", ") }));
+  }
+  if (changes.removed.length > 0) {
+    lines.push(t("history.tagRemoved", { tags: changes.removed.join(", ") }));
+  }
 
   if (lines.length === 0) {
     return <span style={{ color: mutedText }}>-</span>;
@@ -82,8 +89,10 @@ export default function TaskLogsTable({
   onProductNavigate,
   taskTagChanges = {},
 }) {
+  const { t } = useI18n();
   const [page, setPage] = useState(0);
   const changedColor = isRollbackTask ? "#005bd3" : "#008060";
+  const noChangeLabel = t("history.noChange");
 
   useEffect(() => {
     setPage(0);
@@ -94,10 +103,10 @@ export default function TaskLogsTable({
       <s-box padding="large">
         <s-paragraph color="subdued">
           {searchQuery
-            ? `No products matching "${searchQuery}".`
+            ? t("history.noMatchingProducts", { query: searchQuery })
             : isRollbackTask
-              ? "No rollback logs recorded for this task."
-              : "No product variant price update logs recorded for this task."}
+              ? t("history.noRollbackLogs")
+              : t("history.noPriceLogs")}
         </s-paragraph>
       </s-box>
     );
@@ -115,12 +124,12 @@ export default function TaskLogsTable({
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={headerCellStyle}>Product</th>
-              <th style={headerCellStyle}>Variant ID</th>
-              <th style={headerCellStyle}>Price</th>
-              <th style={headerCellStyle}>Compare-at Price</th>
-              <th style={headerCellStyle}>Unit Cost</th>
-              <th style={headerCellStyle}>TAG</th>
+              <th style={headerCellStyle}>{t("history.product")}</th>
+              <th style={headerCellStyle}>{t("history.variantId")}</th>
+              <th style={headerCellStyle}>{t("history.price")}</th>
+              <th style={headerCellStyle}>{t("history.compareAtPrice")}</th>
+              <th style={headerCellStyle}>{t("history.unitCost")}</th>
+              <th style={headerCellStyle}>{t("history.tag")}</th>
             </tr>
           </thead>
           <tbody>
@@ -134,6 +143,16 @@ export default function TaskLogsTable({
                   >
                     {log.productTitle}
                   </ProductLogLink>
+                  {log.error ? (
+                    <div style={{ color: "var(--p-color-text-critical, #d72c0d)", marginTop: 4 }}>
+                      {log.error}
+                    </div>
+                  ) : null}
+                  {!log.error && Array.isArray(log.warnings) && log.warnings.length > 0 ? (
+                    <div style={{ color: "var(--p-color-text-caution, #916a00)", marginTop: 4 }}>
+                      {log.warnings.join(" ")}
+                    </div>
+                  ) : null}
                 </td>
                 <td style={bodyCellStyle}>
                   <span style={{ color: mutedText }}>{formatVariantId(log.variantId)}</span>
@@ -142,22 +161,25 @@ export default function TaskLogsTable({
                   <PriceValue
                     display={getPriceChangeDisplay(log.oldPrice, log.newPrice)}
                     changedColor={changedColor}
+                    noChangeLabel={noChangeLabel}
                   />
                 </td>
                 <td style={bodyCellStyle}>
                   <PriceValue
                     display={getPriceChangeDisplay(log.oldCompare, log.newCompare)}
                     changedColor={changedColor}
+                    noChangeLabel={noChangeLabel}
                   />
                 </td>
                 <td style={bodyCellStyle}>
                   <PriceValue
                     display={getPriceChangeDisplay(log.oldCost, log.newCost)}
                     changedColor={changedColor}
+                    noChangeLabel={noChangeLabel}
                   />
                 </td>
                 <td style={bodyCellStyle}>
-                  <TagChanges log={log} taskTagChanges={taskTagChanges} />
+                  <TagChanges log={log} taskTagChanges={taskTagChanges} t={t} />
                 </td>
               </tr>
             ))}
@@ -168,7 +190,7 @@ export default function TaskLogsTable({
       {showPagination && (
         <s-stack direction="inline" gap="base" alignItems="center" justifyContent="space-between">
           <s-text color="subdued">
-            Page {safePage + 1} of {totalPages}
+            {t("common.pageOf", { current: safePage + 1, total: totalPages })}
           </s-text>
           <s-stack direction="inline" gap="small-100">
             <s-button
@@ -176,14 +198,14 @@ export default function TaskLogsTable({
               disabled={safePage === 0}
               onClick={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
             >
-              Previous
+              {t("common.previous")}
             </s-button>
             <s-button
               variant="secondary"
               disabled={safePage >= totalPages - 1}
               onClick={() => setPage((currentPage) => Math.min(totalPages - 1, currentPage + 1))}
             >
-              Next
+              {t("common.next")}
             </s-button>
           </s-stack>
         </s-stack>

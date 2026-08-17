@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n/I18nProvider";
 import styles from "./HomePage.module.css";
 
 export default function HomeSidebar({
@@ -5,29 +6,32 @@ export default function HomeSidebar({
   onTaskFinishedEmailChange,
   isSaving = false,
 }) {
+  const { t } = useI18n();
+
   return (
     <aside className={styles.sidebar}>
       <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
         <s-stack direction="block" gap="base">
-          <s-text type="strong">Task finished email</s-text>
+          <s-text type="strong">{t("home.taskFinishedEmail")}</s-text>
           <s-switch
-            label="Get an email when the bulk edit is complete."
+            label={t("home.taskFinishedEmailSwitch")}
             checked={taskFinishedEmailEnabled}
             disabled={isSaving || undefined}
             onChange={onTaskFinishedEmailChange}
           />
           <s-text color="subdued">
-            Emails are sent to the address on your{" "}
-            <s-link href="/app/account">Account</s-link> page.
+            {t("home.emailsSentTo")}{" "}
+            <s-link href="/app/account">{t("home.accountPage")}</s-link>{" "}
+            {t("home.accountPageSuffix")}
           </s-text>
         </s-stack>
       </s-box>
 
       <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
         <s-stack direction="block" gap="small">
-          <s-text type="strong">Notes</s-text>
-          <s-link href="/app/support">Fair Usage Policy</s-link>
-          <s-link href="/app/support">Concurrent Tasks</s-link>
+          <s-text type="strong">{t("home.notes")}</s-text>
+          <s-link href="/app/support">{t("home.fairUsagePolicy")}</s-link>
+          <s-link href="/app/support">{t("home.concurrentTasks")}</s-link>
         </s-stack>
       </s-box>
     </aside>

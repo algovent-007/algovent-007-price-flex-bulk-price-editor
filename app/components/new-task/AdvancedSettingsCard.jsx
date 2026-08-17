@@ -1,3 +1,5 @@
+import { useI18n } from "../../i18n/I18nProvider";
+
 export default function AdvancedSettingsCard({
   readOnly = false,
   addTagsActive,
@@ -17,8 +19,7 @@ export default function AdvancedSettingsCard({
   tagsToRemove,
   removeTagToRemove,
 }) {
-  const taggingHelpMessage =
-    "When a price change task runs, tags in the 'Add tags' section are added to all updated products, and tags in the 'Remove tags' section are removed. On rollback, the added tags are removed, and the removed tags are restored.";
+  const { t } = useI18n();
 
   return (
     <s-box paddingBlockEnd="large">
@@ -27,7 +28,7 @@ export default function AdvancedSettingsCard({
           <s-grid gridTemplateColumns="1fr 1fr" gap="large">
             <s-stack direction="block" gap="base">
               <s-checkbox
-                label="Add tags while price change job is active"
+                label={t("tags.addWhileActive")}
                 checked={addTagsActive}
                 disabled={readOnly}
                 onChange={
@@ -40,14 +41,14 @@ export default function AdvancedSettingsCard({
                   {!readOnly && (
                     <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                       <s-text-field
-                        placeholder="Type in tag to add"
+                        placeholder={t("tags.typeToAdd")}
                         value={tagToAddInput}
                         onInput={(e) => setTagToAddInput(e.target.value)}
                         onKeyDown={handleTagToAddKeyDown}
-                        label="Type in tag to add"
+                        label={t("tags.typeToAdd")}
                         labelAccessibilityVisibility="exclusive"
                       />
-                      <s-button onClick={addTagToAddFromInput}>Add</s-button>
+                      <s-button onClick={addTagToAddFromInput}>{t("common.add")}</s-button>
                     </s-grid>
                   )}
 
@@ -60,7 +61,7 @@ export default function AdvancedSettingsCard({
                           <s-clickable-chip
                             key={tag}
                             removable
-                            accessibilityLabel={`Remove tag ${tag}`}
+                            accessibilityLabel={t("tags.removeTag", { tag })}
                             onRemove={() => removeTagToAdd(tag)}
                           >
                             {tag}
@@ -74,10 +75,10 @@ export default function AdvancedSettingsCard({
                     <s-button
                       variant="plain"
                       onClick={() => {
-                        alert(taggingHelpMessage);
+                        alert(t("tags.taggingHelp"));
                       }}
                     >
-                      How does tagging work?
+                      {t("tags.howTaggingWorks")}
                     </s-button>
                   )}
                 </s-stack>
@@ -86,7 +87,7 @@ export default function AdvancedSettingsCard({
 
             <s-stack direction="block" gap="base">
               <s-checkbox
-                label="Remove tags while price change is active"
+                label={t("tags.removeWhileActive")}
                 checked={removeTagsActive}
                 disabled={readOnly}
                 onChange={
@@ -99,14 +100,14 @@ export default function AdvancedSettingsCard({
                   {!readOnly && (
                     <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
                       <s-text-field
-                        placeholder="Type in tag to remove"
+                        placeholder={t("tags.typeToRemove")}
                         value={tagToRemoveInput}
                         onInput={(e) => setTagToRemoveInput(e.target.value)}
                         onKeyDown={handleTagToRemoveKeyDown}
-                        label="Type in tag to remove"
+                        label={t("tags.typeToRemove")}
                         labelAccessibilityVisibility="exclusive"
                       />
-                      <s-button onClick={addTagToRemoveFromInput}>Add</s-button>
+                      <s-button onClick={addTagToRemoveFromInput}>{t("common.add")}</s-button>
                     </s-grid>
                   )}
 
@@ -119,7 +120,7 @@ export default function AdvancedSettingsCard({
                           <s-clickable-chip
                             key={tag}
                             removable
-                            accessibilityLabel={`Remove tag ${tag}`}
+                            accessibilityLabel={t("tags.removeTag", { tag })}
                             onRemove={() => removeTagToRemove(tag)}
                           >
                             {tag}

@@ -32,6 +32,8 @@ import {
   INVENTORY_TRACKING_OPTIONS,
   PHYSICAL_PRODUCT_OPTIONS,
 } from "./constants";
+import { translateError } from "../../i18n/errors";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export default function ConditionsCard({
   readOnly = false,
@@ -48,7 +50,8 @@ export default function ConditionsCard({
   fieldErrors = {},
   clearFieldError,
 }) {
-  const conditionValueError = (index) => fieldErrors?.[`condition-${index}-value`];
+  const { t } = useI18n();
+  const conditionValueError = (index) => translateError(t, fieldErrors?.[`condition-${index}-value`]);
 
   const handleValueChange = (index, nextValue) => {
     clearFieldError?.(`condition-${index}-value`);
@@ -58,11 +61,11 @@ export default function ConditionsCard({
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
       <s-stack direction="block" gap="base">
-        <s-text type="strong">Products must match:</s-text>
+        <s-text type="strong">{t("conditions.mustMatch")}</s-text>
 
         <s-choice-list
           name="match-type"
-          label="Match type"
+          label={t("conditions.matchType")}
           labelAccessibilityVisibility="exclusive"
           values={[matchType || "all"]}
           disabled={readOnly}
@@ -75,8 +78,8 @@ export default function ConditionsCard({
                 }
           }
         >
-          <s-choice value="all">All conditions</s-choice>
-          <s-choice value="any">Any condition</s-choice>
+          <s-choice value="all">{t("conditions.allConditionsLabel")}</s-choice>
+          <s-choice value="any">{t("conditions.anyConditionLabel")}</s-choice>
         </s-choice-list>
 
         <s-stack direction="block" gap="base">
@@ -88,7 +91,7 @@ export default function ConditionsCard({
               alignItems="end"
             >
               <s-select
-                label="Field"
+                label={t("conditions.fieldLabel")}
                 labelAccessibilityVisibility="exclusive"
                 value={condition.field}
                 disabled={readOnly}
@@ -100,13 +103,13 @@ export default function ConditionsCard({
               >
                 {CONDITION_FIELDS.map((field) => (
                   <s-option key={field.value} value={field.value}>
-                    {field.label}
+                  {t(`conditions.field.${field.value}`)}
                   </s-option>
                 ))}
               </s-select>
 
               <s-select
-                label="Operator"
+                label={t("conditions.operatorLabel")}
                 labelAccessibilityVisibility="exclusive"
                 value={condition.operator}
                 disabled={readOnly}
@@ -118,7 +121,7 @@ export default function ConditionsCard({
               >
                 {getConditionOperators(condition.field).map((op) => (
                   <s-option key={op.value} value={op.value}>
-                    {op.label}
+                    {t(`conditions.operator.${op.value}`)}
                   </s-option>
                 ))}
               </s-select>
@@ -132,7 +135,7 @@ export default function ConditionsCard({
                 />
               ) : isStatusConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeProductStatusValue(condition.value)}
                   disabled={readOnly}
@@ -145,13 +148,13 @@ export default function ConditionsCard({
                 >
                   {PRODUCT_STATUS_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "ACTIVE" ? "conditions.statusActive" : "conditions.statusDraft")}
                     </s-option>
                   ))}
                 </s-select>
               ) : isTaxableConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeTaxableValue(condition.value)}
                   disabled={readOnly}
@@ -164,13 +167,13 @@ export default function ConditionsCard({
                 >
                   {TAXABLE_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "true" ? "conditions.taxableYes" : "conditions.taxableNo")}
                     </s-option>
                   ))}
                 </s-select>
               ) : isInventoryOutOfStockPolicyConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeInventoryOutOfStockPolicyValue(condition.value)}
                   disabled={readOnly}
@@ -183,13 +186,13 @@ export default function ConditionsCard({
                 >
                   {INVENTORY_OUT_OF_STOCK_POLICY_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "CONTINUE" ? "conditions.continueSelling" : "conditions.stopSelling")}
                     </s-option>
                   ))}
                 </s-select>
               ) : isInventoryPolicyConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeInventoryTrackingValue(condition.value)}
                   disabled={readOnly}
@@ -202,13 +205,13 @@ export default function ConditionsCard({
                 >
                   {INVENTORY_TRACKING_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "true" ? "conditions.tracksInventory" : "conditions.dontTrackInventory")}
                     </s-option>
                   ))}
                 </s-select>
               ) : isPhysicalProductConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizePhysicalProductValue(condition.value)}
                   disabled={readOnly}
@@ -221,13 +224,13 @@ export default function ConditionsCard({
                 >
                   {PHYSICAL_PRODUCT_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "true" ? "conditions.physicalYes" : "conditions.physicalNo")}
                     </s-option>
                   ))}
                 </s-select>
               ) : isPublishedStatusConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizePublishedStatusValue(condition.value)}
                   disabled={readOnly}
@@ -240,7 +243,7 @@ export default function ConditionsCard({
                 >
                   {PUBLISHED_STATUS_OPTIONS.map((option) => (
                     <s-option key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.value === "published" ? "conditions.publishedYes" : "conditions.publishedNo")}
                     </s-option>
                   ))}
                 </s-select>
@@ -273,7 +276,7 @@ export default function ConditionsCard({
                 />
               ) : isCollectionConditionField(condition.field) ? (
                 <s-select
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
                   value={normalizeCollectionValue(condition.value, collections)}
                   disabled={readOnly || collections.length === 0}
@@ -285,7 +288,7 @@ export default function ConditionsCard({
                   }
                 >
                   {collections.length === 0 ? (
-                    <s-option value="">No collections found</s-option>
+                    <s-option value="">{t("conditions.noCollections")}</s-option>
                   ) : (
                     collections.map((collection) => (
                       <s-option key={collection.id} value={collection.id}>
@@ -296,9 +299,9 @@ export default function ConditionsCard({
                 </s-select>
               ) : (
                 <s-text-field
-                  label="Value"
+                  label={t("conditions.valueLabel")}
                   labelAccessibilityVisibility="exclusive"
-                  placeholder="Enter value"
+                  placeholder={t("conditions.enterValue")}
                   value={condition.value}
                   disabled={readOnly}
                   error={conditionValueError(index)}
@@ -314,7 +317,7 @@ export default function ConditionsCard({
                 <s-button
                   icon="delete"
                   tone="critical"
-                  accessibilityLabel="Remove condition"
+                  accessibilityLabel={t("conditions.removeCondition")}
                   onClick={() => removeCondition(index)}
                 />
               )}
@@ -324,15 +327,15 @@ export default function ConditionsCard({
 
         {!readOnly && (
           <>
-            <s-button onClick={addCondition}>Add another condition</s-button>
+            <s-button onClick={addCondition}>{t("conditions.addCondition")}</s-button>
 
             {fieldErrors?.productSearch && (
-              <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+              <s-banner tone="critical">{translateError(t, fieldErrors.productSearch)}</s-banner>
             )}
 
             <s-stack direction="inline" justifyContent="end">
               <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                Search For Products
+                {t("newTask.searchForProducts")}
               </s-button>
             </s-stack>
           </>

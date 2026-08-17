@@ -1,5 +1,6 @@
 import { getFieldValue } from "../../utils/numeric-input";
 import { formatDateIso, parseDateString, parseIsoDate } from "../../utils/schedule";
+import { useI18n } from "../../i18n/I18nProvider";
 
 function parseConditionDateValue(value) {
   return parseIsoDate(value) || parseDateString(value);
@@ -11,6 +12,7 @@ function toIsoDateValue(value) {
 }
 
 export default function ConditionDateValueField({ value, onChange, readOnly = false, error = "" }) {
+  const { t } = useI18n();
   const isoValue = toIsoDateValue(value);
 
   const handleChange = (event) => {
@@ -19,9 +21,9 @@ export default function ConditionDateValueField({ value, onChange, readOnly = fa
 
   return (
     <s-date-field
-      label="Value"
+      label={t("conditions.valueLabel")}
       labelAccessibilityVisibility="exclusive"
-      placeholder="Select date"
+      placeholder={t("conditions.selectDate")}
       value={isoValue}
       readOnly={readOnly}
       error={error}

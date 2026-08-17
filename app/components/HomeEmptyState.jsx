@@ -1,4 +1,4 @@
-import { APP_GET_STARTED_CTA } from "../constants/branding";
+import { useI18n } from "../i18n/I18nProvider";
 import styles from "./HomePage.module.css";
 
 function DocumentIllustration() {
@@ -13,14 +13,16 @@ function DocumentIllustration() {
 }
 
 export default function HomeEmptyState({ onCreateJob }) {
+  const { t } = useI18n();
+
   return (
     <div className={styles.emptyStateContent}>
       <div className={styles.illustration}>
         <DocumentIllustration />
       </div>
-      <p className={styles.emptyStateHeading}>{APP_GET_STARTED_CTA}</p>
+      <p className={styles.emptyStateHeading}>{t("branding.getStartedCta")}</p>
       <s-button variant="primary" onClick={onCreateJob}>
-        New Bulk Price Update
+        {t("home.newBulkPriceUpdate")}
       </s-button>
     </div>
   );

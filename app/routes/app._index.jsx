@@ -10,6 +10,9 @@ import HomeEmptyState from "../components/HomeEmptyState";
 import HomePageFooter from "../components/HomePageFooter";
 import HomeSidebar from "../components/HomeSidebar";
 import { getShopSettings, setTaskFinishedEmailEnabled } from "../models/shop-settings.server";
+import { translateError } from "../i18n/errors";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 import styles from "../components/HomePage.module.css";
 
 const EXECUTING_TASK_STATUSES = ["running"];
@@ -77,6 +80,7 @@ function readGetStartedDismissed() {
 
 export default function Index() {
   const { activeTask, lastCompletedTask, taskFinishedEmailEnabled } = useLoaderData();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const appBridge = useAppBridge();
@@ -124,16 +128,16 @@ export default function Index() {
       setEmailEnabled(settingsFetcher.data.taskFinishedEmailEnabled);
       appBridge.toast.show(
         settingsFetcher.data.taskFinishedEmailEnabled
-          ? "Task finished emails enabled"
-          : "Task finished emails disabled",
+          ? t("home.taskFinishedEmailsEnabled")
+          : t("home.taskFinishedEmailsDisabled"),
       );
       return;
     }
 
     if (settingsFetcher.data.error) {
-      appBridge.toast.show(settingsFetcher.data.error, { isError: true });
+      appBridge.toast.show(translateError(t, settingsFetcher.data.error), { isError: true });
     }
-  }, [appBridge, settingsFetcher.data, settingsFetcher.state]);
+  }, [appBridge, settingsFetcher.data, settingsFetcher.state, t]);
 
   const handleCreateJob = () => navigate("/app/new");
 
@@ -155,7 +159,7 @@ export default function Index() {
   };
 
   return (
-    <s-page heading="Current" inlineSize="base">
+    <AppPage heading={t("home.heading")}>
       <div className={styles.pageLayout}>
         <div className={styles.mainColumn}>
           {!getStartedDismissed && (
@@ -178,9 +182,12 @@ export default function Index() {
           {lastCompletedTask && !activeTask && (
             <s-section>
               <s-paragraph>
-                Last completed task:{" "}
+                {t("home.lastCompletedTask")}{" "}
                 <s-link href="/app/history">
-                  {lastCompletedTask.name} ({lastCompletedTask.processedItems} items)
+                  {t("home.lastCompletedTaskLink", {
+                    name: lastCompletedTask.name,
+                    count: lastCompletedTask.processedItems,
+                  })}
                 </s-link>
               </s-paragraph>
             </s-section>
@@ -195,7 +202,7 @@ export default function Index() {
           isSaving={settingsFetcher.state !== "idle"}
         />
       </div>
-    </s-page>
+    </AppPage>
   );
 }
 

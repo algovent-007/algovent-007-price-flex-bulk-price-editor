@@ -4,6 +4,8 @@ import {
   parseInventoryLocationConditionValue,
 } from "../../utils/inventory-location-conditions";
 
+import { useI18n } from "../../i18n/I18nProvider";
+
 export default function ConditionInventoryLocationValueField({
   value,
   onChange,
@@ -11,6 +13,7 @@ export default function ConditionInventoryLocationValueField({
   readOnly = false,
   error = "",
 }) {
+  const { t } = useI18n();
   const parsed = parseInventoryLocationConditionValue(value);
   const selectedLocationId =
     parsed.locationId ||
@@ -24,9 +27,9 @@ export default function ConditionInventoryLocationValueField({
   return (
     <s-grid gridTemplateColumns="1fr 1.5fr" gap="small" alignItems="end">
       <s-text-field
-        label="Value"
+        label={t("conditions.valueLabel")}
         labelAccessibilityVisibility="exclusive"
-        placeholder="Enter stock level"
+        placeholder={t("conditions.enterStockLevel")}
         value={parsed.quantity}
         disabled={readOnly}
         error={error}
@@ -38,7 +41,7 @@ export default function ConditionInventoryLocationValueField({
       />
 
       <s-select
-        label="Location"
+        label={t("conditions.location")}
         labelAccessibilityVisibility="exclusive"
         value={selectedLocationId}
         disabled={readOnly || locations.length === 0}
@@ -49,7 +52,7 @@ export default function ConditionInventoryLocationValueField({
         }
       >
         {locations.length === 0 ? (
-          <s-option value="">No locations found</s-option>
+          <s-option value="">{t("conditions.noLocations")}</s-option>
         ) : (
           locations.map((location) => (
             <s-option key={location.id} value={location.id}>

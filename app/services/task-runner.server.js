@@ -7,18 +7,34 @@ import {
   PRODUCT_CONDITION_FIELDS,
   PRODUCT_CONDITION_VARIANT_FIELDS,
 } from "../utils/product-conditions";
+import {
+  applyBulkResultsToLogs,
+  buildVariantPriceUpdate,
+  bulkUpdateProductVariants,
+  classifyVariantResult,
+  costNeedsUpdate,
+  hydrateProductsWithAllVariants,
+  resolveTaskCompletionStatus,
+  variantProgressFields,
+} from "../utils/shopify-variants";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
+import {
+  requireTaskUpdateForShop,
+  TASK_NOT_FOUND_FOR_SHOP_ERROR,
+} from "../utils/task-record";
 
 export { buildProductQuery, filterProductsByConditions };
 
 const PRODUCTS_PAGE_SIZE = 50;
-const HEAVY_PRODUCTS_PAGE_SIZE = 15;
-const LIGHT_PRODUCTS_PAGE_SIZE = 50;
-const PRODUCT_VARIANTS_LIMIT = 50;
+const HEAVY_PRODUCTS_PAGE_SIZE = 10;
+const LIGHT_PRODUCTS_PAGE_SIZE = 25;
+// Nested product.variants page size. Remaining pages are fetched with cursor pagination up to 250.
+export const PRODUCT_VARIANTS_PAGE_SIZE = 100;
 
 const PRICING_VARIANT_FIELDS = `
   id
   title
+  sku
   price
   compareAtPrice
   image {
@@ -32,33 +48,52 @@ const PRICING_VARIANT_FIELDS = `
   }
 `;
 
+const SEARCH_CONDITION_VARIANT_FIELDS = `
+  ${PRODUCT_CONDITION_VARIANT_FIELDS}
+  image {
+    url
+  }
+`;
+
+function variantsConnection(fields) {
+  return `
+  variants(first: ${PRODUCT_VARIANTS_PAGE_SIZE}) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ${fields}
+    }
+  }`;
+}
+
+export function getVariantFieldsFragment(editType, purpose = "task") {
+  if (editType === "conditions") {
+    return purpose === "search" ? SEARCH_CONDITION_VARIANT_FIELDS : PRODUCT_CONDITION_VARIANT_FIELDS;
+  }
+  return PRICING_VARIANT_FIELDS;
+}
+
 export const SEARCH_PREVIEW_FIELDS = `
   id
   title
   featuredImage {
     url
   }
-  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
-    pageInfo {
-      hasNextPage
-    }
-    nodes {
-      ${PRICING_VARIANT_FIELDS}
-    }
+  variantsCount {
+    count
   }
+  ${variantsConnection(PRICING_VARIANT_FIELDS)}
 `;
 
 export const TASK_EXECUTION_FIELDS = `
   id
   title
-  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
-    pageInfo {
-      hasNextPage
-    }
-    nodes {
-      ${PRICING_VARIANT_FIELDS}
-    }
+  variantsCount {
+    count
   }
+  ${variantsConnection(PRICING_VARIANT_FIELDS)}
 `;
 
 export const SEARCH_PRODUCT_FIELDS = `
@@ -67,30 +102,19 @@ export const SEARCH_PRODUCT_FIELDS = `
   featuredImage {
     url
   }
-  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
-    pageInfo {
-      hasNextPage
-    }
-    nodes {
-      ${PRODUCT_CONDITION_VARIANT_FIELDS}
-      image {
-        url
-      }
-    }
+  variantsCount {
+    count
   }
+  ${variantsConnection(SEARCH_CONDITION_VARIANT_FIELDS)}
 `;
 
 export const TASK_PRODUCT_FIELDS = `
   id
   ${PRODUCT_CONDITION_FIELDS}
-  variants(first: ${PRODUCT_VARIANTS_LIMIT}) {
-    pageInfo {
-      hasNextPage
-    }
-    nodes {
-      ${PRODUCT_CONDITION_VARIANT_FIELDS}
-    }
+  variantsCount {
+    count
   }
+  ${variantsConnection(PRODUCT_CONDITION_VARIANT_FIELDS)}
 `;
 
 export function getProductSearchQueryConfig(editType) {
@@ -171,10 +195,14 @@ export async function fetchProductsByQuery(
   return products;
 }
 
-export async function executePriceEditTask({ admin, taskId, runPayload }) {
+export async function executePriceEditTask({ admin, taskId, shop, runPayload }) {
+  if (!shop) {
+    return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+  }
+
   if (runPayload.editType === "csv-all" || runPayload.editType === "csv-direct") {
     const { executeCsvPriceEditTask } = await import("./csv-bulk-edit.server");
-    return executeCsvPriceEditTask({ admin, taskId, runPayload });
+    return executeCsvPriceEditTask({ admin, taskId, shop, runPayload });
   }
 
   const shopifyQuery = async (query, variables = {}) => {
@@ -227,6 +255,7 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
   let updatedVariantsCount = 0;
   let updatedProductsCount = 0;
   let totalProductsCount = 0;
+  let failureCount = 0;
 
   const buildActionDetails = (logs, extra = {}) =>
     JSON.stringify({
@@ -249,22 +278,24 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
     if (logs) {
       updateData.actionDetails = buildActionDetails(logs, extra);
     }
-    await prisma.task.update({
-      where: { id: taskId },
-      data: updateData,
-    });
+    await requireTaskUpdateForShop(prisma, { id: taskId, shop, data: updateData });
 
     if (status === "completed" || status === "failed") {
-      void notifyTaskFinishedIfEnabled(taskId).catch((error) => {
+      void notifyTaskFinishedIfEnabled(taskId, shop).catch((error) => {
         console.error(`Failed to send task finished email for ${taskId}:`, error);
       });
     }
   };
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { status: "running" },
-  });
+  try {
+    await requireTaskUpdateForShop(prisma, {
+      id: taskId,
+      shop,
+      data: { status: "running" },
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 
   const queryStr = buildProductQuery(editType, matchType, conditionsStr, collectionId);
   const { fields, pageSize } = getTaskProductQueryConfig(editType);
@@ -277,45 +308,60 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
       { pageSize }
     );
 
-    const products = filterProductsByConditions(
+    const productsWithVariants = await hydrateProductsWithAllVariants(
+      shopifyQuery,
       fetchedProducts,
+      getVariantFieldsFragment(editType, "task"),
+      { pageSize: PRODUCT_VARIANTS_PAGE_SIZE },
+    );
+
+    const products = filterProductsByConditions(
+      productsWithVariants,
       editType,
       matchType,
       conditionsStr
     );
     totalProductsCount = products.length;
 
-    const buildProgressMeta = (error = null, failureCount = 0) => ({
-      processedProductsCount: productIdsList.length,
-      updatedProductsCount,
-      updatedVariantsCount,
-      successCount: updatedVariantsCount,
-      failureCount,
-      ...(error ? { error } : {}),
-    });
+    for (const product of productsWithVariants) {
+      const expected = product.variantsCount?.count;
+      const actual = product.variants?.nodes?.length || 0;
+      if (typeof expected === "number" && actual < expected) {
+        warningsList.push(
+          `${product.title || product.id}: fetched ${actual} of ${expected} variants.`
+        );
+      }
+    }
 
-    await updateTaskStatus("running", 0, totalProductsCount, [], {
-      processedProductsCount: 0,
-      updatedProductsCount: 0,
-      updatedVariantsCount: 0,
-      successCount: 0,
-      failureCount: 0,
-    });
+    const buildProgressMeta = (error = null) =>
+      variantProgressFields(logsList, {
+        processedProductsCount: productIdsList.length,
+        updatedProductsCount,
+        ...(error ? { error } : {}),
+      });
+
+    await updateTaskStatus(
+      "running",
+      0,
+      totalProductsCount,
+      [],
+      variantProgressFields([], {
+        processedProductsCount: 0,
+        updatedProductsCount: 0,
+      }),
+    );
 
     for (const prod of products) {
       let productUpdated = false;
       productIdsList.push(prod.id);
 
-      if (prod.variants?.pageInfo?.hasNextPage) {
-        warningsList.push(
-          `${prod.title || prod.id}: only the first ${PRODUCT_VARIANTS_LIMIT} variants were processed.`,
-        );
-      }
-
       const variants = prod.variants?.nodes || [];
       const variantsToUpdate = [];
 
       for (const variant of variants) {
+        let variantError = null;
+        let priceResult = "no_change";
+        let costResult = "no_change";
         const hasCompare = variant.compareAtPrice != null && variant.compareAtPrice !== "";
         const hasCost =
           variant.inventoryItem?.unitCost?.amount != null &&
@@ -362,44 +408,55 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
         const newCompare = pricing.newCompare;
         const newCost = pricing.newCost;
 
-        const priceUpdate =
-          changePrice !== "6" && !pricing.priceSkipped ? { price: formatPrice(newPrice) } : {};
-        const compareUpdate =
-          comparePriceType !== "6" && !pricing.compareSkipped
-            ? { compareAtPrice: newCompare !== null ? formatPrice(newCompare) : null }
-            : {};
-
-        if (Object.keys(priceUpdate).length > 0 || Object.keys(compareUpdate).length > 0) {
-          variantsToUpdate.push({
-            id: variant.id,
-            ...priceUpdate,
-            ...compareUpdate,
-          });
+        const variantUpdate = buildVariantPriceUpdate({
+          variantId: variant.id,
+          changePrice,
+          comparePriceType,
+          pricing,
+          currentPrice,
+          currentCompare,
+          hasCompare,
+        });
+        if (variantUpdate) {
+          variantsToUpdate.push(variantUpdate);
+          priceResult = "pending";
+        } else if (
+          (changePrice !== "6" && pricing.priceSkipped) ||
+          (comparePriceType !== "6" && pricing.compareSkipped)
+        ) {
+          priceResult = "skipped";
         }
 
-        if (costPriceType !== "6" && !pricing.costSkipped && variant.inventoryItem?.id) {
-          const invData = await shopifyQuery(
-            `#graphql
-            mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
-              inventoryItemUpdate(id: $id, input: $input) {
-                inventoryItem { id }
-                userErrors { field message }
+        if (costNeedsUpdate(costPriceType, pricing, currentCost, hasCost) && variant.inventoryItem?.id) {
+          try {
+            const invData = await shopifyQuery(
+              `#graphql
+              mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+                inventoryItemUpdate(id: $id, input: $input) {
+                  inventoryItem { id }
+                  userErrors { field message }
+                }
+              }`,
+              {
+                id: variant.inventoryItem.id,
+                input: { cost: formatPrice(newCost) },
               }
-            }`,
-            {
-              id: variant.inventoryItem.id,
-              input: { cost: formatPrice(newCost) },
-            }
-          );
+            );
 
-          const invErrors = invData.inventoryItemUpdate?.userErrors || [];
-          if (invErrors.length > 0) {
-            const error = invErrors[0].message;
-            await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error, 1));
-            return { success: false, error };
+            const invErrors = invData.inventoryItemUpdate?.userErrors || [];
+            if (invErrors.length > 0) {
+              variantError = invErrors[0].message;
+              costResult = "failed";
+            } else {
+              productUpdated = true;
+              costResult = "updated";
+            }
+          } catch (error) {
+            variantError = error?.message || String(error);
+            costResult = "failed";
           }
-          productUpdated = true;
-          updatedVariantsCount++;
+        } else if (costPriceType !== "6" && pricing.costSkipped) {
+          costResult = "skipped";
         }
 
         if (changePrice !== "6" || comparePriceType !== "6" || (costPriceType !== "6" && variant.inventoryItem?.id)) {
@@ -416,30 +473,29 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
             oldCost: hasCost ? formatPrice(currentCost) : "-",
             newCost: hasCost ? formatPrice(newCost) : "-",
             warnings: pricing.warnings,
+            priceResult,
+            costResult,
+            result: classifyVariantResult({
+              error: variantError,
+              pricing,
+              priceResult,
+              costResult,
+            }),
+            ...(variantError ? { error: variantError } : {}),
           });
         }
       }
 
       if (variantsToUpdate.length > 0) {
-        const bulkData = await shopifyQuery(
-          `#graphql
-          mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-              productVariants { id }
-              userErrors { field message }
-            }
-          }`,
-          { productId: prod.id, variants: variantsToUpdate }
+        const bulkResult = await bulkUpdateProductVariants(
+          shopifyQuery,
+          prod.id,
+          variantsToUpdate,
         );
-
-        const bulkErrors = bulkData.productVariantsBulkUpdate?.userErrors || [];
-        if (bulkErrors.length > 0) {
-          const error = bulkErrors[0].message;
-          await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error, 1));
-          return { success: false, error };
+        if (bulkResult.updatedIds.length > 0) {
+          productUpdated = true;
         }
-        productUpdated = true;
-        updatedVariantsCount += variantsToUpdate.length;
+        applyBulkResultsToLogs(logsList, bulkResult);
       }
 
       if (tagsToAddList.length > 0) {
@@ -456,7 +512,7 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
         const tagErrors = tagData.tagsAdd?.userErrors || [];
         if (tagErrors.length > 0) {
           const error = tagErrors[0].message;
-          await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error, 1));
+          await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error));
           return { success: false, error };
         }
         productUpdated = true;
@@ -476,7 +532,7 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
         const tagErrors = tagData.tagsRemove?.userErrors || [];
         if (tagErrors.length > 0) {
           const error = tagErrors[0].message;
-          await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error, 1));
+          await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, buildProgressMeta(error));
           return { success: false, error };
         }
         productUpdated = true;
@@ -490,25 +546,28 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
         updatedProductsCount++;
       }
 
-      await updateTaskStatus("running", updatedVariantsCount, totalProductsCount, logsList, {
+      const progress = variantProgressFields(logsList, {
         processedProductsCount: productIdsList.length,
         updatedProductsCount,
-        updatedVariantsCount,
-        successCount: updatedVariantsCount,
-        failureCount: 0,
       });
+      updatedVariantsCount = progress.updatedVariantsCount;
+      failureCount = progress.failureCount;
+
+      await updateTaskStatus("running", updatedVariantsCount, totalProductsCount, logsList, progress);
     }
 
-    await updateTaskStatus("completed", updatedVariantsCount, totalProductsCount, logsList, {
+    const completedProgress = variantProgressFields(logsList, {
       processedProductsCount: totalProductsCount,
       updatedProductsCount,
-      updatedVariantsCount,
-      successCount: updatedVariantsCount,
-      failureCount: 0,
     });
+    updatedVariantsCount = completedProgress.updatedVariantsCount;
+    failureCount = completedProgress.failureCount;
+    const completionStatus = resolveTaskCompletionStatus(completedProgress);
+
+    await updateTaskStatus(completionStatus, updatedVariantsCount, totalProductsCount, logsList, completedProgress);
 
     return {
-      success: true,
+      success: completionStatus === "completed",
       updatedProductsCount,
       updatedVariantsCount,
       logsList,
@@ -516,13 +575,18 @@ export async function executePriceEditTask({ admin, taskId, runPayload }) {
     };
   } catch (err) {
     console.error("Error executing task on Shopify:", err);
-    await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, {
+    const failedProgress = variantProgressFields(logsList, {
       processedProductsCount: productIdsList.length,
       updatedProductsCount,
-      updatedVariantsCount,
-      successCount: updatedVariantsCount,
-      failureCount: 1,
       error: err.message,
+    });
+    updatedVariantsCount = failedProgress.updatedVariantsCount;
+    failureCount = failedProgress.failureCount || 1;
+    await updateTaskStatus("failed", updatedVariantsCount, totalProductsCount, logsList, {
+      ...failedProgress,
+      failureCount,
+    }).catch((updateErr) => {
+      console.error(`Failed to mark task ${taskId} as failed:`, updateErr);
     });
     return { success: false, error: err.message };
   }

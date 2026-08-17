@@ -2,7 +2,20 @@ import prisma from "../db.server";
 import { calculateVariantPricing, formatPrice } from "../utils/pricing";
 import { attachProductTagChanges } from "../utils/task-log-display";
 import { normalizeVariantId } from "../utils/csv-bulk-edit";
+import {
+  applyBulkResultsToLogs,
+  buildVariantPriceUpdate,
+  bulkUpdateProductVariants,
+  classifyVariantResult,
+  costNeedsUpdate,
+  resolveTaskCompletionStatus,
+  variantProgressFields,
+} from "../utils/shopify-variants";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
+import {
+  requireTaskUpdateForShop,
+  TASK_NOT_FOUND_FOR_SHOP_ERROR,
+} from "../utils/task-record";
 
 const VARIANTS_BY_IDS_QUERY = `#graphql
   query VariantsByIds($ids: [ID!]!) {
@@ -227,21 +240,45 @@ export async function resolveCsvRowsToProducts(shopifyQuery, csvRows = []) {
 function buildDirectVariantUpdate(variant, row) {
   const update = { id: variant.id };
   let hasUpdate = false;
+  const currentPrice = formatPrice(parseFloat(variant.price) || 0);
+  const hasCompare = variant.compareAtPrice != null && variant.compareAtPrice !== "";
+  const currentCompare = hasCompare ? formatPrice(parseFloat(variant.compareAtPrice) || 0) : null;
 
   if (typeof row.newPrice === "number") {
-    update.price = formatPrice(row.newPrice);
-    hasUpdate = true;
+    const nextPrice = formatPrice(row.newPrice);
+    if (nextPrice !== currentPrice) {
+      update.price = nextPrice;
+      hasUpdate = true;
+    }
   }
 
   if (row.newCompare !== undefined) {
-    update.compareAtPrice = row.newCompare === null ? null : formatPrice(row.newCompare);
-    hasUpdate = true;
+    const nextCompare = row.newCompare === null ? null : formatPrice(row.newCompare);
+    if (nextCompare !== currentCompare) {
+      update.compareAtPrice = nextCompare;
+      hasUpdate = true;
+    }
   }
 
-  return { update, hasUpdate, costUpdate: row.newCost };
+  let costUpdate = undefined;
+  if (row.newCost !== undefined) {
+    const hasCost =
+      variant.inventoryItem?.unitCost?.amount != null &&
+      variant.inventoryItem.unitCost.amount !== "";
+    const currentCost = hasCost ? formatPrice(parseFloat(variant.inventoryItem.unitCost.amount) || 0) : null;
+    const nextCost = row.newCost === null ? null : formatPrice(row.newCost ?? 0);
+    if (nextCost !== currentCost) {
+      costUpdate = row.newCost;
+    }
+  }
+
+  return { update, hasUpdate, costUpdate };
 }
 
-export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
+export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload }) {
+  if (!shop) {
+    return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+  }
   const shopifyQuery = async (query, variables = {}) => {
     const response = await admin.graphql(query, { variables });
     const json = await response.json();
@@ -290,22 +327,24 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
     if (logs !== null) {
       updateData.actionDetails = buildActionDetails(logs, extra, options);
     }
-    await prisma.task.update({
-      where: { id: taskId },
-      data: updateData,
-    });
+    await requireTaskUpdateForShop(prisma, { id: taskId, shop, data: updateData });
 
     if (status === "completed" || status === "failed") {
-      void notifyTaskFinishedIfEnabled(taskId).catch((error) => {
+      void notifyTaskFinishedIfEnabled(taskId, shop).catch((error) => {
         console.error(`Failed to send task finished email for ${taskId}:`, error);
       });
     }
   };
 
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { status: "running" },
-  });
+  try {
+    await requireTaskUpdateForShop(prisma, {
+      id: taskId,
+      shop,
+      data: { status: "running" },
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 
   if (csvRows.length === 0) {
     await updateTaskStatus("failed", 0, 0, [], { error: "No CSV rows were provided." });
@@ -344,7 +383,6 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
       productIdsList.push(prod.id);
       const variants = prod.variants?.nodes || [];
       const variantsToUpdate = [];
-      const updatedVariantIds = new Set();
 
       for (const variant of variants) {
         const row = rowByVariantId.get(variant.id) || csvRows.find((entry) => {
@@ -365,43 +403,55 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
         let newPrice = currentPrice;
         let newCompare = hasCompare ? currentCompare : null;
         let newCost = currentCost;
+        let variantError = null;
+        let priceResult = "no_change";
+        let costResult = "no_change";
+        let pricing = null;
 
         if (isDirect) {
           const directUpdate = buildDirectVariantUpdate(variant, row);
           if (directUpdate.hasUpdate) {
             variantsToUpdate.push(directUpdate.update);
+            priceResult = "pending";
           }
           if (directUpdate.costUpdate !== undefined && variant.inventoryItem?.id) {
-            const invData = await shopifyQuery(
-              `#graphql
-              mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
-                inventoryItemUpdate(id: $id, input: $input) {
-                  inventoryItem { id }
-                  userErrors { field message }
-                }
-              }`,
-              {
-                id: variant.inventoryItem.id,
-                input: {
-                  cost: directUpdate.costUpdate === null ? null : formatPrice(directUpdate.costUpdate ?? 0),
+            try {
+              const invData = await shopifyQuery(
+                `#graphql
+                mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+                  inventoryItemUpdate(id: $id, input: $input) {
+                    inventoryItem { id }
+                    userErrors { field message }
+                  }
+                }`,
+                {
+                  id: variant.inventoryItem.id,
+                  input: {
+                    cost: directUpdate.costUpdate === null ? null : formatPrice(directUpdate.costUpdate ?? 0),
+                  },
                 },
-              },
-            );
+              );
 
-            const invErrors = invData.inventoryItemUpdate?.userErrors || [];
-            if (invErrors.length > 0) {
-              throw new Error(invErrors[0].message);
+              const invErrors = invData.inventoryItemUpdate?.userErrors || [];
+              if (invErrors.length > 0) {
+                variantError = invErrors[0].message;
+                costResult = "failed";
+              } else {
+                productUpdated = true;
+                costResult = "updated";
+                newCost = directUpdate.costUpdate ?? 0;
+              }
+            } catch (error) {
+              variantError = error?.message || String(error);
+              costResult = "failed";
             }
-            productUpdated = true;
-            updatedVariantIds.add(variant.id);
-            newCost = directUpdate.costUpdate ?? 0;
           }
 
           if (row.newPrice !== undefined) newPrice = row.newPrice;
           if (row.newCompare !== undefined) newCompare = row.newCompare;
           if (row.newCost !== undefined) newCost = row.newCost ?? 0;
         } else {
-          const pricing = calculateVariantPricing({
+          pricing = calculateVariantPricing({
             changePrice: runPayload.changePrice,
             percentType: runPayload.percentType,
             percentValue: runPayload.percentValue,
@@ -439,44 +489,55 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
           newCompare = pricing.newCompare;
           newCost = pricing.newCost;
 
-          const priceUpdate =
-            runPayload.changePrice !== "6" && !pricing.priceSkipped
-              ? { price: formatPrice(newPrice) }
-              : {};
-          const compareUpdate =
-            runPayload.comparePriceType !== "6" && !pricing.compareSkipped
-              ? { compareAtPrice: newCompare !== null ? formatPrice(newCompare) : null }
-              : {};
-
-          if (Object.keys(priceUpdate).length > 0 || Object.keys(compareUpdate).length > 0) {
-            variantsToUpdate.push({
-              id: variant.id,
-              ...priceUpdate,
-              ...compareUpdate,
-            });
+          const variantUpdate = buildVariantPriceUpdate({
+            variantId: variant.id,
+            changePrice: runPayload.changePrice,
+            comparePriceType: runPayload.comparePriceType,
+            pricing,
+            currentPrice,
+            currentCompare,
+            hasCompare,
+          });
+          if (variantUpdate) {
+            variantsToUpdate.push(variantUpdate);
+            priceResult = "pending";
+          } else if (
+            (runPayload.changePrice !== "6" && pricing.priceSkipped) ||
+            (runPayload.comparePriceType !== "6" && pricing.compareSkipped)
+          ) {
+            priceResult = "skipped";
           }
 
-          if (runPayload.costPriceType !== "6" && !pricing.costSkipped && variant.inventoryItem?.id) {
-            const invData = await shopifyQuery(
-              `#graphql
-              mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
-                inventoryItemUpdate(id: $id, input: $input) {
-                  inventoryItem { id }
-                  userErrors { field message }
-                }
-              }`,
-              {
-                id: variant.inventoryItem.id,
-                input: { cost: formatPrice(newCost) },
-              },
-            );
+          if (costNeedsUpdate(runPayload.costPriceType, pricing, currentCost, hasCost) && variant.inventoryItem?.id) {
+            try {
+              const invData = await shopifyQuery(
+                `#graphql
+                mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+                  inventoryItemUpdate(id: $id, input: $input) {
+                    inventoryItem { id }
+                    userErrors { field message }
+                  }
+                }`,
+                {
+                  id: variant.inventoryItem.id,
+                  input: { cost: formatPrice(newCost) },
+                },
+              );
 
-            const invErrors = invData.inventoryItemUpdate?.userErrors || [];
-            if (invErrors.length > 0) {
-              throw new Error(invErrors[0].message);
+              const invErrors = invData.inventoryItemUpdate?.userErrors || [];
+              if (invErrors.length > 0) {
+                variantError = invErrors[0].message;
+                costResult = "failed";
+              } else {
+                productUpdated = true;
+                costResult = "updated";
+              }
+            } catch (error) {
+              variantError = error?.message || String(error);
+              costResult = "failed";
             }
-            productUpdated = true;
-            updatedVariantIds.add(variant.id);
+          } else if (runPayload.costPriceType !== "6" && pricing.costSkipped) {
+            costResult = "skipped";
           }
         }
 
@@ -492,32 +553,30 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
           newCompare: newCompare !== null ? formatPrice(newCompare) : "-",
           oldCost: hasCost ? formatPrice(currentCost) : "-",
           newCost: hasCost || row.newCost !== undefined ? formatPrice(newCost) : "-",
+          warnings: pricing?.warnings,
+          priceResult,
+          costResult,
+          result: classifyVariantResult({
+            error: variantError,
+            pricing,
+            priceResult,
+            costResult,
+          }),
+          ...(variantError ? { error: variantError } : {}),
         });
       }
 
       if (variantsToUpdate.length > 0) {
-        const bulkData = await shopifyQuery(
-          `#graphql
-          mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-              productVariants { id }
-              userErrors { field message }
-            }
-          }`,
-          { productId: prod.id, variants: variantsToUpdate },
+        const bulkResult = await bulkUpdateProductVariants(
+          shopifyQuery,
+          prod.id,
+          variantsToUpdate,
         );
-
-        const bulkErrors = bulkData.productVariantsBulkUpdate?.userErrors || [];
-        if (bulkErrors.length > 0) {
-          throw new Error(bulkErrors[0].message);
+        if (bulkResult.updatedIds.length > 0) {
+          productUpdated = true;
         }
-        productUpdated = true;
-        for (const variantUpdate of variantsToUpdate) {
-          updatedVariantIds.add(variantUpdate.id);
-        }
+        applyBulkResultsToLogs(logsList, bulkResult);
       }
-
-      updatedVariantsCount += updatedVariantIds.size;
 
       const tagsToAddList = runPayload.tagsToAddList || [];
       const tagsToRemoveList = runPayload.tagsToRemoveList || [];
@@ -566,32 +625,33 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
         updatedProductsCount += 1;
       }
 
-      await updateTaskStatus("running", updatedVariantsCount, resolvedVariantCount, logsList, {
+      const progress = variantProgressFields(logsList, {
         processedProductsCount: productIdsList.length,
         updatedProductsCount,
-        updatedVariantsCount,
-        successCount: updatedVariantsCount,
-        failureCount: 0,
       });
+      updatedVariantsCount = progress.updatedVariantsCount;
+
+      await updateTaskStatus("running", updatedVariantsCount, resolvedVariantCount, logsList, progress);
     }
 
+    const completedProgress = variantProgressFields(logsList, {
+      processedProductsCount: productIdsList.length,
+      updatedProductsCount,
+    });
+    updatedVariantsCount = completedProgress.updatedVariantsCount;
+    const completionStatus = resolveTaskCompletionStatus(completedProgress);
+
     await updateTaskStatus(
-      "completed",
+      completionStatus,
       updatedVariantsCount,
       resolvedVariantCount,
       logsList,
-      {
-        processedProductsCount: productIdsList.length,
-        updatedProductsCount,
-        updatedVariantsCount,
-        successCount: updatedVariantsCount,
-        failureCount: 0,
-      },
+      completedProgress,
       { includeRunPayload: true },
     );
 
     return {
-      success: true,
+      success: completionStatus === "completed",
       updatedProductsCount,
       updatedVariantsCount,
       logsList,
@@ -600,21 +660,25 @@ export async function executeCsvPriceEditTask({ admin, taskId, runPayload }) {
     };
   } catch (err) {
     console.error("Error executing CSV task on Shopify:", err);
+    const failedProgress = variantProgressFields(logsList, {
+      processedProductsCount: productIdsList.length,
+      updatedProductsCount,
+      error: err.message,
+    });
+    updatedVariantsCount = failedProgress.updatedVariantsCount;
     await updateTaskStatus(
       "failed",
       updatedVariantsCount,
       csvRows.length,
       logsList,
       {
-        processedProductsCount: productIdsList.length,
-        updatedProductsCount,
-        updatedVariantsCount,
-        successCount: updatedVariantsCount,
-        failureCount: 1,
-        error: err.message,
+        ...failedProgress,
+        failureCount: failedProgress.failureCount || 1,
       },
       { includeRunPayload: true },
-    );
+    ).catch((updateErr) => {
+      console.error(`Failed to mark CSV task ${taskId} as failed:`, updateErr);
+    });
     return { success: false, error: err.message };
   }
 }

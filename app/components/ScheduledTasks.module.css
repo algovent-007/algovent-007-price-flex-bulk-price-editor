@@ -1,0 +1,16 @@
+.tableWrap {
+  width: 100%;
+}
+
+.tableWrap :global(s-table) {
+  display: block;
+  width: 100%;
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+}

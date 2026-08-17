@@ -1,3 +1,6 @@
+import { useI18n } from "../../i18n/I18nProvider";
+import { translateError } from "../../i18n/errors";
+
 export default function CollectionCard({
   readOnly = false,
   collections,
@@ -8,14 +11,15 @@ export default function CollectionCard({
   fieldErrors = {},
   clearFieldError,
 }) {
+  const { t } = useI18n();
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="base">
         <s-select
-          label="Select collection"
+          label={t("conditions.selectCollectionLabel")}
           value={selectedCollectionId}
           disabled={readOnly}
-          error={fieldErrors?.collectionId}
+          error={translateError(t, fieldErrors?.collectionId)}
           onInput={
             readOnly
               ? undefined
@@ -26,7 +30,7 @@ export default function CollectionCard({
           }
         >
           {collections.length === 0 ? (
-            <s-option value="">No collections found</s-option>
+            <s-option value="">{t("conditions.noCollections")}</s-option>
           ) : (
             collections.map((collection) => (
               <s-option key={collection.id} value={collection.id}>
@@ -39,12 +43,12 @@ export default function CollectionCard({
         {!readOnly && (
           <>
             {fieldErrors?.productSearch && (
-              <s-banner tone="critical">{fieldErrors.productSearch}</s-banner>
+              <s-banner tone="critical">{translateError(t, fieldErrors.productSearch)}</s-banner>
             )}
 
             <s-stack direction="inline" justifyContent="end">
               <s-button variant="primary" onClick={handleSearch} loading={isSearching}>
-                Search For Products
+                {t("newTask.searchForProducts")}
               </s-button>
             </s-stack>
           </>

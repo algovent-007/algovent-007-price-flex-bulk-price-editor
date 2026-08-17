@@ -4,7 +4,14 @@
   display: flex;
   justify-content: center;
   min-height: 100vh;
+  position: relative;
   width: 100%;
+}
+
+.language {
+  position: absolute;
+  right: 24px;
+  top: 16px;
 }
 
 .title {

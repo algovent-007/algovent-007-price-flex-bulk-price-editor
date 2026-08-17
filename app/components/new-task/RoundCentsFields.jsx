@@ -14,6 +14,7 @@ import {
 } from "../../utils/round-cents-ui";
 import EndPricePatternInput from "./EndPricePatternInput";
 import MultiplePatternInput from "./MultiplePatternInput";
+import { useI18n } from "../../i18n/I18nProvider";
 
 export default function RoundCentsFields({
   roundCents,
@@ -25,6 +26,7 @@ export default function RoundCentsFields({
   clearFieldError,
   errorKey = "roundCentsDigit",
 }) {
+  const { t } = useI18n();
   const rawId = useId();
   const endingTooltipId = `round-ending-help-${rawId.replace(/:/g, "")}-${errorKey}`;
   const multipleTooltipId = `round-multiple-help-${rawId.replace(/:/g, "")}-${errorKey}`;
@@ -128,7 +130,7 @@ export default function RoundCentsFields({
   return (
     <s-stack direction="block" gap="base">
       <s-select
-        label="Round off cents"
+        label={t("rounding.label")}
         value={mode}
         disabled={readOnly}
         onInput={
@@ -140,26 +142,25 @@ export default function RoundCentsFields({
               }
         }
       >
-        <s-option value={ROUNDING_MODES.NONE}>No</s-option>
-        <s-option value={ROUNDING_MODES.NEAREST_CENT}>Round to nearest .01</s-option>
-        <s-option value={ROUNDING_MODES.WHOLE_NUMBER}>Round to nearest whole number</s-option>
-        <s-option value={ROUNDING_MODES.END_99}>End prices in .99</s-option>
-        <s-option value={ROUNDING_MODES.END_CUSTOM}>End prices in a certain number</s-option>
-        <s-option value={ROUNDING_MODES.MULTIPLE}>Round prices to a certain multiple</s-option>
+        <s-option value={ROUNDING_MODES.NONE}>{t("rounding.none")}</s-option>
+        <s-option value={ROUNDING_MODES.NEAREST_CENT}>{t("rounding.nearestCent")}</s-option>
+        <s-option value={ROUNDING_MODES.WHOLE_NUMBER}>{t("rounding.wholeNumber")}</s-option>
+        <s-option value={ROUNDING_MODES.END_99}>{t("rounding.end99")}</s-option>
+        <s-option value={ROUNDING_MODES.END_CUSTOM}>{t("rounding.endCustom")}</s-option>
+        <s-option value={ROUNDING_MODES.MULTIPLE}>{t("rounding.multiple")}</s-option>
       </s-select>
 
       {showEndingPattern && (
         <s-stack direction="block" gap="small">
           <s-stack direction="inline" gap="small-100" alignItems="center">
-            <s-text type="strong">End prices in a certain number</s-text>
+            <s-text type="strong">{t("rounding.endCustom")}</s-text>
             <s-tooltip id={endingTooltipId}>
-              Sets the digit pattern that prices should end in. Use * for any digit. For example,
-              ending in .50 rounds prices to amounts like $12.50 or $99.50.
+              {t("rounding.endCustomHelp")}
             </s-tooltip>
             <s-button
               variant="tertiary"
               interestFor={endingTooltipId}
-              accessibilityLabel="Help for end prices in a certain number"
+              accessibilityLabel={t("rounding.endCustomAria")}
             >
               <s-icon type="info"></s-icon>
             </s-button>
@@ -176,15 +177,14 @@ export default function RoundCentsFields({
       {showMultipleValue && (
         <s-stack direction="block" gap="small">
           <s-stack direction="inline" gap="small-100" alignItems="center">
-            <s-text type="strong">Round prices to a certain multiple</s-text>
+            <s-text type="strong">{t("rounding.multiple")}</s-text>
             <s-tooltip id={multipleTooltipId}>
-              Rounds the price to the nearest multiple of the specified value. For example, a
-              multiple of 0.40 rounds prices to $X.00, $X.40, $X.80, $X.20, $X.60, etc.
+              {t("rounding.multipleHelp")}
             </s-tooltip>
             <s-button
               variant="tertiary"
               interestFor={multipleTooltipId}
-              accessibilityLabel="Help for round prices to a certain multiple"
+              accessibilityLabel={t("rounding.multipleAria")}
             >
               <s-icon type="info"></s-icon>
             </s-button>
@@ -201,21 +201,21 @@ export default function RoundCentsFields({
       {showDirection && (
         <s-stack direction="block" gap="small">
           <s-stack direction="inline" gap="small-100" alignItems="center">
-            <s-text type="strong">Rounding direction</s-text>
+            <s-text type="strong">{t("rounding.direction")}</s-text>
             <s-tooltip id={directionTooltipId}>
-              Choose whether prices should round to the closest match, always up, or always down.
+              {t("rounding.directionHelp")}
             </s-tooltip>
             <s-button
               variant="tertiary"
               interestFor={directionTooltipId}
-              accessibilityLabel="Help for rounding direction"
+              accessibilityLabel={t("rounding.directionAria")}
             >
               <s-icon type="info"></s-icon>
             </s-button>
           </s-stack>
           <s-choice-list
             name={`rounding-direction-${fieldId}`}
-            label="Rounding direction"
+            label={t("rounding.direction")}
             labelAccessibilityVisibility="exclusive"
             variant="list"
             values={[direction]}
@@ -230,10 +230,10 @@ export default function RoundCentsFields({
             }
           >
             <s-choice value={ROUNDING_DIRECTIONS.CLOSEST}>
-              Round up or down (whatever is closest)
+              {t("rounding.closest")}
             </s-choice>
-            <s-choice value={ROUNDING_DIRECTIONS.UP}>Always round up</s-choice>
-            <s-choice value={ROUNDING_DIRECTIONS.DOWN}>Always round down</s-choice>
+            <s-choice value={ROUNDING_DIRECTIONS.UP}>{t("rounding.up")}</s-choice>
+            <s-choice value={ROUNDING_DIRECTIONS.DOWN}>{t("rounding.down")}</s-choice>
           </s-choice-list>
         </s-stack>
       )}

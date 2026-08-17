@@ -21,7 +21,7 @@
     "docker-start": "npm run setup && npm run start",
     "setup": "prisma generate && prisma migrate deploy",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
-    "test": "node app/utils/pricing.test.js && node app/utils/multiple-price-pattern.test.js && node app/utils/schedule.test.js && node app/utils/csv-bulk-edit.test.js && node app/utils/task-log-display.test.js",
+    "test": "node app/utils/pricing.test.js && node app/utils/multiple-price-pattern.test.js && node app/utils/schedule.test.js && node app/utils/csv-bulk-edit.test.js && node app/utils/task-log-display.test.js && node app/i18n/i18n.test.js && node app/utils/shopify-variants.test.js && node app/utils/task-record.test.js && node app/utils/task-name.test.js",
     "test:csv": "node app/utils/csv-bulk-edit.test.js",
     "verify:csv": "node scripts/verify-csv-bulk-edit.mjs",
     "shopify": "shopify",

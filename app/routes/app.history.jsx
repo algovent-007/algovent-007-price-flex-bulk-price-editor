@@ -11,6 +11,9 @@ import { canViewTaskConfiguration, buildTaskConfigState } from "../utils/task-co
 import { getTaskTagChanges } from "../utils/task-log-display";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { formatCurrentTimeInTimezone } from "../utils/schedule";
+import { translateError } from "../i18n/errors";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -102,6 +105,7 @@ export const action = async ({ request }) => {
 
 export default function TasksHistory() {
   const { tasks, collections, locations, shopDomain, timezone } = useLoaderData();
+  const { t, formatDateTime } = useI18n();
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
@@ -133,16 +137,16 @@ export default function TasksHistory() {
 
       setRollbackSuccess(
         fetcher.data.alreadyRolledBack
-          ? "Rollback already exists. The original task was marked as rolled back."
-          : "Rollback completed successfully."
+          ? t("history.rollbackAlreadyExists")
+          : t("history.rollbackSuccess")
       );
       setRollbackError("");
       revalidator.revalidate();
     } else if (fetcher.data.error) {
-      setRollbackError(fetcher.data.error);
+      setRollbackError(translateError(t, fetcher.data.error));
       setRollbackSuccess("");
     }
-  }, [fetcher.state, fetcher.data, navigate, revalidator]);
+  }, [fetcher.state, fetcher.data, navigate, revalidator, t]);
 
   const openLogsModal = (task) => {
     setLogsSearchQuery("");
@@ -169,7 +173,7 @@ export default function TasksHistory() {
 
   const handleRollback = (task) => {
     const confirmed = window.confirm(
-      `Roll back "${task.name}"? This will restore original prices, compare-at prices, unit costs, and tags for all affected products.`
+      t("history.confirmRollback", { name: task.name })
     );
     if (!confirmed) return;
 
@@ -178,13 +182,7 @@ export default function TasksHistory() {
     fetcher.submit({ intent: "rollback", taskId: task.id }, { method: "POST" });
   };
 
-  const formatDate = (dateStr) => {
-    try {
-      return new Date(dateStr).toLocaleString();
-    } catch (e) {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr) => formatDateTime(dateStr);
 
   const getStatusTone = (status) => {
     if (status === "completed") return "success";
@@ -204,7 +202,7 @@ export default function TasksHistory() {
   };
 
   const getTaskType = (actionData) =>
-    actionData.taskType === "rollback" ? "Rollback" : "Price Edit";
+    actionData.taskType === "rollback" ? t("history.rollback") : t("history.priceEdit");
 
   const getTaskTypeTone = (actionData) =>
     actionData.taskType === "rollback" ? "warning" : "info";
@@ -235,8 +233,8 @@ export default function TasksHistory() {
     : logsModalLogs;
 
   return (
-    <s-page heading="Tasks History">
-      <s-section heading="Past bulk price edits">
+    <AppPage heading={t("history.heading")}>
+      <s-section heading={t("history.pastEdits")}>
         {rollbackSuccess && (
           <s-box paddingBlockEnd="base">
             <s-banner tone="success" onDismiss={() => setRollbackSuccess("")}>
@@ -253,16 +251,16 @@ export default function TasksHistory() {
         )}
 
         {tasks.length === 0 ? (
-          <s-paragraph>No price edit tasks found in the history.</s-paragraph>
+          <s-paragraph>{t("history.empty")}</s-paragraph>
         ) : (
           <s-table variant="auto">
             <s-table-header-row>
-              <s-table-header listSlot="primary">Task Name</s-table-header>
-              <s-table-header>Type</s-table-header>
-              <s-table-header>Date Created</s-table-header>
-              <s-table-header>Status</s-table-header>
-              <s-table-header>Items Updated</s-table-header>
-              <s-table-header>Actions</s-table-header>
+              <s-table-header listSlot="primary">{t("history.taskName")}</s-table-header>
+              <s-table-header>{t("history.type")}</s-table-header>
+              <s-table-header>{t("history.dateCreated")}</s-table-header>
+              <s-table-header>{t("history.status")}</s-table-header>
+              <s-table-header>{t("history.itemsUpdated")}</s-table-header>
+              <s-table-header>{t("history.actions")}</s-table-header>
             </s-table-header-row>
             <s-table-body>
               {tasks.map((task) => {
@@ -287,12 +285,12 @@ export default function TasksHistory() {
                         <s-text type="strong">{task.name}</s-text>
                         {isRollbackTask && actionData.sourceTaskName && (
                           <s-text color="subdued">
-                            Reverts: {actionData.sourceTaskName}
+                            {t("history.reverts", { name: actionData.sourceTaskName })}
                           </s-text>
                         )}
                         {!isRollbackTask &&
                           (actionData.rolledBackByTaskId || hasRollbackTask) && (
-                          <s-text tone="warning">Rolled back</s-text>
+                          <s-text tone="warning">{t("history.rolledBack")}</s-text>
                         )}
                       </s-stack>
                     </s-table-cell>
@@ -304,14 +302,14 @@ export default function TasksHistory() {
                     </s-table-cell>
                     <s-table-cell>
                       <s-badge tone={getStatusTone(displayedStatus)}>
-                        {displayedStatus.replace("_", " ")}
+                        {t(`status.${displayedStatus}`) || displayedStatus.replace("_", " ")}
                       </s-badge>
                     </s-table-cell>
                     <s-table-cell>
                       <s-button variant="tertiary" onClick={() => openLogsModal(task)}>
                         {isRollbackTask
-                          ? `View rollback logs (${logs.length})`
-                          : `View logs (${logs.length})`}
+                          ? t("history.viewRollbackLogs", { count: logs.length })
+                          : t("history.viewLogs", { count: logs.length })}
                       </s-button>
                     </s-table-cell>
                     <s-table-cell>
@@ -327,14 +325,14 @@ export default function TasksHistory() {
                             onClick={() => openDetailsModal(task)}
                             disabled={!canViewTaskConfiguration(actionData)}
                           >
-                            View
+                            {t("common.view")}
                           </s-button>
                           <s-button
                             variant="secondary"
                             onClick={() => handleCopy(task, actionData)}
                             disabled={!canCopyTask(actionData)}
                           >
-                            Copy
+                            {t("common.copy")}
                           </s-button>
                           <s-button
                             tone="critical"
@@ -347,7 +345,7 @@ export default function TasksHistory() {
                             }
                             loading={isRollingBack}
                           >
-                            Rollback
+                            {t("history.rollback")}
                           </s-button>
                         </s-stack>
                       </s-box>
@@ -363,7 +361,7 @@ export default function TasksHistory() {
       <s-modal
         id="task-logs-modal"
         ref={logsModalRef}
-        heading={isLogsModalRollback ? "Rollback logs" : "Task logs"}
+        heading={isLogsModalRollback ? t("history.rollbackLogs") : t("history.taskLogs")}
         size="large"
         onHide={() => {
           setLogsModalTask(null);
@@ -376,23 +374,26 @@ export default function TasksHistory() {
               <s-text color="subdued">
                 {logsModalTask.name} ·{" "}
                 {trimmedLogsSearch
-                  ? `${filteredLogsModalLogs.length} of ${logsModalLogs.length} variant(s)`
-                  : `${logsModalLogs.length} variant(s)`}
+                  ? t("history.variantCountFiltered", {
+                      filtered: filteredLogsModalLogs.length,
+                      total: logsModalLogs.length,
+                    })
+                  : t("history.variantCount", { count: logsModalLogs.length })}
               </s-text>
               {isLogsModalRollback && logsModalActionData.sourceTaskName && (
-                <s-text color="subdued">Reverts: {logsModalActionData.sourceTaskName}</s-text>
+                <s-text color="subdued">
+                  {t("history.reverts", { name: logsModalActionData.sourceTaskName })}
+                </s-text>
               )}
               {isLogsModalRollback && (
-                <s-text color="subdued">
-                  Prices restored to their original values before the price edit task ran.
-                </s-text>
+                <s-text color="subdued">{t("history.rollbackRestored")}</s-text>
               )}
             </s-stack>
 
             <s-search-field
-              label="Search logs"
+              label={t("history.searchLogs")}
               labelAccessibilityVisibility="exclusive"
-              placeholder="Search products or variants..."
+              placeholder={t("history.searchPlaceholder")}
               value={logsSearchQuery}
               onInput={(e) => setLogsSearchQuery(e.target.value)}
             />
@@ -409,14 +410,14 @@ export default function TasksHistory() {
         )}
 
         <s-button slot="secondary-actions" commandFor="task-logs-modal" command="--hide">
-          Close
+          {t("common.close")}
         </s-button>
       </s-modal>
 
       <s-modal
         id="task-details-modal"
         ref={detailsModalRef}
-        heading="Task Details"
+        heading={t("history.taskDetails")}
         size="large"
         onHide={() => setDetailsModalTask(null)}
       >
@@ -425,8 +426,9 @@ export default function TasksHistory() {
             <s-stack direction="block" gap="small-100">
               <s-text type="strong">{detailsModalTask.name}</s-text>
               <s-text color="subdued">
-                {getTaskType(detailsModalActionData)} · {detailsModalTask.status.replace("_", " ")} ·{" "}
-                {formatDate(detailsModalTask.createdAt)}
+                {getTaskType(detailsModalActionData)} ·{" "}
+                {t(`status.${detailsModalTask.status}`) || detailsModalTask.status.replace("_", " ")}{" "}
+                · {formatDate(detailsModalTask.createdAt)}
               </s-text>
             </s-stack>
 
@@ -442,17 +444,14 @@ export default function TasksHistory() {
         )}
 
         {detailsModalTask && !detailsModalConfig && (
-          <s-paragraph>
-            Task configuration is not available for this task. It may have been created before
-            configuration storage was added.
-          </s-paragraph>
+          <s-paragraph>{t("history.configUnavailable")}</s-paragraph>
         )}
 
         <s-button slot="secondary-actions" commandFor="task-details-modal" command="--hide">
-          Close
+          {t("common.close")}
         </s-button>
       </s-modal>
-    </s-page>
+    </AppPage>
   );
 }
 

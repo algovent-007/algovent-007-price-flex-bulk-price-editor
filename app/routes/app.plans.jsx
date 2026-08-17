@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Form, useFetcher, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { Form, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { comparePlans, PLANS, SUBSCRIPTION_STATUS } from "../constants/billing";
 import { getPlansPageData } from "../services/subscription.server";
 import { handleBillingAction } from "../services/billing-action.server";
+import { translateError } from "../i18n/errors";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -13,42 +16,25 @@ export const loader = async ({ request }) => {
 
 export const action = handleBillingAction;
 
-function formatDateTime(value) {
-  if (!value) {
-    return "—";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function getPlanButtonLabel(currentPlan, targetPlan) {
+function getPlanButtonLabel(t, currentPlan, targetPlan) {
   if (!currentPlan) {
-    return "Select";
+    return t("plans.select");
   }
 
   if (currentPlan === targetPlan) {
-    return "Current Plan";
+    return t("plans.currentPlanButton");
   }
 
   const comparison = comparePlans(currentPlan, targetPlan);
   if (comparison > 0) {
-    return "Upgrade";
+    return t("plans.upgrade");
   }
 
   if (comparison < 0) {
-    return "Downgrade";
+    return t("plans.downgrade");
   }
 
-  return "Select";
+  return t("plans.select");
 }
 
 function getBillingStatusTone(status) {
@@ -76,30 +62,30 @@ function getBillingStatusTone(status) {
 
 export default function Plans() {
   const loaderData = useLoaderData();
-  const fetcher = useFetcher();
+  const { t, formatDateTime } = useI18n();
   const navigation = useNavigation();
   const [searchParams] = useSearchParams();
   const [bannerMessage, setBannerMessage] = useState("");
   const [bannerTone, setBannerTone] = useState("success");
 
   const currentPlan = loaderData.currentPlan;
-  const isSubmitting = navigation.state !== "idle" || fetcher.state !== "idle";
+  const isSubmitting = navigation.state !== "idle";
 
   const plans = useMemo(
     () =>
       Object.values(PLANS).map((plan) => ({
         name: plan.name,
         price: plan.displayPrice,
-        frequency: "per year",
+        frequency: t("plans.perYear"),
         features: [
-          { label: "Unlimited Products", included: true },
-          { label: "Unlimited Edits", included: true },
-          { label: "Unlimited Rollbacks", included: true },
-          { label: "Recurring Task", included: plan.features.recurring_tasks },
-          { label: "Markets", included: plan.features.markets },
+          { label: t("plans.unlimitedProducts"), included: true },
+          { label: t("plans.unlimitedEdits"), included: true },
+          { label: t("plans.unlimitedRollbacks"), included: true },
+          { label: t("plans.recurringTask"), included: plan.features.recurring_tasks },
+          { label: t("plans.markets"), included: plan.features.markets },
         ],
       })),
-    [],
+    [t],
   );
 
   useEffect(() => {
@@ -109,48 +95,24 @@ export default function Plans() {
     if (billingRequired === "1") {
       setBannerTone("info");
       setBannerMessage(
-        loaderData.isDevelopmentStore
-          ? "Welcome! Select a plan to continue. You'll be redirected to Shopify to approve or decline a test charge (no real billing on development stores)."
-          : "Welcome! Select a plan to continue. You'll be redirected to Shopify to approve or decline the charge.",
+        loaderData.isDevelopmentStore ? t("plans.welcomeDev") : t("plans.welcome"),
       );
     } else if (billingState === "success") {
       setBannerTone("success");
-      setBannerMessage("Your subscription is active. Welcome back to the dashboard.");
+      setBannerMessage(t("plans.activeWelcome"));
     } else if (billingState === "pending") {
       setBannerTone("warning");
-      setBannerMessage("Your billing request is pending approval in Shopify.");
+      setBannerMessage(t("plans.pending"));
     } else if (billingState === "error") {
       setBannerTone("critical");
       setBannerMessage(
-        searchParams.get("error") ||
-          "We could not confirm your subscription. Please try again.",
+        translateError(t, searchParams.get("error")) || t("plans.confirmError"),
       );
     }
-  }, [searchParams, loaderData.isDevelopmentStore]);
-
-  useEffect(() => {
-    if (fetcher.state !== "idle" || !fetcher.data) {
-      return;
-    }
-
-    if (fetcher.data.error) {
-      setBannerTone("critical");
-      setBannerMessage(fetcher.data.error);
-      return;
-    }
-
-    if (fetcher.data.success) {
-      setBannerTone("success");
-      setBannerMessage("Your plan was updated successfully.");
-    }
-  }, [fetcher.data, fetcher.state]);
-
-  const handleCancelSubscription = () => {
-    fetcher.submit({ intent: "cancel" }, { method: "post" });
-  };
+  }, [searchParams, loaderData.isDevelopmentStore, t]);
 
   return (
-    <s-page heading="Plans">
+    <AppPage heading={t("plans.heading")}>
       {bannerMessage && (
         <s-box paddingBlockEnd="base">
           <s-banner tone={bannerTone} onDismiss={() => setBannerMessage("")}>
@@ -160,12 +122,12 @@ export default function Plans() {
       )}
 
       <s-box paddingBlockEnd="base">
-        <s-section heading="Current subscription">
+        <s-section heading={t("plans.currentSubscription")}>
           <s-stack direction="block" gap="base">
             <s-stack direction="inline" gap="base">
               <s-text>
-                Current plan:{" "}
-                <strong>{currentPlan || "No active plan"}</strong>
+                {t("plans.currentPlan")}{" "}
+                <strong>{currentPlan || t("plans.noActivePlan")}</strong>
               </s-text>
               {currentPlan && (
                 <s-badge tone={getBillingStatusTone(loaderData.billingStatus)}>
@@ -174,28 +136,25 @@ export default function Plans() {
               )}
             </s-stack>
             <s-text color="subdued">
-              Renewal date: {formatDateTime(loaderData.renewalDate)}
+              {t("plans.renewalDate", {
+                date:
+                  formatDateTime(loaderData.renewalDate, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  }) || t("common.emDash"),
+              })}
             </s-text>
             {loaderData.isDevelopmentStore && (
               <s-text color="subdued">
-                Development store: Shopify shows an approve/decline page with test charges only. No real payment is collected.
+                {t("plans.developmentStore")}
               </s-text>
             )}
             {loaderData.requiresShopifyApproval && !loaderData.currentPlan && (
               <s-text color="subdued">
-                After you select a plan, Shopify opens the charge approval page where you can approve or cancel.
+                {t("plans.approvalHint")}
               </s-text>
             )}
-            {currentPlan &&
-              loaderData.subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE && (
-                <s-button
-                  tone="critical"
-                  onClick={handleCancelSubscription}
-                  disabled={isSubmitting}
-                >
-                  Cancel subscription
-                </s-button>
-              )}
           </s-stack>
         </s-section>
       </s-box>
@@ -204,7 +163,7 @@ export default function Plans() {
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(280px, 1fr))" gap="none">
           {plans.map((plan) => {
             const isActive = currentPlan === plan.name;
-            const buttonLabel = getPlanButtonLabel(currentPlan, plan.name);
+            const buttonLabel = getPlanButtonLabel(t, currentPlan, plan.name);
 
             return (
               <s-box
@@ -253,7 +212,7 @@ export default function Plans() {
           })}
         </s-grid>
       </s-section>
-    </s-page>
+    </AppPage>
   );
 }
 

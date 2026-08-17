@@ -7,6 +7,7 @@ import {
   serializeMultiplePattern,
 } from "../../utils/multiple-price-pattern";
 import { usePatternDraft } from "./usePatternDraft";
+import { useI18n } from "../../i18n/I18nProvider";
 
 function sanitizeDigitInput(value) {
   const next = String(value ?? "").slice(-1);
@@ -21,6 +22,7 @@ export default function MultiplePatternInput({
   onPatternChange,
   error,
 }) {
+  const { t } = useI18n();
   const { draft, commitPattern } = usePatternDraft(
     pattern,
     DEFAULT_MULTIPLE_PATTERN,
@@ -104,7 +106,7 @@ export default function MultiplePatternInput({
                 type="text"
                 autoComplete="off"
                 disabled={readOnly}
-                aria-label={`Whole number digit ${index + 1}`}
+                aria-label={t("rounding.wholeDigitAria", { index: index + 1 })}
                 onChange={(event) => handleWholeDigitInput(index, event.target.value)}
                 onInput={(event) => handleWholeDigitInput(index, event.currentTarget.value)}
                 onKeyDown={(event) => handleDigitKeyDown("whole", index, event)}
@@ -123,7 +125,7 @@ export default function MultiplePatternInput({
                 inputMode="numeric"
                 autoComplete="off"
                 disabled={readOnly}
-                aria-label={`Cents digit ${index + 1}`}
+                aria-label={t("rounding.centsDigitAria", { index: index + 1 })}
                 onChange={(event) => handleCentDigitInput(index, event.target.value)}
                 onInput={(event) => handleCentDigitInput(index, event.currentTarget.value)}
                 onKeyDown={(event) => handleDigitKeyDown("cent", index, event)}
@@ -132,8 +134,7 @@ export default function MultiplePatternInput({
           </div>
 
           <p className={styles.summaryText}>
-            Make prices a multiple of{" "}
-            <span className={styles.summaryValue}>{multipleLabel}</span>
+            {t("rounding.multipleOf", { pattern: multipleLabel })}
           </p>
 
           {error && <s-banner tone="critical">{error}</s-banner>}
@@ -147,7 +148,7 @@ export default function MultiplePatternInput({
               disabled={!canAddDigit}
               onClick={handleAddDigit}
             >
-              Add digit
+              {t("rounding.addDigit")}
             </button>
             <button
               type="button"
@@ -155,7 +156,7 @@ export default function MultiplePatternInput({
               disabled={!canRemoveDigit}
               onClick={handleRemoveDigit}
             >
-              Remove digit
+              {t("rounding.removeDigit")}
             </button>
           </div>
         )}

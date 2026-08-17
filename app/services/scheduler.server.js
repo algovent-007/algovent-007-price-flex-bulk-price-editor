@@ -12,6 +12,14 @@ import {
   formatTime12Hour,
   isOneTimeScheduleRecurrence,
 } from "../utils/schedule";
+import {
+  findTaskForShop,
+  getStaleRunningRecovery,
+  hasFreshRelatedRollback,
+  parseTaskActionDetails,
+  TASK_NOT_FOUND_FOR_SHOP_ERROR,
+  updateTaskForShop,
+} from "../utils/task-record";
 
 export async function createScheduledRevertTask({
   shop,
@@ -34,9 +42,19 @@ export async function createScheduledRevertTask({
 
   const existing = await prisma.task.findUnique({ where: { id: revertTaskId } });
   if (existing) {
-    if (existing.status === "cancelled" || existing.status === "failed") {
-      return prisma.task.update({
-        where: { id: revertTaskId },
+    if (existing.shop && existing.shop !== shop) {
+      throw new Error(TASK_NOT_FOUND_FOR_SHOP_ERROR);
+    }
+    if (
+      existing.status === "cancelled" ||
+      existing.status === "failed" ||
+      existing.status === "scheduled"
+    ) {
+      await prisma.task.updateMany({
+        where: {
+          id: revertTaskId,
+          OR: [{ shop }, { shop: null }],
+        },
         data: {
           status: "scheduled",
           shop,
@@ -45,6 +63,7 @@ export async function createScheduledRevertTask({
           actionDetails,
         },
       });
+      return prisma.task.findFirst({ where: { id: revertTaskId, shop } });
     }
     return existing;
   }
@@ -61,29 +80,44 @@ export async function createScheduledRevertTask({
   });
 }
 
+export async function cancelScheduledRevertTask(sourceTaskId, shop) {
+  if (!sourceTaskId || !shop) return;
+  await prisma.task.updateMany({
+    where: {
+      id: `scheduled-rollback-${sourceTaskId}`,
+      shop,
+      status: "scheduled",
+    },
+    data: { status: "cancelled" },
+  });
+}
+
 async function recoverStaleRunningTasks(shop) {
   const runningTasks = await prisma.task.findMany({
     where: { shop, status: "running" },
   });
 
   for (const task of runningTasks) {
-    let actionData = {};
-    try {
-      actionData = JSON.parse(task.actionDetails || "{}");
-    } catch {
-      actionData = {};
-    }
+    const recovery = getStaleRunningRecovery(task);
+    if (!recovery) continue;
+    if (hasFreshRelatedRollback(task, runningTasks)) continue;
 
-    const isScheduledWorkerTask =
-      actionData.taskType === "scheduled_edit" ||
-      actionData.taskType === "scheduled_rollback";
-
-    if (isScheduledWorkerTask) {
-      await prisma.task.update({
-        where: { id: task.id },
-        data: { status: "scheduled" },
-      });
-    }
+    const actionData = parseTaskActionDetails(task);
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
+      data: {
+        status: recovery.status,
+        ...(recovery.error
+          ? {
+              actionDetails: JSON.stringify({
+                ...actionData,
+                error: recovery.error,
+              }),
+            }
+          : {}),
+      },
+    });
   }
 }
 
@@ -109,8 +143,9 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
       planIncludesFeature(subscription.planName, BILLING_FEATURES.RECURRING_TASKS);
 
     if (!canUseRecurring) {
-      await prisma.task.update({
-        where: { id: task.id },
+      await updateTaskForShop(prisma, {
+        id: task.id,
+        shop,
         data: { status: "completed" },
       });
       return {
@@ -123,6 +158,7 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   const result = await executePriceEditTask({
     admin,
     taskId: task.id,
+    shop,
     runPayload: actionData.runPayload,
   });
 
@@ -141,8 +177,9 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
     });
 
     if (nextScheduledAt) {
-      await prisma.task.update({
-        where: { id: task.id },
+      await updateTaskForShop(prisma, {
+        id: task.id,
+        shop,
         data: {
           status: "scheduled",
           scheduledAt: nextScheduledAt,
@@ -175,11 +212,12 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   return result;
 }
 
-async function markScheduledTaskFailed(taskId, err) {
+async function markScheduledTaskFailed(taskId, shop, err) {
   console.error(`Failed to process scheduled task ${taskId}:`, err);
   try {
-    await prisma.task.update({
-      where: { id: taskId },
+    await updateTaskForShop(prisma, {
+      id: taskId,
+      shop,
       data: { status: "failed" },
     });
   } catch (updateErr) {
@@ -200,22 +238,29 @@ async function claimScheduledTask(taskId, shop) {
   return claim.count > 0;
 }
 
-async function completeScheduledRollbackTask(taskId, status, extra = {}) {
-  await prisma.task.update({
-    where: { id: taskId },
+async function completeScheduledRollbackTask(taskId, shop, status, extra = {}) {
+  await updateTaskForShop(prisma, {
+    id: taskId,
+    shop,
     data: { status },
   });
   return { success: true, ...extra };
 }
 
 async function processScheduledRollbackTask({ admin, task, actionData }) {
-  const sourceTask = await prisma.task.findUnique({
-    where: { id: actionData.sourceTaskId },
+  const shop = task.shop;
+  if (!shop) {
+    return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+  }
+  const sourceTask = await findTaskForShop(prisma, {
+    id: actionData.sourceTaskId,
+    shop,
   });
 
   if (!sourceTask) {
-    await prisma.task.update({
-      where: { id: task.id },
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
       data: { status: "failed" },
     });
     return { success: false, error: "Source task not found for scheduled rollback" };
@@ -229,23 +274,25 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
   }
 
   if (sourceTask.status === "rolled_back" || sourceActionData.rolledBackByTaskId) {
-    return completeScheduledRollbackTask(task.id, "cancelled", {
+    return completeScheduledRollbackTask(task.id, shop, "cancelled", {
       skipped: true,
       reason: "Source task was already rolled back",
     });
   }
 
   if (sourceTask.status === "scheduled") {
-    await prisma.task.update({
-      where: { id: task.id },
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
       data: { status: "scheduled" },
     });
     return { success: false, skipped: true, reason: "Source price edit has not run yet" };
   }
 
   if (sourceTask.status !== "completed") {
-    await prisma.task.update({
-      where: { id: task.id },
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
       data: { status: "failed" },
     });
     return {
@@ -254,8 +301,9 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
     };
   }
 
-  await prisma.task.update({
-    where: { id: task.id },
+  await updateTaskForShop(prisma, {
+    id: task.id,
+    shop,
     data: { status: "running" },
   });
 
@@ -267,21 +315,23 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
 
   if (!result.success) {
     if (result.error === "This task has already been rolled back") {
-      return completeScheduledRollbackTask(task.id, "cancelled", {
+      return completeScheduledRollbackTask(task.id, shop, "cancelled", {
         skipped: true,
         reason: result.error,
       });
     }
 
-    await prisma.task.update({
-      where: { id: task.id },
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
       data: { status: "failed" },
     });
     return result;
   }
 
-  await prisma.task.update({
-    where: { id: task.id },
+  await updateTaskForShop(prisma, {
+    id: task.id,
+    shop,
     data: { status: "completed" },
   });
 
@@ -308,8 +358,9 @@ export async function processDueTasksForShop({ admin, shop }) {
     try {
       actionData = JSON.parse(task.actionDetails || "{}");
     } catch (e) {
-      await prisma.task.update({
-        where: { id: task.id },
+      await updateTaskForShop(prisma, {
+        id: task.id,
+        shop,
         data: { status: "failed" },
       });
       processed.push({ taskId: task.id, success: false, error: "Invalid task data" });
@@ -336,7 +387,7 @@ export async function processDueTasksForShop({ admin, shop }) {
       const result = await processScheduledEditTask({ admin, shop, task, actionData });
       processed.push({ taskId: task.id, ...result });
     } catch (err) {
-      await markScheduledTaskFailed(task.id, err);
+      await markScheduledTaskFailed(task.id, shop, err);
       processed.push({ taskId: task.id, success: false, error: err.message });
     }
   }

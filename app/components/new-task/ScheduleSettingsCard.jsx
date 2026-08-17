@@ -8,6 +8,9 @@ import {
   isOneTimeScheduleRecurrence,
 } from "../../utils/schedule";
 import styles from "./ScheduleSettingsCard.module.css";
+import { translateError } from "../../i18n/errors";
+import { useI18n } from "../../i18n/I18nProvider";
+
 function ScheduleTimeField({
   readOnly = false,
   timeStr,
@@ -15,12 +18,13 @@ function ScheduleTimeField({
   timeError = "",
   onClearTimeError,
 }) {
+  const { t } = useI18n();
   return (
     <s-text-field
-      label="Time"
+      label={t("schedule.time")}
       value={timeStr}
       disabled={readOnly}
-      error={timeError}
+      error={translateError(t, timeError)}
       onInput={
         readOnly
           ? undefined
@@ -29,7 +33,7 @@ function ScheduleTimeField({
               onTimeChange(e.target.value);
             }
       }
-      details="Example: 4:30 PM"
+      details={t("schedule.timeExample")}
     />
   );
 }
@@ -49,6 +53,8 @@ function ScheduleDateTimeFields({
   onClearTimeError,
   timeZone,
 }) {
+  const { t } = useI18n();
+  const resolvedDateLabel = dateLabel === "Date" ? t("schedule.date") : dateLabel;
   const rawModalId = useId();
   const modalId = `schedule-date-picker-${rawModalId.replace(/:/g, "")}`;
   const modalRef = useRef(null);
@@ -73,10 +79,10 @@ function ScheduleDateTimeFields({
     <s-stack direction="block" gap="base">
       <div className={styles.pickTimeRow}>
         <s-text-field
-          label={dateLabel}
+          label={resolvedDateLabel}
           value={dateStr}
           disabled={readOnly}
-          error={dateError}
+          error={translateError(t, dateError)}
           onInput={
             readOnly
               ? undefined
@@ -85,7 +91,7 @@ function ScheduleDateTimeFields({
                   onDateChange(e.target.value);
                 }
           }
-          details="M/D/YYYY"
+          details={t("schedule.dateFormat")}
         />
         <ScheduleTimeField
           readOnly={readOnly}
@@ -98,7 +104,7 @@ function ScheduleDateTimeFields({
       {!readOnly && (
         <s-box>
           <s-button variant="secondary" onClick={openDatePicker}>
-            Choose date
+            {t("schedule.chooseDate")}
           </s-button>
         </s-box>
       )}
@@ -107,7 +113,7 @@ function ScheduleDateTimeFields({
         <s-modal
           id={modalId}
           ref={modalRef}
-          heading={dateLabel}
+          heading={resolvedDateLabel}
           onHide={() => setDraftDateIso(formatDateIso(selectedDate, timeZone))}
         >
           <s-date-picker
@@ -117,10 +123,10 @@ function ScheduleDateTimeFields({
           />
 
           <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
-            Cancel
+            {t("common.cancel")}
           </s-button>
           <s-button slot="primary-action" variant="primary" onClick={applyDate}>
-            Apply
+            {t("schedule.applyDate")}
           </s-button>
         </s-modal>
       )}
@@ -219,6 +225,7 @@ function SchedulePickAndTimeRow({
   timeError = "",
   onClearTimeError,
 }) {
+  const { t } = useI18n();
   return (
     <div className={styles.pickTimeRow}>
       {scrollablePick ? (
@@ -228,7 +235,7 @@ function SchedulePickAndTimeRow({
           value={pickValue}
           options={pickOptionsData}
           disabled={readOnly}
-          error={pickError}
+          error={translateError(t, pickError)}
           onChange={onPickChange}
           onClearError={onClearPickError}
         />
@@ -238,7 +245,7 @@ function SchedulePickAndTimeRow({
           label={pickLabel}
           value={pickValue}
           disabled={readOnly}
-          error={pickError}
+          error={translateError(t, pickError)}
           onInput={
             readOnly
               ? undefined
@@ -252,10 +259,10 @@ function SchedulePickAndTimeRow({
         </s-select>
       )}
       <s-text-field
-        label="Time"
+        label={t("schedule.time")}
         value={timeStr}
         disabled={readOnly}
-        error={timeError}
+        error={translateError(t, timeError)}
         onInput={
           readOnly
             ? undefined
@@ -264,7 +271,7 @@ function SchedulePickAndTimeRow({
                 onTimeChange(e.target.value);
               }
         }
-        details="Example: 4:30 PM"
+        details={t("schedule.timeExample")}
       />
     </div>
   );
@@ -286,6 +293,7 @@ function ScheduleRecurringFields({
   fieldErrors = {},
   clearFieldError,
 }) {
+  const { t } = useI18n();
   if (scheduleRecurrenceType === "daily") {
     return (
       <ScheduleTimeField
@@ -304,14 +312,14 @@ function ScheduleRecurringFields({
         key="weekly-schedule-pick"
         pickKey="weekly-schedule-pick"
         readOnly={readOnly}
-        pickLabel="Pick day"
+        pickLabel={t("schedule.pickDay")}
         pickValue={scheduleRecurrenceDayOfWeek || "1"}
         onPickChange={(value) => setScheduleRecurrenceDayOfWeek?.(value)}
         pickError={fieldErrors?.scheduleRecurrenceDay}
         onClearPickError={() => clearFieldError?.("scheduleRecurrenceDay")}
         pickOptions={WEEKDAY_OPTIONS.map((option) => (
           <s-option key={option.value} value={option.value}>
-            {option.label}
+            {t(`schedule.weekday.${option.value}`)}
           </s-option>
         ))}
         timeStr={startTimeStr}
@@ -328,7 +336,7 @@ function ScheduleRecurringFields({
         key="monthly-schedule-pick"
         pickKey="monthly-schedule-pick"
         readOnly={readOnly}
-        pickLabel="Pick date"
+        pickLabel={t("schedule.pickDate")}
         pickValue={scheduleRecurrenceDayOfMonth || "1"}
         onPickChange={(value) => setScheduleRecurrenceDayOfMonth?.(value)}
         pickError={fieldErrors?.scheduleRecurrenceDate}
@@ -381,16 +389,23 @@ export default function ScheduleSettingsCard({
   fieldErrors = {},
   clearFieldError,
 }) {
+  const { t } = useI18n();
+  const recurrenceLabelKey = {
+    one_time: "schedule.oneTime",
+    daily: "schedule.daily",
+    weekly: "schedule.weekly",
+    monthly: "schedule.monthly",
+  };
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="loose">
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(280px, 1fr))" gap="large">
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="base">
-              <s-heading>Price change timing</s-heading>
+              <s-heading>{t("schedule.priceChangeTiming")}</s-heading>
               <s-choice-list
                 name="change_prices_schedule"
-                label="When to change prices"
+                label={t("schedule.whenToChange")}
                 labelAccessibilityVisibility="exclusive"
                 values={[scheduleType || "now"]}
                 disabled={readOnly}
@@ -403,14 +418,14 @@ export default function ScheduleSettingsCard({
                       }
                 }
               >
-                <s-choice value="now">Change prices now</s-choice>
-                <s-choice value="later">Change prices later</s-choice>
+                <s-choice value="now">{t("schedule.changeNow")}</s-choice>
+                <s-choice value="later">{t("schedule.changeLater")}</s-choice>
               </s-choice-list>
 
               {scheduleType === "later" && (
                 <>
                   <s-select
-                    label="Schedule type"
+                    label={t("schedule.scheduleType")}
                     value={scheduleRecurrenceType || "one_time"}
                     disabled={readOnly}
                     onInput={
@@ -421,7 +436,7 @@ export default function ScheduleSettingsCard({
                   >
                     {SCHEDULE_RECURRENCE_OPTIONS.map((option) => (
                       <s-option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(recurrenceLabelKey[option.value] || "schedule.oneTime")}
                       </s-option>
                     ))}
                   </s-select>
@@ -467,9 +482,9 @@ export default function ScheduleSettingsCard({
 
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="base">
-              <s-heading>Automatic revert</s-heading>
+              <s-heading>{t("schedule.automaticRevert")}</s-heading>
               <s-checkbox
-                label="Revert to original prices later?"
+                label={t("schedule.revertLater")}
                 checked={revertLater}
                 disabled={readOnly}
                 onChange={
@@ -499,10 +514,8 @@ export default function ScheduleSettingsCard({
 
         <s-box paddingBlockStart="base">
           <s-banner tone="info">
-            Dates and times use {timezoneStr}. The current time is {currentTimeStr}.
-            {!hasSavedTimezone
-              ? " Save your timezone on the Account page to lock this in for all devices."
-              : ""}
+            {t("schedule.timezoneBanner", { timezone: timezoneStr, currentTime: currentTimeStr })}
+            {!hasSavedTimezone ? t("schedule.saveTimezoneHint") : ""}
           </s-banner>
         </s-box>
       </s-stack>

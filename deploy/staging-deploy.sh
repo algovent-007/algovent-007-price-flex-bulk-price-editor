@@ -24,6 +24,7 @@ ssh -i "$STAGING_KEY" -o StrictHostKeyChecking=no "$STAGING_HOST" <<REMOTE
 set -euo pipefail
 cd $APP_DIR
 npm ci
+npx prisma generate
 npx prisma migrate deploy
 npm run build
 pm2 restart price-flex-staging || pm2 start ecosystem.staging.config.cjs

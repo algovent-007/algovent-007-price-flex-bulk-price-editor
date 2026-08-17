@@ -2,6 +2,7 @@ import prisma from "../db.server";
 import { APP_NAME, SUPPORT_EMAIL } from "../constants/branding";
 import { getShopSettings } from "../models/shop-settings.server";
 import { sendEmail, getConfiguredMailProvider } from "./mail.server";
+import { findTaskForShop, updateTaskForShop } from "../utils/task-record";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 
@@ -53,8 +54,10 @@ function buildEmailContent({ task, actionData, appUrl }) {
   };
 }
 
-export async function notifyTaskFinishedIfEnabled(taskId) {
-  const task = await prisma.task.findUnique({ where: { id: taskId } });
+export async function notifyTaskFinishedIfEnabled(taskId, shop) {
+  const task = shop
+    ? await findTaskForShop(prisma, { id: taskId, shop })
+    : null;
   if (!task?.shop || !TERMINAL_STATUSES.has(task.status)) {
     return;
   }
@@ -96,8 +99,9 @@ export async function notifyTaskFinishedIfEnabled(taskId) {
     return;
   }
 
-  await prisma.task.update({
-    where: { id: taskId },
+  await updateTaskForShop(prisma, {
+    id: taskId,
+    shop: task.shop,
     data: {
       actionDetails: JSON.stringify({
         ...actionData,

@@ -22,8 +22,17 @@ import {
   fetchProductsByQuery,
   filterProductsByConditions,
   getProductSearchQueryConfig,
+  getVariantFieldsFragment,
+  PRODUCT_VARIANTS_PAGE_SIZE,
 } from "../services/task-runner.server";
-import { createScheduledRevertTask } from "../services/scheduler.server";
+import { cancelScheduledRevertTask, createScheduledRevertTask } from "../services/scheduler.server";
+import {
+  createTaskId,
+  findTaskForShop,
+  TASK_CREATE_FAILED_ERROR,
+  updateTaskForShop,
+} from "../utils/task-record";
+import { createDefaultTaskName, nextTaskSequenceNumber } from "../utils/task-name";
 import { generatePricingPresets } from "../utils/pricing-rules-presets";
 import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import {
@@ -46,12 +55,27 @@ import { isOneTimeScheduleRecurrence } from "../utils/schedule";
 import { assertPlanFeature } from "../services/subscription.server";
 import { BILLING_FEATURES } from "../constants/billing";
 import { parseCsvAllRows, parseCsvDirectRows, validateCsvRowsForRun } from "../utils/csv-bulk-edit";
+import { hydrateProductsWithAllVariants } from "../utils/shopify-variants";
 import { getShopTimezoneContext, resolveScheduleTimezone, ensureShopTimezoneSaved } from "../utils/shop-timezone.server";
 import { resolveClientScheduleTimezone, getBrowserTimezone } from "../utils/shop-timezone";
+import { translateError } from "../i18n/errors";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 import {
   formatScheduleDateTime,
   formatCurrentTimeInTimezone,
 } from "../utils/schedule";
+
+async function resolveDefaultTaskName({ shop, timeZone }) {
+  const existingTasks = await prisma.task.findMany({
+    where: { shop },
+    select: { name: true },
+  });
+  return createDefaultTaskName({
+    number: nextTaskSequenceNumber(existingTasks.map((task) => task.name)),
+    timeZone,
+  });
+}
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -78,19 +102,29 @@ export const loader = async ({ request }) => {
     if (json.errors) {
       throw new Error(json.errors[0].message);
     }
+    const timezoneContext = await getShopTimezoneContext({ shop: session.shop, admin });
     return {
       collections: json.data?.collections?.nodes || [],
       locations: json.data?.locations?.nodes || [],
       shop: session.shop,
-      ...(await getShopTimezoneContext({ shop: session.shop, admin })),
+      defaultTaskName: await resolveDefaultTaskName({
+        shop: session.shop,
+        timeZone: timezoneContext.timezone,
+      }),
+      ...timezoneContext,
     };
   } catch (err) {
     console.error("Error fetching collections:", err);
+    const timezoneContext = await getShopTimezoneContext({ shop: session.shop, admin });
     return {
       collections: [],
       locations: [],
       shop: session.shop,
-      ...(await getShopTimezoneContext({ shop: session.shop, admin })),
+      defaultTaskName: await resolveDefaultTaskName({
+        shop: session.shop,
+        timeZone: timezoneContext.timezone,
+      }),
+      ...timezoneContext,
     };
   }
 };
@@ -169,8 +203,15 @@ export const action = async ({ request }) => {
         { pageSize }
       );
 
-      const products = filterProductsByConditions(
+      const productsWithVariants = await hydrateProductsWithAllVariants(
+        shopifyQuery,
         fetchedProducts,
+        getVariantFieldsFragment(editType, "search"),
+        { pageSize: PRODUCT_VARIANTS_PAGE_SIZE },
+      );
+
+      const products = filterProductsByConditions(
+        productsWithVariants,
         editType,
         matchType,
         conditionsStr
@@ -231,7 +272,9 @@ export const action = async ({ request }) => {
     const removeTagsActive = formData.get("removeTagsActive") === "true";
     const tagsToAddStr = formData.get("tagsToAdd");
     const tagsToRemoveStr = formData.get("tagsToRemove");
-    const taskName = formData.get("taskName") || "sale-" + Math.floor(1000000000 + Math.random() * 9000000000);
+    const taskName =
+      String(formData.get("taskName") || "").trim() ||
+      (await resolveDefaultTaskName({ shop, timeZone: timezone }));
 
     const changePricesSchedule = formData.get("changePricesSchedule") || "now";
     const scheduleRecurrenceType = formData.get("scheduleRecurrenceType") || "one_time";
@@ -243,6 +286,7 @@ export const action = async ({ request }) => {
     const revertPricesAtDate = formData.get("revertPricesAtDate");
     const revertPricesAtTime = formData.get("revertPricesAtTime");
     const csvFileName = formData.get("csvFileName") || null;
+    const editingTaskId = String(formData.get("editingTaskId") || "").trim();
 
     let csvRows = [];
     if (editType === "csv-all" || editType === "csv-direct") {
@@ -368,41 +412,77 @@ export const action = async ({ request }) => {
 
     const scheduledAt = scheduleValidation.scheduledAt;
     const revertAt = scheduleValidation.revertAt;
+    const taskId = editingTaskId || createTaskId();
+
+    if (editingTaskId) {
+      const existing = await findTaskForShop(prisma, { id: editingTaskId, shop });
+      if (!existing) {
+        return Response.json({ success: false, error: "Task not found" });
+      }
+      if (existing.status !== "scheduled") {
+        return Response.json({ success: false, error: "Only scheduled tasks can be edited" });
+      }
+      let existingAction = {};
+      try {
+        existingAction = JSON.parse(existing.actionDetails || "{}");
+      } catch {
+        existingAction = {};
+      }
+      if (existingAction.taskType === "scheduled_rollback") {
+        return Response.json({ success: false, error: "Scheduled rollback tasks cannot be edited" });
+      }
+      await cancelScheduledRevertTask(taskId, shop);
+    }
 
     if (changePricesSchedule === "later") {
       try {
-        await prisma.task.create({
-          data: {
-            id: taskName,
-            name: taskName,
-            status: "scheduled",
+        const scheduledTaskData = {
+          name: taskName,
+          status: "scheduled",
+          shop,
+          scheduledAt,
+          revertAt: revertPrices ? revertAt : null,
+          processedItems: 0,
+          totalItems: 0,
+          actionDetails: JSON.stringify({
+            taskType: "scheduled_edit",
+            scheduleRecurrenceType,
+            scheduleRecurrenceDayOfWeek,
+            scheduleRecurrenceDayOfMonth,
+            changePricesAtDate,
+            changePricesAtTime,
+            scheduleTimezone: timezone,
+            runPayload,
+            revertEnabled: revertPrices,
+            revertPricesAtDate,
+            revertPricesAtTime,
+            scheduledAt: scheduledAt.toISOString(),
+            revertAt: revertAt?.toISOString() || null,
+          }),
+        };
+
+        if (editingTaskId) {
+          const updated = await updateTaskForShop(prisma, {
+            id: taskId,
             shop,
-            scheduledAt,
-            revertAt: revertPrices ? revertAt : null,
-            processedItems: 0,
-            totalItems: 0,
-            actionDetails: JSON.stringify({
-              taskType: "scheduled_edit",
-              scheduleRecurrenceType,
-              scheduleRecurrenceDayOfWeek,
-              scheduleRecurrenceDayOfMonth,
-              changePricesAtDate,
-              changePricesAtTime,
-              scheduleTimezone: timezone,
-              runPayload,
-              revertEnabled: revertPrices,
-              revertPricesAtDate,
-              revertPricesAtTime,
-              scheduledAt: scheduledAt.toISOString(),
-              revertAt: revertAt?.toISOString() || null,
-            }),
-          },
-        });
+            data: scheduledTaskData,
+          });
+          if (!updated) {
+            return Response.json({ success: false, error: "Task not found" });
+          }
+        } else {
+          await prisma.task.create({
+            data: {
+              id: taskId,
+              ...scheduledTaskData,
+            },
+          });
+        }
 
         if (revertPrices && revertAt) {
           await createScheduledRevertTask({
             shop,
-            sourceTaskId: taskName,
+            sourceTaskId: taskId,
             sourceTaskName: taskName,
             revertAt,
             revertPricesAtDate,
@@ -422,7 +502,8 @@ export const action = async ({ request }) => {
       return Response.json({
         success: true,
         scheduled: true,
-        taskId: taskName,
+        updated: Boolean(editingTaskId),
+        taskId,
         taskName,
         scheduledAt: scheduledAt.toISOString(),
         revertAt: revertAt?.toISOString() || null,
@@ -430,39 +511,56 @@ export const action = async ({ request }) => {
     }
 
     try {
-      await prisma.task.create({
-        data: {
-          id: taskName,
-          name: taskName,
-          status: "running",
+      const runningTaskData = {
+        name: taskName,
+        status: "running",
+        shop,
+        scheduledAt,
+        revertAt: revertPrices ? revertAt : null,
+        processedItems: 0,
+        totalItems: 0,
+        actionDetails: JSON.stringify({
+          taskType: "price_edit",
+          runPayload,
+          revertEnabled: revertPrices,
+          scheduledAt: scheduledAt.toISOString(),
+          revertAt: revertAt?.toISOString() || null,
+        }),
+      };
+
+      if (editingTaskId) {
+        const updated = await updateTaskForShop(prisma, {
+          id: taskId,
           shop,
-          scheduledAt,
-          revertAt: revertPrices ? revertAt : null,
-          processedItems: 0,
-          totalItems: 0,
-          actionDetails: JSON.stringify({
-            taskType: "price_edit",
-            runPayload,
-            revertEnabled: revertPrices,
-            scheduledAt: scheduledAt.toISOString(),
-            revertAt: revertAt?.toISOString() || null,
-          }),
-        },
-      });
+          data: runningTaskData,
+        });
+        if (!updated) {
+          return Response.json({ success: false, error: "Task not found" });
+        }
+      } else {
+        await prisma.task.create({
+          data: {
+            id: taskId,
+            ...runningTaskData,
+          },
+        });
+      }
     } catch (e) {
       console.error("Failed to create task log in database:", e);
+      return Response.json({ success: false, error: TASK_CREATE_FAILED_ERROR });
     }
 
     executePriceEditTask({
       admin,
-      taskId: taskName,
+      taskId,
+      shop,
       runPayload,
     })
       .then(async (result) => {
         if (result.success && revertPrices && revertAt) {
           await createScheduledRevertTask({
             shop,
-            sourceTaskId: taskName,
+            sourceTaskId: taskId,
             sourceTaskName: taskName,
             revertAt,
             revertPricesAtDate,
@@ -478,7 +576,7 @@ export const action = async ({ request }) => {
     return Response.json({
       success: true,
       taskStarted: true,
-      taskId: taskName,
+      taskId,
       taskName,
     });
   }
@@ -500,12 +598,13 @@ function createInitialScheduleState(timezone) {
 }
 
 export default function NewTask() {
+  const { t } = useI18n();
   const fetcher = useFetcher();
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const navigate = useNavigate();
   const appBridge = useAppBridge();
-  const { collections, locations, shop, timezone, hasSavedTimezone } = useLoaderData();
+  const { collections, locations, shop, timezone, hasSavedTimezone, defaultTaskName } = useLoaderData();
   const scheduleTimezone = useMemo(
     () => resolveClientScheduleTimezone({ loaderTimezone: timezone, hasSavedTimezone }),
     [timezone, hasSavedTimezone]
@@ -594,7 +693,8 @@ export default function NewTask() {
   );
   const timezoneStr = scheduleTimezone;
 
-  const [taskName, setTaskName] = useState(() => "sale-" + Math.floor(1000000000 + Math.random() * 9000000000));
+  const [taskName, setTaskName] = useState(() => defaultTaskName || createDefaultTaskName());
+  const [editingTaskId, setEditingTaskId] = useState("");
 
   useEffect(() => {
     const copyData = readStoredTaskCopy();
@@ -638,6 +738,17 @@ export default function NewTask() {
         setRemoveTagsActive,
         setTaskName,
         setRevertLater,
+        setScheduleType,
+        setScheduleRecurrenceType,
+        setScheduleRecurrenceDayOfWeek,
+        setScheduleRecurrenceDayOfMonth,
+        setStartDate,
+        setStartDateStr,
+        setStartTimeStr,
+        setRevertDate,
+        setRevertDateStr,
+        setRevertTimeStr,
+        setEditingTaskId,
       });
 
       const payload = copyData.runPayload;
@@ -740,7 +851,7 @@ export default function NewTask() {
         appBridge.toast.show(
           warningCount === 1
             ? firstWarning
-            : `${firstWarning} (+${warningCount - 1} more warning${warningCount - 1 === 1 ? "" : "s"})`,
+            : `${firstWarning} ${t("newTask.moreWarnings", { count: warningCount - 1 })}`,
         );
       }
       return;
@@ -749,9 +860,9 @@ export default function NewTask() {
     setProductsList([]);
     setShowPricePreview(false);
     setProductSearchError(
-      fetcher.data.error || "No products found matching your criteria."
+      translateError(t, fetcher.data.error) || t("newTask.noProductsFound")
     );
-  }, [fetcher.data, appBridge]);
+  }, [fetcher.data, appBridge, t]);
 
   useEffect(() => {
     if (collections.length > 0 && !selectedCollectionId) {
@@ -810,7 +921,7 @@ export default function NewTask() {
 
     if (validation.errors.length > 0) {
       setFieldErrors(validation.fieldErrors);
-      appBridge.toast.show(validation.errors[0], { isError: true });
+      appBridge.toast.show(translateError(t, validation.errors[0]), { isError: true });
       return;
     }
 
@@ -846,7 +957,7 @@ export default function NewTask() {
         costRoundCentsDigit,
       })
     );
-    appBridge.toast.show("Pricing rules saved");
+    appBridge.toast.show(t("newTask.pricingRulesSaved"));
   };
 
   const handleRunTask = () => {
@@ -914,7 +1025,7 @@ export default function NewTask() {
 
     if (messages.length > 0) {
       setFieldErrors(nextFieldErrors);
-      appBridge.toast.show(messages[0], { isError: true });
+      appBridge.toast.show(translateError(t, messages[0]), { isError: true });
       return;
     }
 
@@ -970,9 +1081,17 @@ export default function NewTask() {
       revertPrices: revertLater ? "true" : "false",
       revertPricesAtDate: revertDateStr,
       revertPricesAtTime: revertTimeStr,
+      ...(editingTaskId ? { editingTaskId } : {}),
     };
     runFetcher.submit(payload, { method: "POST" });
   };
+
+  useEffect(() => {
+    if (runFetcher.state !== "idle" || !runFetcher.data?.success || !runFetcher.data?.updated) {
+      return;
+    }
+    navigate("/app/scheduled");
+  }, [navigate, runFetcher.data, runFetcher.state]);
 
   const addCondition = () => {
     setConditions([...conditions, { field: "title", operator: "equals", value: "" }]);
@@ -1038,16 +1157,16 @@ export default function NewTask() {
       );
 
       if (hasIncompleteCondition) {
-        return "Please complete all product condition fields before searching.";
+        return t("newTask.completeConditions");
       }
     }
 
     if (editType === "collection" && !selectedCollectionId) {
-      return "Please select a collection before searching.";
+      return t("newTask.selectCollectionBeforeSearch");
     }
 
     if ((editType === "csv-all" || editType === "csv-direct") && !csvRows.length) {
-      return "Please upload a CSV file before loading products.";
+      return t("newTask.uploadCsvBeforeLoad");
     }
 
     return "";
@@ -1071,7 +1190,7 @@ export default function NewTask() {
         setCsvFileName(null);
         setCsvRows([]);
         setFieldErrors((current) => ({ ...current, csvFile: parsed.errors[0] }));
-        appBridge.toast.show(parsed.errors[0], { isError: true });
+        appBridge.toast.show(translateError(t, parsed.errors[0]), { isError: true });
         return;
       }
 
@@ -1099,7 +1218,7 @@ export default function NewTask() {
     } catch (error) {
       setCsvFileName(null);
       setCsvRows([]);
-      appBridge.toast.show(error.message || "Failed to read CSV file.", { isError: true });
+      appBridge.toast.show(error.message || t("newTask.failedCsv"), { isError: true });
     } finally {
       e.target.value = "";
     }
@@ -1296,24 +1415,35 @@ export default function NewTask() {
   };
 
   return (
-    <s-page heading="New Task">
+    <AppPage heading={editingTaskId ? t("newTask.editHeading") : t("newTask.heading")}>
       {runFetcher.data && runFetcher.data.success && runFetcher.data.scheduled && (
         <s-banner tone="success">
-          Task "{runFetcher.data.taskName}" scheduled for{" "}
-          {formatScheduleDateTime(runFetcher.data.scheduledAt, scheduleTimezone)}
           {runFetcher.data.revertAt
-            ? ` with automatic revert at ${formatScheduleDateTime(runFetcher.data.revertAt, scheduleTimezone)}.`
-            : "."}
+            ? t("newTask.scheduledWithRevert", {
+                name: runFetcher.data.taskName,
+                when: formatScheduleDateTime(runFetcher.data.scheduledAt, scheduleTimezone),
+                revert: formatScheduleDateTime(runFetcher.data.revertAt, scheduleTimezone),
+              })
+            : t("newTask.scheduledFor", {
+                name: runFetcher.data.taskName,
+                when: formatScheduleDateTime(runFetcher.data.scheduledAt, scheduleTimezone),
+              })}
         </s-banner>
       )}
       {runFetcher.data && runFetcher.data.success && !runFetcher.data.scheduled && (
         <s-banner tone="success">
-          Successfully executed task "{taskName}". Updated {runFetcher.data.updatedProductsCount} product(s) and {runFetcher.data.updatedVariantsCount} variant(s).
+          {t("newTask.executed", {
+            name: taskName,
+            products: runFetcher.data.updatedProductsCount,
+            variants: runFetcher.data.updatedVariantsCount,
+          })}
         </s-banner>
       )}
       {runFetcher.data && !runFetcher.data.success && (
         <s-banner tone="critical">
-          Failed to execute task: {runFetcher.data.error || "Unknown error occurred"}
+          {t("newTask.executeFailed", {
+            error: translateError(t, runFetcher.data.error) || t("newTask.unknownError"),
+          })}
         </s-banner>
       )}
       <TaskConfigurationForm
@@ -1445,7 +1575,7 @@ export default function NewTask() {
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
       />
-    </s-page>
+    </AppPage>
   );
 }
 

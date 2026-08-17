@@ -7,6 +7,8 @@ import {
   appendEmbeddedAppParams,
   isValidShopifyBillingConfirmationUrl,
 } from "../utils/embedded-app-params.server";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
@@ -37,6 +39,7 @@ export const loader = async ({ request }) => {
 export default function AppBillingConfirm() {
   const { confirmationUrl, planName } = useLoaderData();
   const shopify = useAppBridge();
+  const { t } = useI18n();
   const plan = PLANS[planName] || PLANS[DEFAULT_INSTALL_PLAN];
 
   const openBilling = () => {
@@ -49,17 +52,16 @@ export default function AppBillingConfirm() {
   };
 
   return (
-    <s-page heading="Approve subscription">
+    <AppPage heading={t("plans.approveHeading")}>
       <s-box paddingBlockEnd="base">
         <s-banner tone="info">
-          Approve the {plan.name} plan ({plan.displayPrice}/year) on Shopify to
-          continue. Development stores use test charges only.
+          {t("plans.approveBanner", { plan: plan.name, price: plan.displayPrice })}
         </s-banner>
       </s-box>
       <s-button variant="primary" onClick={openBilling}>
-        Open Shopify billing approval
+        {t("plans.openBilling")}
       </s-button>
-    </s-page>
+    </AppPage>
   );
 }
 

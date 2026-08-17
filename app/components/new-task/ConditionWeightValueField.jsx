@@ -5,12 +5,16 @@ import {
   WEIGHT_UNIT_OPTIONS,
 } from "../../utils/weight-conditions";
 
+import { translateError } from "../../i18n/errors";
+import { useI18n } from "../../i18n/I18nProvider";
+
 export default function ConditionWeightValueField({
   value,
   onChange,
   readOnly = false,
   error = "",
 }) {
+  const { t } = useI18n();
   const parsed = parseWeightConditionValue(value);
 
   const emitChange = (amount, unit) => {
@@ -20,12 +24,12 @@ export default function ConditionWeightValueField({
   return (
     <s-grid gridTemplateColumns="1fr auto" gap="small" alignItems="end">
       <s-text-field
-        label="Value"
+        label={t("conditions.valueLabel")}
         labelAccessibilityVisibility="exclusive"
-        placeholder="Enter weight"
+        placeholder={t("conditions.enterWeight")}
         value={parsed.amount}
         disabled={readOnly}
-        error={error}
+        error={translateError(t, error)}
         onInput={
           readOnly
             ? undefined
@@ -34,7 +38,7 @@ export default function ConditionWeightValueField({
       />
 
       <s-select
-        label="Unit"
+        label={t("conditions.unit")}
         labelAccessibilityVisibility="exclusive"
         value={parsed.unit}
         disabled={readOnly}

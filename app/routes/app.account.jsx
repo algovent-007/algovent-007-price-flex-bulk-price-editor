@@ -4,6 +4,9 @@ import { useFetcher, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { getShopSettings, saveShopSettings } from "../models/shop-settings.server";
+import { translateError } from "../i18n/errors";
+import { useI18n } from "../i18n/I18nProvider";
+import AppPage from "../components/AppPage";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -220,6 +223,7 @@ function getTimezoneOptions(currentTimezone) {
 
 export default function Account() {
   const { shopName, shopEmail, shopDomain, timezone } = useLoaderData();
+  const { t } = useI18n();
   const appBridge = useAppBridge();
   const fetcher = useFetcher();
   const [savedAccount, setSavedAccount] = useState({
@@ -261,11 +265,11 @@ export default function Account() {
       setEmail(settings.email);
       setSelectedTimezone(settings.timezone);
       appBridge.saveBar.hide(ACCOUNT_SAVE_BAR_ID);
-      appBridge.toast.show("Account settings saved");
+      appBridge.toast.show(t("account.saved"));
     } else if (fetcher.data.error) {
-      appBridge.toast.show(fetcher.data.error, { isError: true });
+      appBridge.toast.show(translateError(t, fetcher.data.error), { isError: true });
     }
-  }, [appBridge, fetcher.data, fetcher.state]);
+  }, [appBridge, fetcher.data, fetcher.state, t]);
 
   const handleSave = () => {
     fetcher.submit(
@@ -286,22 +290,22 @@ export default function Account() {
   };
 
   return (
-    <s-page heading="Account">
+    <AppPage heading={t("account.heading")}>
       <SaveBar id={ACCOUNT_SAVE_BAR_ID} discardConfirmation>
         <button
           variant="primary"
           onClick={handleSave}
           loading={fetcher.state !== "idle" ? "" : undefined}
         >
-          Save
+          {t("common.save")}
         </button>
-        <button onClick={handleDiscard}>Discard</button>
+        <button onClick={handleDiscard}>{t("common.discard")}</button>
       </SaveBar>
 
-      <s-section heading="Account Details">
+      <s-section heading={t("account.details")}>
         <s-stack direction="block" gap="base">
           <s-text-field
-            label="Name"
+            label={t("account.name")}
             required
             value={name}
             onInput={(e) => setName(e.target.value)}
@@ -310,16 +314,16 @@ export default function Account() {
           />
 
           <s-text-field
-            label="Email"
+            label={t("account.email")}
             required
             value={email}
             onInput={(e) => setEmail(e.target.value)}
           />
 
-          <s-text-field label="Store" disabled value={shopDomain} />
+          <s-text-field label={t("account.store")} disabled value={shopDomain} />
 
           <s-select
-            label="Timezone"
+            label={t("account.timezone")}
             value={selectedTimezone}
             onInput={(e) => setSelectedTimezone(e.target.value)}
           >
@@ -331,7 +335,7 @@ export default function Account() {
           </s-select>
         </s-stack>
       </s-section>
-    </s-page>
+    </AppPage>
   );
 }
 

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
@@ -5,6 +6,7 @@ import { authenticate } from "../shopify.server";
 import { processDueTasksForShop } from "../services/scheduler.server";
 import { requireSubscription } from "../services/subscription.server";
 import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
+import { useI18n } from "../i18n/I18nProvider";
 
 const BILLING_EXEMPT_PATHS = ["/app/plans", "/app/billing"];
 
@@ -35,8 +37,10 @@ export const loader = async ({ request }) => {
       });
     }
 
+    const shopifyLocale = session.locale || url.searchParams.get("locale") || "";
+
     // eslint-disable-next-line no-undef
-    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+    return { apiKey: process.env.SHOPIFY_API_KEY || "", shopifyLocale };
   } catch (error) {
     if (error instanceof Response) {
       throw error;
@@ -48,25 +52,29 @@ export const loader = async ({ request }) => {
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, shopifyLocale } = useLoaderData();
+  const { t, applyShopifyLocale } = useI18n();
+
+  useEffect(() => {
+    applyShopifyLocale(shopifyLocale);
+  }, [applyShopifyLocale, shopifyLocale]);
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">Current Tasks</s-link>
-        <s-link href="/app/new">New Task</s-link>
-        <s-link href="/app/scheduled">Scheduled Tasks</s-link>
-        <s-link href="/app/history">Tasks History</s-link>
-        <s-link href="/app/account">Account</s-link>
-        <s-link href="/app/plans">Plans</s-link>
-        <s-link href="/app/support">Support</s-link>
+        <s-link href="/app">{t("nav.currentTasks")}</s-link>
+        <s-link href="/app/new">{t("nav.newTask")}</s-link>
+        <s-link href="/app/scheduled">{t("nav.scheduledTasks")}</s-link>
+        <s-link href="/app/history">{t("nav.tasksHistory")}</s-link>
+        <s-link href="/app/account">{t("nav.account")}</s-link>
+        <s-link href="/app/plans">{t("nav.plans")}</s-link>
+        <s-link href="/app/support">{t("nav.support")}</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>
   );
 }
 
-// Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }

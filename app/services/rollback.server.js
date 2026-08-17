@@ -1,5 +1,15 @@
 import prisma from "../db.server";
 import { attachProductTagChanges } from "../utils/task-log-display";
+import {
+  buildRollbackVariantUpdate,
+  bulkUpdateProductVariants,
+  shouldRollbackCost,
+} from "../utils/shopify-variants";
+import {
+  findTaskForShop,
+  requireTaskUpdateForShop,
+  TASK_NOT_FOUND_FOR_SHOP_ERROR,
+} from "../utils/task-record";
 
 function parseActionData(task) {
   try {
@@ -33,8 +43,9 @@ function validateRollbackTask(task) {
 }
 
 async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId) {
-  await prisma.task.update({
-    where: { id: task.id },
+  await requireTaskUpdateForShop(prisma, {
+    id: task.id,
+    shop: task.shop,
     data: {
       status: "rolled_back",
       actionDetails: JSON.stringify({
@@ -46,6 +57,10 @@ async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId) {
 }
 
 async function prepareRollbackTask(task) {
+  if (!task?.shop) {
+    return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+  }
+
   const validation = validateRollbackTask(task);
   if (!validation.valid) {
     return { success: false, error: validation.error };
@@ -61,6 +76,10 @@ async function prepareRollbackTask(task) {
   });
 
   if (existingRollbackTask) {
+    if (existingRollbackTask.shop && existingRollbackTask.shop !== task.shop) {
+      return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+    }
+
     if (existingRollbackTask.status === "running") {
       return {
         success: true,
@@ -105,11 +124,16 @@ async function prepareRollbackTask(task) {
       throw error;
     }
 
-    const concurrentTask = await prisma.task.findUnique({
-      where: { id: rollbackTaskId },
+    const concurrentTask = await findTaskForShop(prisma, {
+      id: rollbackTaskId,
+      shop: task.shop,
     });
 
-    if (concurrentTask?.status === "running") {
+    if (!concurrentTask) {
+      return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+    }
+
+    if (concurrentTask.status === "running") {
       return {
         success: true,
         rollbackTaskId,
@@ -181,8 +205,9 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
     });
 
   const updateRollbackTask = async (status, extra = {}) => {
-    await prisma.task.update({
-      where: { id: rollbackTaskId },
+    await requireTaskUpdateForShop(prisma, {
+      id: rollbackTaskId,
+      shop: task.shop,
       data: {
         status,
         processedItems: successCount,
@@ -197,35 +222,24 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
       const productLogs = logsByProduct[productId] || [];
       let productUpdated = false;
 
-      const variants = productLogs.map((log) => ({
-        id: log.variantId,
-        price: log.oldPrice,
-        compareAtPrice: log.oldCompare === "-" ? null : log.oldCompare,
-      }));
+      const variants = productLogs
+        .map((log) => buildRollbackVariantUpdate(log))
+        .filter(Boolean);
 
       if (variants.length > 0) {
-        const bulkData = await shopifyQuery(
-          `#graphql
-          mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-              productVariants { id }
-              userErrors { field message }
-            }
-          }`,
-          { productId, variants }
-        );
-
-        const bulkErrors = bulkData.productVariantsBulkUpdate?.userErrors || [];
-        if (bulkErrors.length > 0) {
-          throw new Error(bulkErrors[0].message);
+        const bulkResult = await bulkUpdateProductVariants(shopifyQuery, productId, variants);
+        if (bulkResult.failed.length > 0) {
+          throw new Error(bulkResult.failed[0].message);
         }
-
         productUpdated = true;
-        successCount += variants.length;
+        successCount += bulkResult.updatedIds.length;
       }
 
       for (const log of productLogs) {
-        if (log.inventoryItemId && log.oldCost !== "-") {
+        const rolledBackPrice = Boolean(buildRollbackVariantUpdate(log));
+        const rolledBackCost = shouldRollbackCost(log);
+
+        if (rolledBackCost) {
           const invData = await shopifyQuery(
             `#graphql
             mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
@@ -246,6 +260,15 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
           }
 
           productUpdated = true;
+          if (!rolledBackPrice) {
+            successCount += 1;
+          }
+        }
+
+        if (!rolledBackPrice && !rolledBackCost) {
+          if (tagsToAdd.length === 0 && tagsToRemove.length === 0) {
+            continue;
+          }
         }
 
         rollbackLogs.push({

@@ -8,14 +8,49 @@ export function canCopyTask(actionData) {
   );
 }
 
-export function storeTaskCopy({ task, actionData }) {
+export function canEditScheduledTask(actionData) {
+  return actionData.taskType !== "scheduled_rollback" && !!actionData.runPayload;
+}
+
+function getScheduleDraft(task, actionData) {
+  return {
+    scheduleType: "later",
+    scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
+    scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek || "1",
+    scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
+    startDateStr: actionData.changePricesAtDate || "",
+    startTimeStr: actionData.changePricesAtTime || "",
+    revertDateStr: actionData.revertPricesAtDate || "",
+    revertTimeStr: actionData.revertPricesAtTime || "",
+    scheduledAt: task.scheduledAt || null,
+    revertAt: task.revertAt || null,
+  };
+}
+
+export function storeTaskCopy({ task, actionData, taskName, includeSchedule = false }) {
   sessionStorage.setItem(
     COPY_TASK_STORAGE_KEY,
     JSON.stringify({
+      mode: "copy",
       runPayload: actionData.runPayload,
-      taskName: `Copy of ${task.name}`,
+      taskName: taskName || `Copy of ${task.name}`,
       revertEnabled: !!actionData.revertEnabled,
-    })
+      ...(includeSchedule ? getScheduleDraft(task, actionData) : {}),
+    }),
+  );
+}
+
+export function storeTaskEdit({ task, actionData }) {
+  sessionStorage.setItem(
+    COPY_TASK_STORAGE_KEY,
+    JSON.stringify({
+      mode: "edit",
+      editingTaskId: task.id,
+      runPayload: actionData.runPayload,
+      taskName: task.name,
+      revertEnabled: !!actionData.revertEnabled,
+      ...getScheduleDraft(task, actionData),
+    }),
   );
 }
 
@@ -75,6 +110,17 @@ export function applyStoredTaskCopy(copyData, setters) {
     setRemoveTagsActive,
     setTaskName,
     setRevertLater,
+    setScheduleType,
+    setScheduleRecurrenceType,
+    setScheduleRecurrenceDayOfWeek,
+    setScheduleRecurrenceDayOfMonth,
+    setStartDate,
+    setStartDateStr,
+    setStartTimeStr,
+    setRevertDate,
+    setRevertDateStr,
+    setRevertTimeStr,
+    setEditingTaskId,
   } = setters;
 
   if (payload.editType) setEditType(payload.editType);
@@ -142,6 +188,31 @@ export function applyStoredTaskCopy(copyData, setters) {
 
   if (copyData.taskName) setTaskName(copyData.taskName);
   if (typeof copyData.revertEnabled === "boolean") setRevertLater(copyData.revertEnabled);
+  if (copyData.scheduleType) setScheduleType?.(copyData.scheduleType);
+  if (copyData.scheduleRecurrenceType) {
+    setScheduleRecurrenceType?.(copyData.scheduleRecurrenceType);
+  }
+  if (copyData.scheduleRecurrenceDayOfWeek) {
+    setScheduleRecurrenceDayOfWeek?.(copyData.scheduleRecurrenceDayOfWeek);
+  }
+  if (copyData.scheduleRecurrenceDayOfMonth) {
+    setScheduleRecurrenceDayOfMonth?.(copyData.scheduleRecurrenceDayOfMonth);
+  }
+  if (copyData.startDateStr) setStartDateStr?.(copyData.startDateStr);
+  if (copyData.startTimeStr) setStartTimeStr?.(copyData.startTimeStr);
+  if (copyData.revertDateStr) setRevertDateStr?.(copyData.revertDateStr);
+  if (copyData.revertTimeStr) setRevertTimeStr?.(copyData.revertTimeStr);
+  if (copyData.scheduledAt) {
+    const scheduledAt = new Date(copyData.scheduledAt);
+    if (!Number.isNaN(scheduledAt.getTime())) setStartDate?.(scheduledAt);
+  }
+  if (copyData.revertAt) {
+    const revertAt = new Date(copyData.revertAt);
+    if (!Number.isNaN(revertAt.getTime())) setRevertDate?.(revertAt);
+  }
+  if (copyData.mode === "edit" && copyData.editingTaskId) {
+    setEditingTaskId?.(copyData.editingTaskId);
+  }
 
   return true;
 }
