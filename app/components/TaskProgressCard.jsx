@@ -1,3 +1,5 @@
+import styles from "./TaskProgressCard.module.css";
+
 function getStatusTone(status) {
   if (status === "completed") return "success";
   if (status === "failed") return "critical";
@@ -18,10 +20,10 @@ export function isTaskTerminal(status) {
   return ["completed", "failed", "cancelled", "rolled_back"].includes(status);
 }
 
-function getProgressFillColor(status) {
-  if (status === "failed") return "var(--p-color-bg-fill-critical)";
-  if (status === "cancelled") return "var(--p-color-bg-fill-caution)";
-  return "var(--p-color-bg-fill-success)";
+function getProgressFillClass(status) {
+  if (status === "failed") return styles.fillCritical;
+  if (status === "cancelled") return styles.fillCaution;
+  return "";
 }
 
 export default function TaskProgressCard({ task }) {
@@ -45,6 +47,10 @@ export default function TaskProgressCard({ task }) {
         ? 100
         : 0;
 
+  const isRunning = task.status === "running";
+  const isIndeterminate = isRunning && totalCount <= 0;
+  const unitLabel = isCsvTask ? "variants" : "products";
+
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="base">
@@ -58,34 +64,28 @@ export default function TaskProgressCard({ task }) {
           </s-badge>
         </s-stack>
 
-        <s-stack direction="block" gap="small-100">
+        <div className={styles.progressBlock}>
           <s-text color="subdued">
-            {progressValue}% complete
+            {isRunning
+              ? totalCount > 0
+                ? `${processedCount} of ${totalCount} ${unitLabel} · ${progressValue}%`
+                : "Task is running…"
+              : `${progressValue}% complete`}
           </s-text>
-          <s-box
-            background="subdued"
-            borderRadius="base"
-            overflow="hidden"
+          <div
+            className={`${styles.track} ${isIndeterminate ? styles.indeterminate : ""}`}
             role="progressbar"
-            aria-valuenow={progressValue}
-            aria-valuemin="0"
-            aria-valuemax="100"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={isIndeterminate ? undefined : progressValue}
             aria-label={`Task progress for ${task.name}`}
-            style={{
-              width: "100%",
-              height: "8px",
-            }}
           >
             <div
-              style={{
-                width: `${progressValue}%`,
-                height: "100%",
-                background: getProgressFillColor(task.status),
-                transition: "width 200ms ease",
-              }}
+              className={`${styles.fill} ${getProgressFillClass(task.status)}`}
+              style={isIndeterminate ? undefined : { width: `${progressValue}%` }}
             />
-          </s-box>
-        </s-stack>
+          </div>
+        </div>
 
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap="base">
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
