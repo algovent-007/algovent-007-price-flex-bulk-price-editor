@@ -14,7 +14,7 @@ import {
   isSupportEligiblePath,
 } from "./services/admin-support-session.server";
 
-await ensurePrismaConnected();
+void ensurePrismaConnected();
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
