@@ -11,11 +11,6 @@ import { canViewTaskConfiguration, buildTaskConfigState } from "../utils/task-co
 import { getTaskTagChanges } from "../utils/task-log-display";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { formatCurrentTimeInTimezone } from "../utils/schedule";
-import {
-  canRollbackRecurringCycle,
-  getRecurringCycleRollbackId,
-  isCurrentCycleRolledBack,
-} from "../utils/rollback-cycle";
 import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
 import AppPage from "../components/AppPage";
@@ -84,6 +79,10 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: "Task not found" });
   }
 
+  if (task.status !== "completed") {
+    return Response.json({ success: false, error: "Only completed tasks can be rolled back" });
+  }
+
   let actionData = {};
   try {
     actionData = JSON.parse(task.actionDetails || "{}");
@@ -91,13 +90,7 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: "Invalid task data" });
   }
 
-  const canRollbackScheduledCycle =
-    task.status === "scheduled" && canRollbackRecurringCycle(actionData);
-  if (task.status !== "completed" && !canRollbackScheduledCycle) {
-    return Response.json({ success: false, error: "Only completed tasks can be rolled back" });
-  }
-
-  if (isCurrentCycleRolledBack(task.id, actionData)) {
+  if (actionData.rolledBackByTaskId) {
     return Response.json({ success: false, error: "This task has already been rolled back" });
   }
 
@@ -216,9 +209,8 @@ export default function TasksHistory() {
 
   const canRollback = (task, actionData, logs) =>
     actionData.taskType !== "rollback" &&
-    (task.status === "completed" ||
-      (task.status === "scheduled" && canRollbackRecurringCycle(actionData))) &&
-    !isCurrentCycleRolledBack(task.id, actionData) &&
+    task.status === "completed" &&
+    !actionData.rolledBackByTaskId &&
     logs.length > 0 &&
     !!logs[0]?.variantId;
 
@@ -276,23 +268,15 @@ export default function TasksHistory() {
                 const logs = actionData.logs || [];
                 const isRollbackTask = actionData.taskType === "rollback";
                 const isRollingBack = rollingBackTaskId === task.id;
-                const cycleRollbackId = getRecurringCycleRollbackId(
-                  task.id,
-                  actionData.lastCompletedAt
-                );
                 const hasRollbackTask = tasks.some((candidate) => {
                   const candidateActionData = getTaskMeta(candidate);
-                  if (candidateActionData.taskType !== "rollback") return false;
                   return (
                     candidate.id === `rollback-${task.id}` ||
-                    Boolean(cycleRollbackId && candidate.id === cycleRollbackId)
+                    candidateActionData.sourceTaskId === task.id
                   );
                 });
-                const cycleRolledBack = isCurrentCycleRolledBack(task.id, actionData);
                 const displayedStatus =
-                  !isRollbackTask && cycleRolledBack && task.status !== "scheduled"
-                    ? "rolled_back"
-                    : task.status;
+                  !isRollbackTask && hasRollbackTask ? "rolled_back" : task.status;
 
                 return (
                   <s-table-row key={task.id}>
@@ -304,7 +288,8 @@ export default function TasksHistory() {
                             {t("history.reverts", { name: actionData.sourceTaskName })}
                           </s-text>
                         )}
-                        {!isRollbackTask && (cycleRolledBack || hasRollbackTask) && (
+                        {!isRollbackTask &&
+                          (actionData.rolledBackByTaskId || hasRollbackTask) && (
                           <s-text tone="warning">{t("history.rolledBack")}</s-text>
                         )}
                       </s-stack>
@@ -355,7 +340,6 @@ export default function TasksHistory() {
                             onClick={() => handleRollback(task)}
                             disabled={
                               !canRollback(task, actionData, logs) ||
-                              cycleRolledBack ||
                               hasRollbackTask ||
                               isRollingBack
                             }

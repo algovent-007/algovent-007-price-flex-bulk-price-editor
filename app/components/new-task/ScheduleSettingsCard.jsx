@@ -6,7 +6,6 @@ import {
   WEEKDAY_OPTIONS,
   MONTH_DAY_OPTIONS,
   isOneTimeScheduleRecurrence,
-  getScheduleDatePickerAllowRange,
 } from "../../utils/schedule";
 import styles from "./ScheduleSettingsCard.module.css";
 import { translateError } from "../../i18n/errors";
@@ -53,7 +52,6 @@ function ScheduleDateTimeFields({
   onClearDateError,
   onClearTimeError,
   timeZone,
-  allowDates,
 }) {
   const { t } = useI18n();
   const resolvedDateLabel = dateLabel === "Date" ? t("schedule.date") : dateLabel;
@@ -121,7 +119,6 @@ function ScheduleDateTimeFields({
           <s-date-picker
             type="single"
             value={draftDateIso}
-            allow={allowDates}
             onChange={(e) => setDraftDateIso(e.target?.value || draftDateIso)}
           />
 
@@ -458,7 +455,6 @@ export default function ScheduleSettingsCard({
                       onClearDateError={() => clearFieldError?.("startDateStr")}
                       onClearTimeError={() => clearFieldError?.("startTimeStr")}
                       timeZone={timezoneStr}
-                      allowDates={getScheduleDatePickerAllowRange(new Date(), timezoneStr)}
                     />
                   ) : (
                     <ScheduleRecurringFields
@@ -498,11 +494,7 @@ export default function ScheduleSettingsCard({
 
               {revertLater && (
                 <ScheduleDateTimeFields
-                  readOnly={
-                    readOnly ||
-                    (scheduleType === "later" &&
-                      !isOneTimeScheduleRecurrence(scheduleRecurrenceType))
-                  }
+                  readOnly={readOnly}
                   dateStr={revertDateStr}
                   timeStr={revertTimeStr}
                   onDateChange={handleRevertDateChange}
