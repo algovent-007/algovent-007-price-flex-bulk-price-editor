@@ -199,6 +199,19 @@ export function isOneTimeScheduleRecurrence(recurrenceType) {
   return !recurrenceType || recurrenceType === "one_time";
 }
 
+export const SCHEDULE_DATE_PICKER_MAX_DAYS = 28;
+export const RECURRING_REVERT_OFFSET_HOURS = 3;
+
+export function getScheduleDatePickerAllowRange(now = new Date(), timeZone) {
+  const start = getZonedDateTimeParts(now, timeZone);
+  const end = addCalendarDays(
+    { year: start.year, month: start.month, day: start.day },
+    SCHEDULE_DATE_PICKER_MAX_DAYS,
+  );
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${start.year}-${pad(start.month)}-${pad(start.day)}--${end.year}-${pad(end.month)}-${pad(end.day)}`;
+}
+
 function getNextDailyOccurrence(time, now, timeZone) {
   const zonedNow = getZonedDateTimeParts(now, timeZone);
   let { year, month, day } = zonedNow;
@@ -428,30 +441,42 @@ export function validateScheduleConfig({
   }
 
   let revertAt = null;
+  const recurringLater =
+    changePricesSchedule === "later" && !isOneTimeScheduleRecurrence(scheduleRecurrenceType);
   if (revertPrices === "true" || revertPrices === true) {
-    if (!String(revertPricesAtDate ?? "").trim()) {
-      addError("revertDateStr", "Enter a revert date.");
-    } else if (!parseDateStringParts(revertPricesAtDate)) {
-      addError("revertDateStr", "Enter a valid revert date.");
-    }
+    if (recurringLater) {
+      if (scheduledAt) {
+        revertAt = getDefaultRevertDateTime(
+          scheduledAt,
+          RECURRING_REVERT_OFFSET_HOURS,
+          timeZone,
+        );
+      }
+    } else {
+      if (!String(revertPricesAtDate ?? "").trim()) {
+        addError("revertDateStr", "Enter a revert date.");
+      } else if (!parseDateStringParts(revertPricesAtDate)) {
+        addError("revertDateStr", "Enter a valid revert date.");
+      }
 
-    if (!String(revertPricesAtTime ?? "").trim()) {
-      addError("revertTimeStr", "Enter a revert time.");
-    } else if (!parseTimeString(revertPricesAtTime)) {
-      addError("revertTimeStr", "Enter a valid revert time.");
-    }
+      if (!String(revertPricesAtTime ?? "").trim()) {
+        addError("revertTimeStr", "Enter a revert time.");
+      } else if (!parseTimeString(revertPricesAtTime)) {
+        addError("revertTimeStr", "Enter a valid revert time.");
+      }
 
-    revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime, timeZone);
-    if (
-      String(revertPricesAtDate ?? "").trim() &&
-      String(revertPricesAtTime ?? "").trim() &&
-      !revertAt
-    ) {
-      addError("revertDateStr", "Enter a valid revert date and time.");
-      addError("revertTimeStr", "Enter a valid revert date and time.");
-    } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
-      addError("revertDateStr", "Revert time must be after the price change time.");
-      addError("revertTimeStr", "Revert time must be after the price change time.");
+      revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime, timeZone);
+      if (
+        String(revertPricesAtDate ?? "").trim() &&
+        String(revertPricesAtTime ?? "").trim() &&
+        !revertAt
+      ) {
+        addError("revertDateStr", "Enter a valid revert date and time.");
+        addError("revertTimeStr", "Enter a valid revert date and time.");
+      } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
+        addError("revertDateStr", "Revert time must be after the price change time.");
+        addError("revertTimeStr", "Revert time must be after the price change time.");
+      }
     }
   }
 

@@ -10,6 +10,12 @@ import {
   requireTaskUpdateForShop,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
 } from "../utils/task-record";
+import {
+  getRecurringCycleRollbackId,
+  hasFutureScheduledOccurrence,
+  isCurrentCycleRolledBack,
+} from "../utils/rollback-cycle";
+import { isOneTimeScheduleRecurrence } from "../utils/schedule";
 
 function parseActionData(task) {
   try {
@@ -22,7 +28,7 @@ function parseActionData(task) {
 function validateRollbackTask(task) {
   const actionData = parseActionData(task);
 
-  if (actionData.rolledBackByTaskId) {
+  if (isCurrentCycleRolledBack(task.id, actionData)) {
     return { valid: false, error: "This task has already been rolled back" };
   }
 
@@ -56,6 +62,29 @@ async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId) {
   });
 }
 
+async function finalizeSourceAfterRollback(task, actionData, rollbackTaskId) {
+  if (
+    !isOneTimeScheduleRecurrence(actionData.scheduleRecurrenceType) &&
+    hasFutureScheduledOccurrence(task.scheduledAt)
+  ) {
+    const nextAction = { ...actionData };
+    delete nextAction.rolledBackByTaskId;
+    nextAction.lastRolledBackAt = new Date().toISOString();
+    await requireTaskUpdateForShop(prisma, {
+      id: task.id,
+      shop: task.shop,
+      data: {
+        status: "scheduled",
+        scheduledAt: task.scheduledAt,
+        actionDetails: JSON.stringify(nextAction),
+      },
+    });
+    return;
+  }
+
+  await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+}
+
 async function prepareRollbackTask(task) {
   if (!task?.shop) {
     return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
@@ -67,7 +96,9 @@ async function prepareRollbackTask(task) {
   }
 
   const { actionData, logs } = validation;
-  const rollbackTaskId = `rollback-${task.id}`;
+  const rollbackTaskId =
+    getRecurringCycleRollbackId(task.id, actionData.lastCompletedAt) ||
+    `rollback-${task.id}`;
   const productIds = actionData.productIds || [...new Set(logs.map((log) => log.productId))];
   const productCount = productIds.length;
 
@@ -88,7 +119,7 @@ async function prepareRollbackTask(task) {
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await finalizeSourceAfterRollback(task, actionData, rollbackTaskId);
 
     return {
       success: true,
@@ -141,7 +172,7 @@ async function prepareRollbackTask(task) {
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await finalizeSourceAfterRollback(task, actionData, rollbackTaskId);
 
     return {
       success: true,
@@ -338,7 +369,7 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
       await updateRollbackTask("running");
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await finalizeSourceAfterRollback(task, actionData, rollbackTaskId);
     processedProductsCount = productCount;
     await updateRollbackTask("completed", {
       processedProductsCount: productCount,

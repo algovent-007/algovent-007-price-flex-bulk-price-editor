@@ -8,6 +8,10 @@ import {
   formatScheduleDateTime,
   parseStoredDate,
   formatScheduledTaskLabel,
+  getDefaultRevertDateTime,
+  getScheduleDatePickerAllowRange,
+  SCHEDULE_DATE_PICKER_MAX_DAYS,
+  RECURRING_REVERT_OFFSET_HOURS,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -160,6 +164,37 @@ test("monthly schedule clamps day 31 in February", () => {
 
   assert.equal(nextAfterRun.getMonth(), 1);
   assert.equal(nextAfterRun.getDate(), 28);
+});
+
+test("recurring revert is exactly 3 hours after the primary run", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "10:00 AM",
+    revertPrices: true,
+  });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(
+    result.revertAt.getTime() - result.scheduledAt.getTime(),
+    RECURRING_REVERT_OFFSET_HOURS * 60 * 60 * 1000,
+  );
+  assert.equal(formatTime12Hour(result.revertAt), "1:00 PM");
+});
+
+test("recurring revert offset crosses midnight", () => {
+  const start = at(2026, 6, 18, 22, 0);
+  const revertAt = getDefaultRevertDateTime(start, RECURRING_REVERT_OFFSET_HOURS);
+
+  assert.equal(revertAt.getDate(), 19);
+  assert.equal(revertAt.getHours(), 1);
+  assert.equal(revertAt.getMinutes(), 0);
+});
+
+test("schedule date picker allows today through 28 days ahead", () => {
+  const now = at(2026, 6, 18, 10, 0);
+  assert.equal(SCHEDULE_DATE_PICKER_MAX_DAYS, 28);
+  assert.equal(getScheduleDatePickerAllowRange(now), "2026-07-18--2026-08-15");
 });
 
 test("validateScheduleConfig accepts recurring daily without date", () => {

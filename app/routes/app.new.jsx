@@ -15,6 +15,8 @@ import {
   formatDateMDY,
   formatTime12Hour,
   parseDateString,
+  computeScheduledAt,
+  RECURRING_REVERT_OFFSET_HOURS,
 } from "../utils/schedule";
 import {
   buildProductQuery,
@@ -831,6 +833,45 @@ export default function NewTask() {
     setStartDate(date);
     setStartDateStr(formatDateMDY(date, scheduleTimezone));
   };
+
+  useEffect(() => {
+    if (
+      scheduleType !== "later" ||
+      isOneTimeScheduleRecurrence(scheduleRecurrenceType) ||
+      !revertLater
+    ) {
+      return;
+    }
+
+    const scheduledAt = computeScheduledAt({
+      recurrenceType: scheduleRecurrenceType,
+      changePricesAtTime: startTimeStr,
+      scheduleRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth,
+      now: new Date(),
+      timeZone: scheduleTimezone,
+    });
+    if (!scheduledAt) return;
+
+    const revertAt = getDefaultRevertDateTime(
+      scheduledAt,
+      RECURRING_REVERT_OFFSET_HOURS,
+      scheduleTimezone,
+    );
+    if (!revertAt) return;
+
+    setRevertDate(revertAt);
+    setRevertDateStr(formatDateMDY(revertAt, scheduleTimezone));
+    setRevertTimeStr(formatTime12Hour(revertAt, scheduleTimezone));
+  }, [
+    scheduleType,
+    scheduleRecurrenceType,
+    revertLater,
+    startTimeStr,
+    scheduleRecurrenceDayOfWeek,
+    scheduleRecurrenceDayOfMonth,
+    scheduleTimezone,
+  ]);
 
   const handleRevertDateSelect = (date) => {
     setRevertDate(date);
