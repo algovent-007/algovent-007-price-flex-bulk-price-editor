@@ -534,7 +534,8 @@
     "dayOfMonth": "日",
     "chooseDate": "日付を選択",
     "pickDay": "曜日を選ぶ",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "定期的な復元は、価格変更の少なくとも3時間後に設定してください。"
   },
   "errors": {
     "unknownAction": "不明な操作です。",
@@ -563,7 +564,8 @@
     "pickDay": "有効な曜日を選んでください。",
     "pickDate": "日付を選んでください。",
     "pickValidDate": "有効な日付を選んでください。",
-    "uploadCsv": "CSV ファイルをアップロードしてください。"
+    "uploadCsv": "CSV ファイルをアップロードしてください。",
+    "revertMinGap": "元に戻す時刻は、価格変更の少なくとも3時間後にしてください。"
   },
   "billing": {
     "redirectTitle": "Shopify の請求にリダイレクトしています",

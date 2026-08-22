@@ -534,7 +534,8 @@
     "dayOfMonth": "Day of month",
     "chooseDate": "Choose date",
     "pickDay": "Pick day",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "Recurring revert must be at least 3 hours after the price change."
   },
   "errors": {
     "unknownAction": "Unknown action.",
@@ -563,7 +564,8 @@
     "pickDay": "Pick a valid day.",
     "pickDate": "Pick a date.",
     "pickValidDate": "Pick a valid date.",
-    "uploadCsv": "Please upload a CSV file."
+    "uploadCsv": "Please upload a CSV file.",
+    "revertMinGap": "Revert time must be at least 3 hours after the price change time."
   },
   "billing": {
     "redirectTitle": "Redirecting to Shopify billing",

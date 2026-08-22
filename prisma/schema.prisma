@@ -55,6 +55,7 @@ model ShopSettings {
   email                    String?
   timezone                 String?
   taskFinishedEmailEnabled Boolean  @default(false)
+  isReview                 Boolean  @default(false)
   updatedAt                DateTime @updatedAt
 }
 
@@ -66,4 +67,47 @@ model Subscription {
   chargeId  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id              String                @id @default(cuid())
+  email           String                @unique
+  name            String
+  passwordHash    String
+  role            String                @default("admin")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  supportSessions AdminSupportSession[]
+  auditLogs       AdminAuditLog[]
+}
+
+model AdminSupportSession {
+  id          String    @id @default(cuid())
+  adminUserId String
+  shop        String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([shop])
+}
+
+model AdminAuditLog {
+  id             String     @id @default(cuid())
+  adminUserId    String?
+  adminEmail     String
+  shop           String?
+  merchantUserId String?
+  action         String
+  success        Boolean
+  taskId         String?
+  details        String?
+  createdAt      DateTime   @default(now())
+  adminUser      AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([adminUserId])
+  @@index([shop])
 }

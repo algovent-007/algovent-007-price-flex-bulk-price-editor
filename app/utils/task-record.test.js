@@ -101,4 +101,28 @@ test("stale scheduled rollback waits while its rollback job is still live", () =
   assert.equal(hasFreshRelatedRollback(staleWorker, [staleWorker]), false);
 });
 
+test("stale scheduled rollback waits for cycle-specific rollback jobs", () => {
+  const sourceTaskId = "source-2";
+  const staleWorker = {
+    id: `scheduled-rollback-${sourceTaskId}`,
+    status: "running",
+    updatedAt: new Date(Date.now() - STALE_RUNNING_MS - 1000),
+    actionDetails: JSON.stringify({
+      taskType: "scheduled_rollback",
+      sourceTaskId,
+    }),
+  };
+  const liveRollback = {
+    id: `rollback-${sourceTaskId}-123`,
+    status: "running",
+    updatedAt: new Date(),
+    actionDetails: JSON.stringify({
+      taskType: "rollback",
+      sourceTaskId,
+    }),
+  };
+
+  assert.equal(hasFreshRelatedRollback(staleWorker, [staleWorker, liveRollback]), true);
+});
+
 console.log("All task-record tests passed.");

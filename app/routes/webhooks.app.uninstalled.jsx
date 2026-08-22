@@ -1,6 +1,7 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { clearSubscriptionForShop } from "../services/subscription.server";
+import { revokeSupportSessionsForShop } from "../services/admin-support-session.server";
 
 export const action = async ({ request }) => {
   const { shop, session, topic } = await authenticate.webhook(request);
@@ -16,6 +17,7 @@ export const action = async ({ request }) => {
   await db.task.deleteMany({ where: { shop } });
   await db.shopSettings.deleteMany({ where: { shop } });
   await clearSubscriptionForShop(shop);
+  await revokeSupportSessionsForShop(shop);
 
   return new Response();
 };

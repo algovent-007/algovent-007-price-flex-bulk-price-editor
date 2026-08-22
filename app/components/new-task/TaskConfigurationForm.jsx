@@ -76,6 +76,9 @@ export default function TaskConfigurationForm({
     scheduleRecurrenceDayOfWeek,
     scheduleRecurrenceDayOfMonth,
     revertLater,
+    revertRecurrenceType,
+    revertRecurrenceDayOfWeek,
+    revertRecurrenceDayOfMonth,
     startDateStr,
     startTimeStr,
     startDate,
@@ -135,6 +138,9 @@ export default function TaskConfigurationForm({
     setScheduleRecurrenceDayOfWeek,
     setScheduleRecurrenceDayOfMonth,
     setRevertLater,
+    setRevertRecurrenceType,
+    setRevertRecurrenceDayOfWeek,
+    setRevertRecurrenceDayOfMonth,
     setStartTimeStr,
     handleStartDateChange,
     handleStartDateSelect,
@@ -740,6 +746,16 @@ export default function TaskConfigurationForm({
             }
             revertLater={revertLater}
             setRevertLater={readOnly ? undefined : setRevertLater}
+            revertRecurrenceType={revertRecurrenceType}
+            setRevertRecurrenceType={readOnly ? undefined : setRevertRecurrenceType}
+            revertRecurrenceDayOfWeek={revertRecurrenceDayOfWeek}
+            setRevertRecurrenceDayOfWeek={
+              readOnly ? undefined : setRevertRecurrenceDayOfWeek
+            }
+            revertRecurrenceDayOfMonth={revertRecurrenceDayOfMonth}
+            setRevertRecurrenceDayOfMonth={
+              readOnly ? undefined : setRevertRecurrenceDayOfMonth
+            }
             startDateStr={startDateStr}
             startTimeStr={startTimeStr}
             setStartTimeStr={readOnly ? undefined : setStartTimeStr}

@@ -534,7 +534,8 @@
     "dayOfMonth": "วันของเดือน",
     "chooseDate": "เลือกวันที่",
     "pickDay": "เลือกวัน",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "การคืนค่ารายรอบต้องห่างจากการเปลี่ยนราคาอย่างน้อย 3 ชั่วโมง"
   },
   "errors": {
     "unknownAction": "การดำเนินการที่ไม่รู้จัก",
@@ -563,7 +564,8 @@
     "pickDay": "เลือกวันที่ถูกต้อง",
     "pickDate": "เลือกวันที่",
     "pickValidDate": "เลือกวันที่ถูกต้อง",
-    "uploadCsv": "กรุณาอัปโหลดไฟล์ CSV"
+    "uploadCsv": "กรุณาอัปโหลดไฟล์ CSV",
+    "revertMinGap": "เวลาที่ย้อนกลับต้องห่างจากการเปลี่ยนราคาอย่างน้อย 3 ชั่วโมง"
   },
   "billing": {
     "redirectTitle": "กำลังไปยังการเรียกเก็บเงินของ Shopify",

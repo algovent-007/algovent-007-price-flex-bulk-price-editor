@@ -18,6 +18,9 @@ function getScheduleDraft(task, actionData) {
     scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
     scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek || "1",
     scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
+    revertRecurrenceType: actionData.revertRecurrenceType || "one_time",
+    revertRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek || "1",
+    revertRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth || "1",
     startDateStr: actionData.changePricesAtDate || "",
     startTimeStr: actionData.changePricesAtTime || "",
     revertDateStr: actionData.revertPricesAtDate || "",
@@ -110,6 +113,9 @@ export function applyStoredTaskCopy(copyData, setters) {
     setRemoveTagsActive,
     setTaskName,
     setRevertLater,
+    setRevertRecurrenceType,
+    setRevertRecurrenceDayOfWeek,
+    setRevertRecurrenceDayOfMonth,
     setScheduleType,
     setScheduleRecurrenceType,
     setScheduleRecurrenceDayOfWeek,
@@ -188,6 +194,15 @@ export function applyStoredTaskCopy(copyData, setters) {
 
   if (copyData.taskName) setTaskName(copyData.taskName);
   if (typeof copyData.revertEnabled === "boolean") setRevertLater(copyData.revertEnabled);
+  if (copyData.revertRecurrenceType) {
+    setRevertRecurrenceType?.(copyData.revertRecurrenceType);
+  }
+  if (copyData.revertRecurrenceDayOfWeek) {
+    setRevertRecurrenceDayOfWeek?.(copyData.revertRecurrenceDayOfWeek);
+  }
+  if (copyData.revertRecurrenceDayOfMonth) {
+    setRevertRecurrenceDayOfMonth?.(copyData.revertRecurrenceDayOfMonth);
+  }
   if (copyData.scheduleType) setScheduleType?.(copyData.scheduleType);
   if (copyData.scheduleRecurrenceType) {
     setScheduleRecurrenceType?.(copyData.scheduleRecurrenceType);

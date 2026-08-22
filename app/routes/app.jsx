@@ -6,7 +6,10 @@ import { authenticate } from "../shopify.server";
 import { processDueTasksForShop } from "../services/scheduler.server";
 import { requireSubscription } from "../services/subscription.server";
 import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
+import { getValidSupportContext } from "../services/admin-support-session.server";
 import { useI18n } from "../i18n/I18nProvider";
+import AdminSupportBanner from "../components/admin/AdminSupportBanner";
+import AdminSupportAppBridge from "../components/admin/AdminSupportAppBridge";
 
 const BILLING_EXEMPT_PATHS = ["/app/plans", "/app/billing"];
 
@@ -24,9 +27,10 @@ export const loader = async ({ request }) => {
 
     const url = new URL(request.url);
     const billingExempt = isBillingExemptPath(url.pathname);
+    const support = await getValidSupportContext(request);
     const subscription = await requireSubscription(admin, session);
 
-    if (!billingExempt && !subscription) {
+    if (!billingExempt && !subscription && !support) {
       throw redirect(appendEmbeddedAppParams(request, "/billing/confirm"));
     }
 
@@ -39,8 +43,14 @@ export const loader = async ({ request }) => {
 
     const shopifyLocale = session.locale || url.searchParams.get("locale") || "";
 
-    // eslint-disable-next-line no-undef
-    return { apiKey: process.env.SHOPIFY_API_KEY || "", shopifyLocale };
+    return {
+      // eslint-disable-next-line no-undef
+      apiKey: process.env.SHOPIFY_API_KEY || "",
+      shopifyLocale,
+      supportMode: support
+        ? { shop: support.shop, adminName: support.admin?.name || "Admin" }
+        : null,
+    };
   } catch (error) {
     if (error instanceof Response) {
       throw error;
@@ -52,15 +62,15 @@ export const loader = async ({ request }) => {
 };
 
 export default function App() {
-  const { apiKey, shopifyLocale } = useLoaderData();
+  const { apiKey, shopifyLocale, supportMode } = useLoaderData();
   const { t, applyShopifyLocale } = useI18n();
 
   useEffect(() => {
     applyShopifyLocale(shopifyLocale);
   }, [applyShopifyLocale, shopifyLocale]);
 
-  return (
-    <AppProvider embedded apiKey={apiKey}>
+  const appChrome = (
+    <>
       <s-app-nav>
         <s-link href="/app">{t("nav.currentTasks")}</s-link>
         <s-link href="/app/new">{t("nav.newTask")}</s-link>
@@ -71,6 +81,13 @@ export default function App() {
         <s-link href="/app/support">{t("nav.support")}</s-link>
       </s-app-nav>
       <Outlet />
+    </>
+  );
+
+  return (
+    <AppProvider embedded={!supportMode} apiKey={apiKey}>
+      {supportMode ? <AdminSupportBanner shop={supportMode.shop} /> : null}
+      {supportMode ? <AdminSupportAppBridge>{appChrome}</AdminSupportAppBridge> : appChrome}
     </AppProvider>
   );
 }

@@ -57,6 +57,9 @@ export function getDefaultTaskConfigState(taskName = "") {
     scheduleRecurrenceDayOfWeek: "1",
     scheduleRecurrenceDayOfMonth: "1",
     revertLater: false,
+    revertRecurrenceType: "one_time",
+    revertRecurrenceDayOfWeek: "1",
+    revertRecurrenceDayOfMonth: "1",
     startDate: new Date(),
     startDateStr: "",
     startTimeStr: "",
@@ -151,6 +154,9 @@ export function buildTaskConfigState(task, actionData, timeZone) {
   config.scheduleRecurrenceType = actionData.scheduleRecurrenceType || "one_time";
   config.scheduleRecurrenceDayOfWeek = actionData.scheduleRecurrenceDayOfWeek || "1";
   config.scheduleRecurrenceDayOfMonth = actionData.scheduleRecurrenceDayOfMonth || "1";
+  config.revertRecurrenceType = actionData.revertRecurrenceType || "one_time";
+  config.revertRecurrenceDayOfWeek = actionData.revertRecurrenceDayOfWeek || "1";
+  config.revertRecurrenceDayOfMonth = actionData.revertRecurrenceDayOfMonth || "1";
 
   const scheduleTimezone = actionData?.scheduleTimezone || timeZone;
 

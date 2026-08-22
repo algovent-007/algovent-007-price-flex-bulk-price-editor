@@ -195,6 +195,118 @@ test("validateScheduleConfig requires day of month for monthly schedule", () => 
   assert.ok(result.fieldErrors.scheduleRecurrenceDate);
 });
 
+test("validateScheduleConfig accepts recurring daily revert without date", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "daily",
+    revertPricesAtTime: "06:00 PM",
+    now: at(2026, 6, 18, 7, 0),
+  });
+
+  assert.equal(result.errors.length, 0);
+  assert.ok(result.revertAt > result.scheduledAt);
+  assert.equal(result.scheduledAt.getHours(), 9);
+  assert.equal(result.revertAt.getHours(), 18);
+  assert.equal(result.revertAt.getDate(), result.scheduledAt.getDate());
+});
+
+test("recurring daily revert requires a 3 hour gap", () => {
+  const tooSoon = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "daily",
+    revertPricesAtTime: "11:00 AM",
+    now: at(2026, 6, 18, 7, 0),
+  });
+  assert.ok(tooSoon.fieldErrors.revertTimeStr);
+
+  const exactGap = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "daily",
+    revertPricesAtTime: "12:00 PM",
+    now: at(2026, 6, 18, 7, 0),
+  });
+  assert.equal(exactGap.errors.length, 0);
+  assert.equal(exactGap.revertAt.getHours(), 12);
+});
+
+test("recurring revert at the same time as the next price change is rejected", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "daily",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 6, 18, 7, 0),
+  });
+  assert.ok(result.fieldErrors.revertTimeStr);
+});
+
+test("weekly revert on a later day does not need a same-day 3 hour clock gap", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "weekly",
+    scheduleRecurrenceDayOfWeek: "1",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "weekly",
+    revertRecurrenceDayOfWeek: "5",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 6, 18, 7, 0), // Saturday
+  });
+  assert.equal(result.errors.length, 0);
+});
+
+test("daily revert rolls to the next day when it is before the price change time", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "daily",
+    changePricesAtTime: "06:00 PM",
+    revertPrices: true,
+    revertRecurrenceType: "daily",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 6, 18, 10, 0),
+  });
+
+  assert.equal(result.errors.length, 0);
+  assert.ok(result.revertAt > result.scheduledAt);
+  assert.equal(result.scheduledAt.getDate(), 18);
+  assert.equal(result.revertAt.getDate(), 19);
+});
+
+test("validateScheduleConfig requires weekday for weekly revert", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "now",
+    revertPrices: true,
+    revertRecurrenceType: "weekly",
+    revertRecurrenceDayOfWeek: "",
+    revertPricesAtTime: "04:30 PM",
+  });
+
+  assert.ok(result.fieldErrors.revertRecurrenceDay);
+});
+
+test("validateScheduleConfig requires day of month for monthly revert", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "now",
+    revertPrices: true,
+    revertRecurrenceType: "monthly",
+    revertRecurrenceDayOfMonth: "",
+    revertPricesAtTime: "04:30 PM",
+  });
+
+  assert.ok(result.fieldErrors.revertRecurrenceDate);
+});
+
 test("validateScheduleConfig skips schedule fields when running now", () => {
   const result = validateScheduleConfig({
     changePricesSchedule: "now",

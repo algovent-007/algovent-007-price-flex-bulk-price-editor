@@ -1,0 +1,100 @@
+import assert from "node:assert/strict";
+import { hashPassword, verifyPassword } from "./password.server.js";
+import { signCookieValue, unsignCookieValue } from "./signed-cookie.server.js";
+import { sanitizeAuditDetails } from "./admin-sanitize.server.js";
+import { buildPageItems, getPageRange, parsePage, parsePageSize } from "./admin-pagination.js";
+import { SHOP_EXPORT_HEADERS, shopsToExportRows, toCsv } from "./admin-csv.server.js";
+import { buildAdminHref } from "./admin-query.js";
+import { formatAdminDateTime } from "./admin-datetime.js";
+
+function test(name, fn) {
+  return Promise.resolve(fn()).then(() => {
+    console.log(`✓ ${name}`);
+  });
+}
+
+/* eslint-disable no-undef */
+process.env.ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "test-admin-session-secret";
+
+await test("hashes and verifies passwords", async () => {
+  const hash = await hashPassword("correct-horse");
+  assert.equal(await verifyPassword("correct-horse", hash), true);
+  assert.equal(await verifyPassword("wrong-pass", hash), false);
+  assert.equal(hash.includes("correct-horse"), false);
+});
+
+await test("signs and unsigns cookie values", () => {
+  const signed = signCookieValue("admin-user-1");
+  assert.equal(unsignCookieValue(signed), "admin-user-1");
+  assert.equal(unsignCookieValue(`${signed}tampered`), null);
+  assert.equal(unsignCookieValue("not-signed"), null);
+});
+
+await test("strips secrets from audit details", () => {
+  const raw = sanitizeAuditDetails({
+    shop: "demo.myshopify.com",
+    accessToken: "shpat_secret",
+    password: "hunter2",
+    reason: "ok",
+  });
+  const parsed = JSON.parse(raw);
+  assert.equal(parsed.shop, "demo.myshopify.com");
+  assert.equal(parsed.reason, "ok");
+  assert.equal(parsed.accessToken, undefined);
+  assert.equal(parsed.password, undefined);
+});
+
+await test("builds screenshot-style pagination", () => {
+  assert.deepEqual(buildPageItems(1, 197), [1, 2, 3, 4, 5, 6, 7, "ellipsis-end", 196, 197]);
+  assert.deepEqual(buildPageItems(1, 4), [1, 2, 3, 4]);
+  assert.equal(parsePage("3"), 3);
+  assert.equal(parsePage("nope"), 1);
+  assert.equal(parsePageSize("25"), 25);
+  assert.equal(parsePageSize("7"), 10);
+  assert.deepEqual(getPageRange({ page: 1, pageSize: 10, total: 1962 }), {
+    from: 1,
+    to: 10,
+    total: 1962,
+  });
+});
+
+await test("exports shops without sensitive fields", () => {
+  const csv = toCsv(
+    SHOP_EXPORT_HEADERS,
+    shopsToExportRows([
+      {
+        displayId: "abc123",
+        shop: "demo.myshopify.com",
+        shopName: "Demo",
+        email: "owner@example.com",
+        planName: "Pro",
+        installStatus: "Installed",
+        subscriptionStatus: "ACTIVE",
+        isPaymentOk: true,
+        isReview: false,
+        installedOn: "2026-08-11T11:40:00.000Z",
+        lastActivity: "2026-08-11T11:40:00.000Z",
+        accessToken: "should-not-appear",
+      },
+    ]),
+  );
+
+  assert.match(csv, /demo\.myshopify\.com/);
+  assert.doesNotMatch(csv, /accessToken|should-not-appear|shpat_/);
+});
+
+await test("builds admin query hrefs without empty params", () => {
+  assert.equal(
+    buildAdminHref("/admin/users", { q: "acme", page: 2, pageSize: 10, status: "" }, { page: 3 }),
+    "/admin/users?q=acme&page=3&pageSize=10",
+  );
+});
+
+await test("formats admin timestamps", () => {
+  const formatted = formatAdminDateTime("2026-08-11T11:40:00.000Z", "UTC");
+  assert.equal(formatted.date.includes("2026"), true);
+  assert.equal(Boolean(formatted.time), true);
+  assert.equal(Boolean(formatted.zone), true);
+});
+
+console.log("All admin dashboard tests passed.");

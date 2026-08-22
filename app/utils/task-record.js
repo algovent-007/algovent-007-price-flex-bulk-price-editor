@@ -41,7 +41,14 @@ export function hasFreshRelatedRollback(task, runningTasks = [], now = new Date(
     return false;
   }
 
-  const rollbackTask = runningTasks.find((candidate) => candidate.id === `rollback-${actionData.sourceTaskId}`);
+  const rollbackTask = runningTasks.find((candidate) => {
+    if (candidate.id === `rollback-${actionData.sourceTaskId}`) return true;
+    const candidateData = parseTaskActionDetails(candidate);
+    return (
+      candidateData.taskType === "rollback" &&
+      candidateData.sourceTaskId === actionData.sourceTaskId
+    );
+  });
   return Boolean(rollbackTask && !getStaleRunningRecovery(rollbackTask, now));
 }
 

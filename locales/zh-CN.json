@@ -534,7 +534,8 @@
     "dayOfMonth": "每月日期",
     "chooseDate": "选择日期",
     "pickDay": "选择星期",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "定期还原必须至少晚于改价时间 3 小时。"
   },
   "errors": {
     "unknownAction": "未知操作。",
@@ -563,7 +564,8 @@
     "pickDay": "请选择有效的星期。",
     "pickDate": "请选择日期。",
     "pickValidDate": "请选择有效日期。",
-    "uploadCsv": "请上传 CSV 文件。"
+    "uploadCsv": "请上传 CSV 文件。",
+    "revertMinGap": "恢复时间必须至少晚于改价时间 3 小时。"
   },
   "billing": {
     "redirectTitle": "正在转到 Shopify 账单",

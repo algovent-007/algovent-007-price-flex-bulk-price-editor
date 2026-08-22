@@ -42,12 +42,12 @@ function validateRollbackTask(task) {
   return { valid: true, actionData, logs };
 }
 
-async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId) {
+async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, { preserveStatus = false } = {}) {
   await requireTaskUpdateForShop(prisma, {
     id: task.id,
     shop: task.shop,
     data: {
-      status: "rolled_back",
+      ...(preserveStatus ? {} : { status: "rolled_back" }),
       actionDetails: JSON.stringify({
         ...actionData,
         rolledBackByTaskId: rollbackTaskId,
@@ -56,7 +56,7 @@ async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId) {
   });
 }
 
-async function prepareRollbackTask(task) {
+async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
   if (!task?.shop) {
     return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
   }
@@ -67,12 +67,12 @@ async function prepareRollbackTask(task) {
   }
 
   const { actionData, logs } = validation;
-  const rollbackTaskId = `rollback-${task.id}`;
+  const resolvedRollbackTaskId = rollbackTaskId || `rollback-${task.id}`;
   const productIds = actionData.productIds || [...new Set(logs.map((log) => log.productId))];
   const productCount = productIds.length;
 
   const existingRollbackTask = await prisma.task.findUnique({
-    where: { id: rollbackTaskId },
+    where: { id: resolvedRollbackTaskId },
   });
 
   if (existingRollbackTask) {
@@ -83,16 +83,16 @@ async function prepareRollbackTask(task) {
     if (existingRollbackTask.status === "running") {
       return {
         success: true,
-        rollbackTaskId,
+        rollbackTaskId: resolvedRollbackTaskId,
         alreadyRunning: true,
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId);
 
     return {
       success: true,
-      rollbackTaskId,
+      rollbackTaskId: resolvedRollbackTaskId,
       alreadyRolledBack: true,
     };
   }
@@ -100,7 +100,7 @@ async function prepareRollbackTask(task) {
   try {
     await prisma.task.create({
       data: {
-        id: rollbackTaskId,
+        id: resolvedRollbackTaskId,
         name: `Rollback: ${task.name}`,
         status: "running",
         shop: task.shop,
@@ -125,7 +125,7 @@ async function prepareRollbackTask(task) {
     }
 
     const concurrentTask = await findTaskForShop(prisma, {
-      id: rollbackTaskId,
+      id: resolvedRollbackTaskId,
       shop: task.shop,
     });
 
@@ -136,23 +136,23 @@ async function prepareRollbackTask(task) {
     if (concurrentTask.status === "running") {
       return {
         success: true,
-        rollbackTaskId,
+        rollbackTaskId: resolvedRollbackTaskId,
         alreadyRunning: true,
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId);
 
     return {
       success: true,
-      rollbackTaskId,
+      rollbackTaskId: resolvedRollbackTaskId,
       alreadyRolledBack: true,
     };
   }
 
   return {
     success: true,
-    rollbackTaskId,
+    rollbackTaskId: resolvedRollbackTaskId,
     actionData,
     logs,
     productIds,
@@ -160,7 +160,15 @@ async function prepareRollbackTask(task) {
   };
 }
 
-async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, logs, productIds }) {
+async function executeRollbackWork({
+  admin,
+  task,
+  rollbackTaskId,
+  actionData,
+  logs,
+  productIds,
+  preserveSourceSchedule = false,
+}) {
   const shopifyQuery = async (query, variables = {}) => {
     const response = await admin.graphql(query, { variables });
     const json = await response.json();
@@ -338,7 +346,9 @@ async function executeRollbackWork({ admin, task, rollbackTaskId, actionData, lo
       await updateRollbackTask("running");
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId);
+    await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, {
+      preserveStatus: preserveSourceSchedule,
+    });
     processedProductsCount = productCount;
     await updateRollbackTask("completed", {
       processedProductsCount: productCount,
@@ -404,8 +414,16 @@ export async function startRollbackForTask({ admin, task }) {
   };
 }
 
-export async function executeRollbackForTask({ admin, task }) {
-  const prepared = await prepareRollbackTask(task);
+export async function executeRollbackForTask({
+  admin,
+  task,
+  preserveSourceSchedule = false,
+}) {
+  const prepared = await prepareRollbackTask(task, {
+    rollbackTaskId: preserveSourceSchedule
+      ? `rollback-${task.id}-${Date.now()}`
+      : undefined,
+  });
 
   if (!prepared.success) {
     return prepared;
@@ -436,5 +454,6 @@ export async function executeRollbackForTask({ admin, task }) {
     actionData: prepared.actionData,
     logs: prepared.logs,
     productIds: prepared.productIds,
+    preserveSourceSchedule,
   });
 }

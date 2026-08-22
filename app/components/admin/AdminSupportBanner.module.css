@@ -1,0 +1,29 @@
+.banner {
+  align-items: center;
+  background: #1f3b8f;
+  color: #ffffff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.banner strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.exit {
+  background: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  color: #1f3b8f;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 8px 12px;
+}

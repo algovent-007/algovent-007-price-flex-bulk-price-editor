@@ -534,7 +534,8 @@
     "dayOfMonth": "Tag des Monats",
     "chooseDate": "Datum wählen",
     "pickDay": "Tag wählen",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "Die wiederkehrende Rücksetzung muss mindestens 3 Stunden nach der Preisänderung liegen."
   },
   "errors": {
     "unknownAction": "Unbekannte Aktion.",
@@ -563,7 +564,8 @@
     "pickDay": "Wählen Sie einen gültigen Tag.",
     "pickDate": "Wählen Sie ein Datum.",
     "pickValidDate": "Wählen Sie ein gültiges Datum.",
-    "uploadCsv": "Bitte laden Sie eine CSV-Datei hoch."
+    "uploadCsv": "Bitte laden Sie eine CSV-Datei hoch.",
+    "revertMinGap": "Die Rücksetzzeit muss mindestens 3 Stunden nach der Preisänderung liegen."
   },
   "billing": {
     "redirectTitle": "Weiterleitung zur Shopify-Abrechnung",

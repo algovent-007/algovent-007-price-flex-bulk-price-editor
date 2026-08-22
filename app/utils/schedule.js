@@ -199,6 +199,22 @@ export function isOneTimeScheduleRecurrence(recurrenceType) {
   return !recurrenceType || recurrenceType === "one_time";
 }
 
+export const RECURRING_REVERT_MIN_GAP_HOURS = 3;
+export const RECURRING_REVERT_GAP_ERROR =
+  "Revert time must be at least 3 hours after the price change time.";
+
+export function needsRecurringRevertGap(
+  changePricesSchedule,
+  scheduleRecurrenceType,
+  revertRecurrenceType
+) {
+  return (
+    changePricesSchedule === "later" &&
+    !isOneTimeScheduleRecurrence(scheduleRecurrenceType) &&
+    !isOneTimeScheduleRecurrence(revertRecurrenceType)
+  );
+}
+
 function getNextDailyOccurrence(time, now, timeZone) {
   const zonedNow = getZonedDateTimeParts(now, timeZone);
   let { year, month, day } = zonedNow;
@@ -337,6 +353,59 @@ export function computeScheduledAt({
   return null;
 }
 
+function addRecurrenceFieldErrors({
+  recurrenceType,
+  dateValue,
+  timeValue,
+  dayOfWeek,
+  dayOfMonth,
+  dateField,
+  timeField,
+  dayField,
+  monthField,
+  dateRequired,
+  validDate,
+  timeRequired,
+  validTime,
+  addError,
+}) {
+  const oneTime = isOneTimeScheduleRecurrence(recurrenceType);
+  const isWeekly = recurrenceType === "weekly";
+  const isMonthly = recurrenceType === "monthly";
+
+  if (oneTime) {
+    if (!String(dateValue ?? "").trim()) {
+      addError(dateField, dateRequired);
+    } else if (!parseDateStringParts(dateValue)) {
+      addError(dateField, validDate);
+    }
+  }
+
+  if (isWeekly) {
+    if (!String(dayOfWeek ?? "").trim()) {
+      addError(dayField, "Pick a day.");
+    } else if (!WEEKDAY_OPTIONS.some((option) => option.value === String(dayOfWeek))) {
+      addError(dayField, "Pick a valid day.");
+    }
+  }
+
+  if (isMonthly) {
+    if (!String(dayOfMonth ?? "").trim()) {
+      addError(monthField, "Pick a date.");
+    } else if (!MONTH_DAY_OPTIONS.some((option) => option.value === String(dayOfMonth))) {
+      addError(monthField, "Pick a valid date.");
+    }
+  }
+
+  if (!String(timeValue ?? "").trim()) {
+    addError(timeField, timeRequired);
+  } else if (!parseTimeString(timeValue)) {
+    addError(timeField, validTime);
+  }
+
+  return oneTime;
+}
+
 export function validateScheduleConfig({
   changePricesSchedule,
   scheduleRecurrenceType = "one_time",
@@ -345,13 +414,16 @@ export function validateScheduleConfig({
   scheduleRecurrenceDayOfWeek,
   scheduleRecurrenceDayOfMonth,
   revertPrices,
+  revertRecurrenceType = "one_time",
   revertPricesAtDate,
   revertPricesAtTime,
+  revertRecurrenceDayOfWeek,
+  revertRecurrenceDayOfMonth,
   timeZone,
+  now = new Date(),
 }) {
   const errors = [];
   const fieldErrors = {};
-  const now = new Date();
 
   const addError = (field, message) => {
     errors.push(message);
@@ -362,43 +434,22 @@ export function validateScheduleConfig({
 
   let scheduledAt = now;
   if (changePricesSchedule === "later") {
-    const oneTime = isOneTimeScheduleRecurrence(scheduleRecurrenceType);
-    const isWeekly = scheduleRecurrenceType === "weekly";
-    const isMonthly = scheduleRecurrenceType === "monthly";
-
-    if (oneTime) {
-      if (!String(changePricesAtDate ?? "").trim()) {
-        addError("startDateStr", "Enter a start date.");
-      } else if (!parseDateStringParts(changePricesAtDate)) {
-        addError("startDateStr", "Enter a valid start date.");
-      }
-    }
-
-    if (isWeekly) {
-      if (!String(scheduleRecurrenceDayOfWeek ?? "").trim()) {
-        addError("scheduleRecurrenceDay", "Pick a day.");
-      } else if (
-        !WEEKDAY_OPTIONS.some((option) => option.value === String(scheduleRecurrenceDayOfWeek))
-      ) {
-        addError("scheduleRecurrenceDay", "Pick a valid day.");
-      }
-    }
-
-    if (isMonthly) {
-      if (!String(scheduleRecurrenceDayOfMonth ?? "").trim()) {
-        addError("scheduleRecurrenceDate", "Pick a date.");
-      } else if (
-        !MONTH_DAY_OPTIONS.some((option) => option.value === String(scheduleRecurrenceDayOfMonth))
-      ) {
-        addError("scheduleRecurrenceDate", "Pick a valid date.");
-      }
-    }
-
-    if (!String(changePricesAtTime ?? "").trim()) {
-      addError("startTimeStr", "Enter a start time.");
-    } else if (!parseTimeString(changePricesAtTime)) {
-      addError("startTimeStr", "Enter a valid start time.");
-    }
+    const oneTime = addRecurrenceFieldErrors({
+      recurrenceType: scheduleRecurrenceType,
+      dateValue: changePricesAtDate,
+      timeValue: changePricesAtTime,
+      dayOfWeek: scheduleRecurrenceDayOfWeek,
+      dayOfMonth: scheduleRecurrenceDayOfMonth,
+      dateField: "startDateStr",
+      timeField: "startTimeStr",
+      dayField: "scheduleRecurrenceDay",
+      monthField: "scheduleRecurrenceDate",
+      dateRequired: "Enter a start date.",
+      validDate: "Enter a valid start date.",
+      timeRequired: "Enter a start time.",
+      validTime: "Enter a valid start time.",
+      addError,
+    });
 
     scheduledAt = computeScheduledAt({
       recurrenceType: scheduleRecurrenceType,
@@ -429,29 +480,75 @@ export function validateScheduleConfig({
 
   let revertAt = null;
   if (revertPrices === "true" || revertPrices === true) {
-    if (!String(revertPricesAtDate ?? "").trim()) {
-      addError("revertDateStr", "Enter a revert date.");
-    } else if (!parseDateStringParts(revertPricesAtDate)) {
-      addError("revertDateStr", "Enter a valid revert date.");
-    }
+    const oneTime = addRecurrenceFieldErrors({
+      recurrenceType: revertRecurrenceType,
+      dateValue: revertPricesAtDate,
+      timeValue: revertPricesAtTime,
+      dayOfWeek: revertRecurrenceDayOfWeek,
+      dayOfMonth: revertRecurrenceDayOfMonth,
+      dateField: "revertDateStr",
+      timeField: "revertTimeStr",
+      dayField: "revertRecurrenceDay",
+      monthField: "revertRecurrenceDate",
+      dateRequired: "Enter a revert date.",
+      validDate: "Enter a valid revert date.",
+      timeRequired: "Enter a revert time.",
+      validTime: "Enter a valid revert time.",
+      addError,
+    });
 
-    if (!String(revertPricesAtTime ?? "").trim()) {
-      addError("revertTimeStr", "Enter a revert time.");
-    } else if (!parseTimeString(revertPricesAtTime)) {
+    const revertAnchor = scheduledAt instanceof Date ? scheduledAt : now;
+    revertAt = computeScheduledAt({
+      recurrenceType: revertRecurrenceType,
+      changePricesAtDate: revertPricesAtDate,
+      changePricesAtTime: revertPricesAtTime,
+      scheduleRecurrenceDayOfWeek: revertRecurrenceDayOfWeek,
+      scheduleRecurrenceDayOfMonth: revertRecurrenceDayOfMonth,
+      now: revertAnchor,
+      timeZone,
+    });
+
+    if (oneTime) {
+      if (
+        String(revertPricesAtDate ?? "").trim() &&
+        String(revertPricesAtTime ?? "").trim() &&
+        !revertAt
+      ) {
+        addError("revertDateStr", "Enter a valid revert date and time.");
+        addError("revertTimeStr", "Enter a valid revert date and time.");
+      } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
+        addError("revertDateStr", "Revert time must be after the price change time.");
+        addError("revertTimeStr", "Revert time must be after the price change time.");
+      }
+    } else if (String(revertPricesAtTime ?? "").trim() && !revertAt) {
       addError("revertTimeStr", "Enter a valid revert time.");
+    } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
+      addError("revertTimeStr", "Revert time must be after the price change time.");
     }
 
-    revertAt = parseScheduleDateTime(revertPricesAtDate, revertPricesAtTime, timeZone);
     if (
-      String(revertPricesAtDate ?? "").trim() &&
-      String(revertPricesAtTime ?? "").trim() &&
-      !revertAt
+      needsRecurringRevertGap(changePricesSchedule, scheduleRecurrenceType, revertRecurrenceType) &&
+      scheduledAt instanceof Date &&
+      revertAt instanceof Date
     ) {
-      addError("revertDateStr", "Enter a valid revert date and time.");
-      addError("revertTimeStr", "Enter a valid revert date and time.");
-    } else if (scheduledAt && revertAt && revertAt <= scheduledAt) {
-      addError("revertDateStr", "Revert time must be after the price change time.");
-      addError("revertTimeStr", "Revert time must be after the price change time.");
+      const minRevertAt = new Date(
+        scheduledAt.getTime() + RECURRING_REVERT_MIN_GAP_HOURS * 60 * 60 * 1000
+      );
+      const nextScheduledAt = computeScheduledAt({
+        recurrenceType: scheduleRecurrenceType,
+        changePricesAtDate,
+        changePricesAtTime,
+        scheduleRecurrenceDayOfWeek,
+        scheduleRecurrenceDayOfMonth,
+        now: scheduledAt,
+        timeZone,
+      });
+      const tooSoon = revertAt.getTime() < minRevertAt.getTime();
+      const afterNextRun =
+        nextScheduledAt instanceof Date && revertAt.getTime() >= nextScheduledAt.getTime();
+      if (tooSoon || afterNextRun) {
+        addError("revertTimeStr", RECURRING_REVERT_GAP_ERROR);
+      }
     }
   }
 
@@ -607,6 +704,23 @@ export function formatTime12Hour(date, timeZone) {
   hours = hours % 12;
   if (hours === 0) hours = 12;
   return `${hours}:${String(minutes).padStart(2, "0")} ${meridiem}`;
+}
+
+export function getMinRecurringRevertAt(scheduledAt) {
+  if (!(scheduledAt instanceof Date) || Number.isNaN(scheduledAt.getTime())) return null;
+  return new Date(scheduledAt.getTime() + RECURRING_REVERT_MIN_GAP_HOURS * 60 * 60 * 1000);
+}
+
+export function getRecurringRevertGapDefaults(scheduledAt, timeZone) {
+  const revertAt = getMinRecurringRevertAt(scheduledAt);
+  if (!revertAt) return null;
+  const parts = getZonedDateTimeParts(revertAt, timeZone);
+  return {
+    revertAt,
+    timeStr: formatTime12Hour(revertAt, timeZone),
+    dayOfWeek: String(parts.weekday),
+    dayOfMonth: String(parts.day),
+  };
 }
 
 export function formatCurrentTimeInTimezone(timeZone) {

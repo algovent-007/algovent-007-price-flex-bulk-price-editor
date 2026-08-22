@@ -28,15 +28,22 @@ export async function createScheduledRevertTask({
   revertAt,
   revertPricesAtDate,
   revertPricesAtTime,
+  revertRecurrenceType = "one_time",
+  revertRecurrenceDayOfWeek = "1",
+  revertRecurrenceDayOfMonth = "1",
   scheduleTimezone,
 }) {
   const revertTaskId = `scheduled-rollback-${sourceTaskId}`;
+  const isRecurring = !isOneTimeScheduleRecurrence(revertRecurrenceType);
   const actionDetails = JSON.stringify({
     taskType: "scheduled_rollback",
     sourceTaskId,
     sourceTaskName,
     revertPricesAtDate,
     revertPricesAtTime,
+    revertRecurrenceType,
+    revertRecurrenceDayOfWeek,
+    revertRecurrenceDayOfMonth,
     scheduleTimezone,
   });
 
@@ -48,7 +55,8 @@ export async function createScheduledRevertTask({
     if (
       existing.status === "cancelled" ||
       existing.status === "failed" ||
-      existing.status === "scheduled"
+      existing.status === "scheduled" ||
+      (isRecurring && existing.status === "completed")
     ) {
       await prisma.task.updateMany({
         where: {
@@ -92,6 +100,70 @@ export async function cancelScheduledRevertTask(sourceTaskId, shop) {
   });
 }
 
+async function shopCanUseRecurringTasks(shop) {
+  const subscription = await getSubscriptionByShop(shop);
+  return (
+    subscription?.status === SUBSCRIPTION_STATUS.ACTIVE &&
+    planIncludesFeature(subscription.planName, BILLING_FEATURES.RECURRING_TASKS)
+  );
+}
+
+function computeNextRevertAt(actionData, now) {
+  return computeScheduledAt({
+    recurrenceType: actionData.revertRecurrenceType || "one_time",
+    changePricesAtDate: actionData.revertPricesAtDate,
+    changePricesAtTime: actionData.revertPricesAtTime,
+    scheduleRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek,
+    scheduleRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth,
+    now,
+    timeZone: actionData.scheduleTimezone || null,
+  });
+}
+
+async function scheduleRevertIfEnabled({ shop, task, actionData, revertAt }) {
+  if (!actionData.revertEnabled || !revertAt) return;
+
+  await createScheduledRevertTask({
+    shop,
+    sourceTaskId: task.id,
+    sourceTaskName: task.name,
+    revertAt,
+    revertPricesAtDate: actionData.revertPricesAtDate,
+    revertPricesAtTime: actionData.revertPricesAtTime,
+    revertRecurrenceType: actionData.revertRecurrenceType,
+    revertRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek,
+    revertRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth,
+    scheduleTimezone: actionData.scheduleTimezone,
+  });
+}
+
+async function rescheduleRecurringRevert({ task, actionData, shop }) {
+  const nextRevertAt = computeNextRevertAt(actionData, new Date());
+  if (!nextRevertAt) {
+    await updateTaskForShop(prisma, {
+      id: task.id,
+      shop,
+      data: { status: "completed" },
+    });
+    return { success: true };
+  }
+
+  await updateTaskForShop(prisma, {
+    id: task.id,
+    shop,
+    data: {
+      status: "scheduled",
+      scheduledAt: nextRevertAt,
+      actionDetails: JSON.stringify({
+        ...actionData,
+        revertAt: nextRevertAt.toISOString(),
+      }),
+    },
+  });
+
+  return { success: true, rescheduled: true };
+}
+
 async function recoverStaleRunningTasks(shop) {
   const runningTasks = await prisma.task.findMany({
     where: { shop, status: "running" },
@@ -123,24 +195,31 @@ async function recoverStaleRunningTasks(shop) {
 
 async function processScheduledEditTask({ admin, shop, task, actionData }) {
   const scheduleTimezone = actionData.scheduleTimezone || null;
+  const revertRecurrenceType = actionData.revertRecurrenceType || "one_time";
   const scheduleMeta = {
     scheduleRecurrenceType: actionData.scheduleRecurrenceType || "one_time",
     scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek || "1",
     scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
+    changePricesAtDate: actionData.changePricesAtDate,
     changePricesAtTime:
       actionData.changePricesAtTime ||
       formatTime12Hour(new Date(task.scheduledAt), scheduleTimezone),
     revertEnabled: actionData.revertEnabled,
+    revertRecurrenceType,
+    revertRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek || "1",
+    revertRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth || "1",
+    revertPricesAtDate: actionData.revertPricesAtDate,
+    revertPricesAtTime:
+      actionData.revertPricesAtTime ||
+      (task.revertAt ? formatTime12Hour(new Date(task.revertAt), scheduleTimezone) : null),
     scheduleTimezone,
   };
 
   const isRecurring = !isOneTimeScheduleRecurrence(scheduleMeta.scheduleRecurrenceType);
+  const isRevertRecurring = !isOneTimeScheduleRecurrence(revertRecurrenceType);
 
-  if (isRecurring) {
-    const subscription = await getSubscriptionByShop(shop);
-    const canUseRecurring =
-      subscription?.status === SUBSCRIPTION_STATUS.ACTIVE &&
-      planIncludesFeature(subscription.planName, BILLING_FEATURES.RECURRING_TASKS);
+  if (isRecurring || isRevertRecurring) {
+    const canUseRecurring = await shopCanUseRecurringTasks(shop);
 
     if (!canUseRecurring) {
       await updateTaskForShop(prisma, {
@@ -166,13 +245,23 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
     return result;
   }
 
+  const now = new Date();
+  let nextRevertAt = null;
+  if (actionData.revertEnabled) {
+    if (isRevertRecurring) {
+      nextRevertAt = computeNextRevertAt(scheduleMeta, now);
+    } else if (task.revertAt && new Date(task.revertAt) > now) {
+      nextRevertAt = new Date(task.revertAt);
+    }
+  }
+
   if (isRecurring) {
     const nextScheduledAt = computeScheduledAt({
       recurrenceType: scheduleMeta.scheduleRecurrenceType,
       changePricesAtTime: scheduleMeta.changePricesAtTime,
       scheduleRecurrenceDayOfWeek: scheduleMeta.scheduleRecurrenceDayOfWeek,
       scheduleRecurrenceDayOfMonth: scheduleMeta.scheduleRecurrenceDayOfMonth,
-      now: new Date(),
+      now,
       timeZone: scheduleMeta.scheduleTimezone,
     });
 
@@ -183,31 +272,38 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
         data: {
           status: "scheduled",
           scheduledAt: nextScheduledAt,
+          revertAt: nextRevertAt,
           actionDetails: JSON.stringify({
             taskType: "scheduled_edit",
             ...scheduleMeta,
             runPayload: actionData.runPayload,
+            logs: result.logsList,
+            productIds: result.productIdsList,
+            tagsToAdd: actionData.runPayload?.tagsToAddList || actionData.tagsToAdd,
+            tagsToRemove: actionData.runPayload?.tagsToRemoveList || actionData.tagsToRemove,
             scheduledAt: nextScheduledAt.toISOString(),
-            revertAt: task.revertAt?.toISOString() || null,
+            revertAt: nextRevertAt?.toISOString() || null,
           }),
         },
       });
     }
 
+    await scheduleRevertIfEnabled({
+      shop,
+      task,
+      actionData: scheduleMeta,
+      revertAt: nextRevertAt,
+    });
+
     return result;
   }
 
-  if (actionData.revertEnabled && task.revertAt) {
-    await createScheduledRevertTask({
-      shop,
-      sourceTaskId: task.id,
-      sourceTaskName: task.name,
-      revertAt: task.revertAt,
-      revertPricesAtDate: actionData.revertPricesAtDate,
-      revertPricesAtTime: actionData.revertPricesAtTime,
-      scheduleTimezone: actionData.scheduleTimezone,
-    });
-  }
+  await scheduleRevertIfEnabled({
+    shop,
+    task,
+    actionData: scheduleMeta,
+    revertAt: nextRevertAt,
+  });
 
   return result;
 }
@@ -273,14 +369,35 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
     sourceActionData = {};
   }
 
-  if (sourceTask.status === "rolled_back" || sourceActionData.rolledBackByTaskId) {
+  const sourceIsRecurring = !isOneTimeScheduleRecurrence(
+    sourceActionData.scheduleRecurrenceType
+  );
+  const revertIsRecurring = !isOneTimeScheduleRecurrence(actionData.revertRecurrenceType);
+  const hasLogs =
+    Array.isArray(sourceActionData.logs) && sourceActionData.logs.length > 0;
+
+  const finishOrRescheduleSkipped = async (reason) => {
+    if (revertIsRecurring && sourceIsRecurring) {
+      if (!(await shopCanUseRecurringTasks(shop))) {
+        return completeScheduledRollbackTask(task.id, shop, "completed", {
+          skipped: true,
+          reason: "Recurring tasks require a Pro or Super plan.",
+        });
+      }
+      return rescheduleRecurringRevert({ task, actionData, shop });
+    }
+
     return completeScheduledRollbackTask(task.id, shop, "cancelled", {
       skipped: true,
-      reason: "Source task was already rolled back",
+      reason,
     });
+  };
+
+  if (sourceTask.status === "rolled_back" || sourceActionData.rolledBackByTaskId) {
+    return finishOrRescheduleSkipped("Source task was already rolled back");
   }
 
-  if (sourceTask.status === "scheduled") {
+  if (sourceTask.status === "scheduled" && !hasLogs) {
     await updateTaskForShop(prisma, {
       id: task.id,
       shop,
@@ -289,7 +406,11 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
     return { success: false, skipped: true, reason: "Source price edit has not run yet" };
   }
 
-  if (sourceTask.status !== "completed") {
+  const canRollback =
+    sourceTask.status === "completed" ||
+    (sourceIsRecurring && sourceTask.status === "scheduled" && hasLogs);
+
+  if (!canRollback) {
     await updateTaskForShop(prisma, {
       id: task.id,
       shop,
@@ -310,15 +431,12 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
   const result = await executeRollbackForTask({
     admin,
     task: sourceTask,
-    createRollbackRecord: true,
+    preserveSourceSchedule: sourceIsRecurring,
   });
 
   if (!result.success) {
     if (result.error === "This task has already been rolled back") {
-      return completeScheduledRollbackTask(task.id, shop, "cancelled", {
-        skipped: true,
-        reason: result.error,
-      });
+      return finishOrRescheduleSkipped(result.error);
     }
 
     await updateTaskForShop(prisma, {
@@ -327,6 +445,16 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
       data: { status: "failed" },
     });
     return result;
+  }
+
+  if (revertIsRecurring && sourceIsRecurring) {
+    if (!(await shopCanUseRecurringTasks(shop))) {
+      return completeScheduledRollbackTask(task.id, shop, "completed", {
+        skipped: true,
+        reason: "Recurring tasks require a Pro or Super plan.",
+      });
+    }
+    return rescheduleRecurringRevert({ task, actionData, shop });
   }
 
   await updateTaskForShop(prisma, {

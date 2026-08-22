@@ -534,7 +534,8 @@
     "dayOfMonth": "Jour du mois",
     "chooseDate": "Choisir une date",
     "pickDay": "Choisir un jour",
-    "dateFormat": "M/D/YYYY"
+    "dateFormat": "M/D/YYYY",
+    "revertMinGapHint": "Le rétablissement récurrent doit avoir lieu au moins 3 heures après le changement de prix."
   },
   "errors": {
     "unknownAction": "Action inconnue.",
@@ -563,7 +564,8 @@
     "pickDay": "Choisissez un jour valide.",
     "pickDate": "Choisissez une date.",
     "pickValidDate": "Choisissez une date valide.",
-    "uploadCsv": "Veuillez téléverser un fichier CSV."
+    "uploadCsv": "Veuillez téléverser un fichier CSV.",
+    "revertMinGap": "L’heure de rétablissement doit être au moins 3 heures après le changement de prix."
   },
   "billing": {
     "redirectTitle": "Redirection vers la facturation Shopify",
