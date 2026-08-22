@@ -518,6 +518,7 @@
     "date": "날짜",
     "timeExample": "예: 오후 4:30",
     "pickDate": "날짜 선택",
+    "afterDays": "며칠 후",
     "applyDate": "적용",
     "timezoneBanner": "날짜와 시간은 {{timezone}}을(를) 사용합니다. 현재 시각은 {{currentTime}}입니다.",
     "saveTimezoneHint": " 계정 페이지에서 시간대를 저장하면 모든 기기에 적용됩니다.",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "유효한 되돌리기 날짜와 시간을 입력하세요.",
     "pickDay": "유효한 요일을 선택하세요.",
     "pickDate": "날짜를 선택하세요.",
+    "afterDays": "며칠 후인지 입력하세요.",
     "pickValidDate": "유효한 날짜를 선택하세요.",
+    "validAfterDays": "유효한 일수를 선택하세요.",
     "uploadCsv": "CSV 파일을 업로드하세요.",
     "revertMinGap": "되돌리기 시간은 가격 변경 후 최소 3시간 뒤여야 합니다."
   },

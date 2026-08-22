@@ -518,6 +518,7 @@
     "date": "Date",
     "timeExample": "Exemple : 16:30",
     "pickDate": "Choisir une date",
+    "afterDays": "Après (jours)",
     "applyDate": "Appliquer",
     "timezoneBanner": "Les dates et heures utilisent {{timezone}}. L’heure actuelle est {{currentTime}}.",
     "saveTimezoneHint": " Enregistrez votre fuseau horaire sur la page Compte pour l’appliquer à tous les appareils.",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "Saisissez une date et une heure de rétablissement valides.",
     "pickDay": "Choisissez un jour valide.",
     "pickDate": "Choisissez une date.",
+    "afterDays": "Indiquez le nombre de jours.",
     "pickValidDate": "Choisissez une date valide.",
+    "validAfterDays": "Choisissez un nombre de jours valide.",
     "uploadCsv": "Veuillez téléverser un fichier CSV.",
     "revertMinGap": "L’heure de rétablissement doit être au moins 3 heures après le changement de prix."
   },

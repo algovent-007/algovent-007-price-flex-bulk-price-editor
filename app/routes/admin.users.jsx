@@ -8,6 +8,7 @@ import {
   startSupportSession,
 } from "../services/admin-support-session.server";
 import { listAdminShops, setShopReviewFlag } from "../models/admin-shops.server";
+import { refreshAdminShopStatus } from "../services/admin-shop-status.server";
 import { PLAN_NAMES } from "../constants/billing";
 import { parsePage, parsePageSize } from "../utils/admin-pagination";
 import { buildAdminHref, readAdminListParams } from "../utils/admin-query";
@@ -70,6 +71,24 @@ export const action = async ({ request }) => {
     return { ok: true };
   }
 
+  if (intent === "update_status" && shop) {
+    const result = await refreshAdminShopStatus(shop);
+    await recordAdminAudit({
+      adminUser: admin,
+      shop,
+      action: "admin.update_status",
+      success: Boolean(result.ok),
+      details: {
+        installed: result.installed,
+        isPaymentOk: result.isPaymentOk,
+        planName: result.planName,
+        subscriptionStatus: result.subscriptionStatus,
+        error: result.error || null,
+      },
+    });
+    return result;
+  }
+
   if (intent === "access_account" && shop) {
     const result = await startSupportSession({ request, shop });
     if (!result.ok) {
@@ -115,12 +134,16 @@ export default function AdminUsers() {
   const { params, page, pageSize, total, users, error, plans } = useLoaderData();
   const navigate = useNavigate();
   const fetcher = useFetcher();
+  const statusFetcher = useFetcher();
   const [filtersOpen, setFiltersOpen] = useState(
     Boolean(params.status || params.plan || params.payment || params.review),
   );
   const [openMenu, setOpenMenu] = useState("");
   const menuRef = useRef(null);
   const exportHref = buildAdminHref("/internal/admin/export-users", params, { page: "", pageSize: "" });
+  const updatingShop =
+    statusFetcher.state !== "idle" ? String(statusFetcher.formData?.get("shop") || "") : "";
+  const statusError = statusFetcher.data?.ok === false ? statusFetcher.data.error : "";
 
   useEffect(() => {
     if (!openMenu) {
@@ -168,6 +191,7 @@ export default function AdminUsers() {
       </div>
 
       {error ? <div className="admin-alert">{error}</div> : null}
+      {statusError ? <div className="admin-alert">{statusError}</div> : null}
 
       <div className="admin-search-row">
         <Form method="get" className="admin-search">
@@ -245,7 +269,7 @@ export default function AdminUsers() {
               <th>Plan</th>
               <th>Is Trial</th>
               <th>Installed On</th>
-              <th>Last Activity</th>
+              <th>Uninstalled On</th>
               <th>Status</th>
               <th>Is Payment Ok</th>
               <th>Is Review</th>
@@ -285,7 +309,20 @@ export default function AdminUsers() {
                         <a href={`https://${user.shop}`} target="_blank" rel="noreferrer">
                           {user.shop}
                         </a>
-                        {shopPlanLabel ? <span className="admin-shop-meta">{shopPlanLabel}</span> : null}
+                        <div className="admin-shop-meta-row">
+                          {shopPlanLabel ? <span className="admin-shop-meta">{shopPlanLabel}</span> : null}
+                          <statusFetcher.Form method="post">
+                            <input type="hidden" name="intent" value="update_status" />
+                            <input type="hidden" name="shop" value={user.shop} />
+                            <button
+                              type="submit"
+                              className="admin-status-link"
+                              disabled={updatingShop === user.shop}
+                            >
+                              {updatingShop === user.shop ? "Updating…" : "Update Status"}
+                            </button>
+                          </statusFetcher.Form>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -300,7 +337,7 @@ export default function AdminUsers() {
                       <DateTimeCell value={user.installedOn} timeZone={user.timezone} />
                     </td>
                     <td>
-                      <DateTimeCell value={user.lastActivity} timeZone={user.timezone} />
+                      <DateTimeCell value={user.uninstalledOn} timeZone={user.timezone} />
                     </td>
                     <td>
                       <span className={`admin-badge ${statusBadgeClass(user.installStatus)}`}>

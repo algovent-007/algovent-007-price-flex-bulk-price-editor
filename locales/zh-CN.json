@@ -518,6 +518,7 @@
     "date": "日期",
     "timeExample": "示例：下午 4:30",
     "pickDate": "选择日期",
+    "afterDays": "几天后",
     "applyDate": "应用",
     "timezoneBanner": "日期和时间使用 {{timezone}}。当前时间是 {{currentTime}}。",
     "saveTimezoneHint": " 请在账户页面保存时区，以便在所有设备上锁定。",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "请输入有效的还原日期和时间。",
     "pickDay": "请选择有效的星期。",
     "pickDate": "请选择日期。",
+    "afterDays": "请输入天数。",
     "pickValidDate": "请选择有效日期。",
+    "validAfterDays": "请选择有效的天数。",
     "uploadCsv": "请上传 CSV 文件。",
     "revertMinGap": "恢复时间必须至少晚于改价时间 3 小时。"
   },

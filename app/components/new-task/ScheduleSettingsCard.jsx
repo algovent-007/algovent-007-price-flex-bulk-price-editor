@@ -5,7 +5,11 @@ import {
   SCHEDULE_RECURRENCE_OPTIONS,
   WEEKDAY_OPTIONS,
   MONTH_DAY_OPTIONS,
+  AFTER_DAYS_OPTIONS,
+  parseAfterDays,
   isOneTimeScheduleRecurrence,
+  getRevertRecurrenceAllowedValues,
+  resolveRevertRecurrenceType,
 } from "../../utils/schedule";
 import styles from "./ScheduleSettingsCard.module.css";
 import { translateError } from "../../i18n/errors";
@@ -284,16 +288,21 @@ const RECURRENCE_LABEL_KEY = {
   monthly: "schedule.monthly",
 };
 
-function RecurrenceTypeSelect({ readOnly = false, value, onChange }) {
+function RecurrenceTypeSelect({ readOnly = false, value, onChange, allowedValues }) {
   const { t } = useI18n();
+  const options = allowedValues?.length
+    ? SCHEDULE_RECURRENCE_OPTIONS.filter((option) => allowedValues.includes(option.value))
+    : SCHEDULE_RECURRENCE_OPTIONS;
+  const disabled = readOnly || (allowedValues?.length === 1);
+
   return (
     <s-select
       label={t("schedule.scheduleType")}
       value={value || "one_time"}
-      disabled={readOnly}
-      onInput={readOnly ? undefined : (e) => onChange?.(e.target.value)}
+      disabled={disabled}
+      onInput={disabled ? undefined : (e) => onChange?.(e.target.value)}
     >
-      {SCHEDULE_RECURRENCE_OPTIONS.map((option) => (
+      {options.map((option) => (
         <s-option key={option.value} value={option.value}>
           {t(RECURRENCE_LABEL_KEY[option.value] || "schedule.oneTime")}
         </s-option>
@@ -314,6 +323,7 @@ function ScheduleRecurringFields({
   onDayOfWeekChange,
   dayOfMonth,
   onDayOfMonthChange,
+  monthMode = "date",
   fieldErrors = {},
   clearFieldError,
 }) {
@@ -355,19 +365,25 @@ function ScheduleRecurringFields({
   }
 
   if (recurrenceType === "monthly") {
+    const afterDays = monthMode === "afterDays";
+    const monthOptions = afterDays ? AFTER_DAYS_OPTIONS : MONTH_DAY_OPTIONS;
+    const pickValue = afterDays
+      ? String(parseAfterDays(dayOfMonth) || "1")
+      : dayOfMonth || "1";
+
     return (
       <SchedulePickAndTimeRow
-        key={`${monthErrorKey}-monthly`}
+        key={`${monthErrorKey}-monthly-${monthMode}`}
         pickKey={`${monthErrorKey}-monthly`}
         readOnly={readOnly}
-        pickLabel={t("schedule.pickDate")}
-        pickValue={dayOfMonth || "1"}
+        pickLabel={t(afterDays ? "schedule.afterDays" : "schedule.pickDate")}
+        pickValue={pickValue}
         onPickChange={(value) => onDayOfMonthChange?.(value)}
         pickError={fieldErrors?.[monthErrorKey]}
         onClearPickError={() => clearFieldError?.(monthErrorKey)}
         scrollablePick
-        pickOptionsData={MONTH_DAY_OPTIONS}
-        pickOptions={MONTH_DAY_OPTIONS.map((option) => (
+        pickOptionsData={monthOptions}
+        pickOptions={monthOptions.map((option) => (
           <s-option key={option.value} value={option.value}>
             {option.label}
           </s-option>
@@ -420,6 +436,15 @@ export default function ScheduleSettingsCard({
   clearFieldError,
 }) {
   const { t } = useI18n();
+  const revertAllowedValues = getRevertRecurrenceAllowedValues(
+    scheduleType,
+    scheduleRecurrenceType
+  );
+  const revertScheduleType = resolveRevertRecurrenceType(
+    scheduleType,
+    scheduleRecurrenceType,
+    revertRecurrenceType
+  );
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
       <s-stack direction="block" gap="loose">
@@ -507,18 +532,18 @@ export default function ScheduleSettingsCard({
               {revertLater && (
                 <>
                   <RecurrenceTypeSelect
-                    readOnly={readOnly}
-                    value={revertRecurrenceType}
-                    onChange={setRevertRecurrenceType}
+                    readOnly
+                    value={revertScheduleType}
+                    allowedValues={revertAllowedValues}
                   />
 
                   {scheduleType === "later" &&
                   !isOneTimeScheduleRecurrence(scheduleRecurrenceType) &&
-                  !isOneTimeScheduleRecurrence(revertRecurrenceType) ? (
+                  !isOneTimeScheduleRecurrence(revertScheduleType) ? (
                     <s-text color="subdued">{t("schedule.revertMinGapHint")}</s-text>
                   ) : null}
 
-                  {isOneTimeScheduleRecurrence(revertRecurrenceType) ? (
+                  {isOneTimeScheduleRecurrence(revertScheduleType) ? (
                     <ScheduleDateTimeFields
                       readOnly={readOnly}
                       dateStr={revertDateStr}
@@ -535,9 +560,9 @@ export default function ScheduleSettingsCard({
                     />
                   ) : (
                     <ScheduleRecurringFields
-                      key={revertRecurrenceType}
+                      key={revertScheduleType}
                       readOnly={readOnly}
-                      recurrenceType={revertRecurrenceType}
+                      recurrenceType={revertScheduleType}
                       timeStr={revertTimeStr}
                       onTimeChange={setRevertTimeStr}
                       timeErrorKey="revertTimeStr"
@@ -547,6 +572,7 @@ export default function ScheduleSettingsCard({
                       onDayOfWeekChange={setRevertRecurrenceDayOfWeek}
                       dayOfMonth={revertRecurrenceDayOfMonth}
                       onDayOfMonthChange={setRevertRecurrenceDayOfMonth}
+                      monthMode={revertScheduleType === "monthly" ? "afterDays" : "date"}
                       fieldErrors={fieldErrors}
                       clearFieldError={clearFieldError}
                     />

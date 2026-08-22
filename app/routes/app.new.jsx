@@ -19,6 +19,7 @@ import {
   formatTime12Hour,
   parseDateString,
   isOneTimeScheduleRecurrence,
+  resolveRevertRecurrenceType,
 } from "../utils/schedule";
 import {
   buildProductQuery,
@@ -286,7 +287,11 @@ export const action = async ({ request }) => {
     const changePricesAtDate = formData.get("changePricesAtDate");
     const changePricesAtTime = formData.get("changePricesAtTime");
     const revertPrices = formData.get("revertPrices") === "true";
-    const revertRecurrenceType = formData.get("revertRecurrenceType") || "one_time";
+    const revertRecurrenceType = resolveRevertRecurrenceType(
+      changePricesSchedule,
+      scheduleRecurrenceType,
+      formData.get("revertRecurrenceType") || "one_time"
+    );
     const revertRecurrenceDayOfWeek = formData.get("revertRecurrenceDayOfWeek") || "1";
     const revertRecurrenceDayOfMonth = formData.get("revertRecurrenceDayOfMonth") || "1";
     const revertPricesAtDate = formData.get("revertPricesAtDate");
@@ -503,6 +508,10 @@ export const action = async ({ request }) => {
             revertRecurrenceType,
             revertRecurrenceDayOfWeek,
             revertRecurrenceDayOfMonth,
+            scheduleRecurrenceType,
+            scheduleRecurrenceDayOfWeek,
+            scheduleRecurrenceDayOfMonth,
+            changePricesAtTime,
             scheduleTimezone: timezone,
           });
         }
@@ -589,6 +598,10 @@ export const action = async ({ request }) => {
             revertRecurrenceType,
             revertRecurrenceDayOfWeek,
             revertRecurrenceDayOfMonth,
+            scheduleRecurrenceType,
+            scheduleRecurrenceDayOfWeek,
+            scheduleRecurrenceDayOfMonth,
+            changePricesAtTime,
             scheduleTimezone: timezone,
           });
         }
@@ -868,6 +881,17 @@ export default function NewTask() {
   };
 
   useEffect(() => {
+    const nextRevertType = resolveRevertRecurrenceType(
+      scheduleType,
+      scheduleRecurrenceType,
+      revertRecurrenceType
+    );
+    if (nextRevertType !== revertRecurrenceType) {
+      setRevertRecurrenceType(nextRevertType);
+    }
+  }, [scheduleType, scheduleRecurrenceType, revertRecurrenceType]);
+
+  useEffect(() => {
     if (!revertLater) return;
     if (!needsRecurringRevertGap(scheduleType, scheduleRecurrenceType, revertRecurrenceType)) {
       return;
@@ -889,6 +913,8 @@ export default function NewTask() {
       changePricesAtTime: revertTimeStr,
       scheduleRecurrenceDayOfWeek: revertRecurrenceDayOfWeek,
       scheduleRecurrenceDayOfMonth: revertRecurrenceDayOfMonth,
+      afterDays:
+        revertRecurrenceType === "monthly" ? revertRecurrenceDayOfMonth : undefined,
       now: scheduledAt,
       timeZone: scheduleTimezone,
     });
@@ -917,7 +943,7 @@ export default function NewTask() {
       setRevertRecurrenceDayOfWeek(defaults.dayOfWeek);
     }
     if (revertRecurrenceType === "monthly") {
-      setRevertRecurrenceDayOfMonth(defaults.dayOfMonth);
+      setRevertRecurrenceDayOfMonth("1");
     }
   }, [
     revertLater,

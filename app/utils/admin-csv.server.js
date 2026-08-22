@@ -26,7 +26,7 @@ export function shopsToExportRows(shops) {
     is_payment_ok: shop.isPaymentOk ? "yes" : "no",
     is_review: shop.isReview ? "yes" : "no",
     installed_on: shop.installedOn ? new Date(shop.installedOn).toISOString() : "",
-    last_activity: shop.lastActivity ? new Date(shop.lastActivity).toISOString() : "",
+    uninstalled_on: shop.uninstalledOn ? new Date(shop.uninstalledOn).toISOString() : "",
   }));
 }
 
@@ -41,5 +41,5 @@ export const SHOP_EXPORT_HEADERS = [
   "is_payment_ok",
   "is_review",
   "installed_on",
-  "last_activity",
+  "uninstalled_on",
 ];

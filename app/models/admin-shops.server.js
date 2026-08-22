@@ -46,7 +46,7 @@ function mapShopRow(row) {
     hasOfflineSession: Boolean(row.has_offline_session),
     merchantUserId: row.user_id ? String(row.user_id) : null,
     installedOn: row.installed_on,
-    lastActivity: row.last_activity,
+    uninstalledOn: row.has_session ? null : row.uninstalled_on,
     canAccessAccount: Boolean(row.has_offline_session),
   };
 }
@@ -113,7 +113,7 @@ const SHOP_ROWS_SQL = Prisma.sql`
       sub."planName" AS plan_name,
       sub.status AS subscription_status,
       COALESCE(sub."createdAt", ss."updatedAt") AS installed_on,
-      COALESCE(latest_task.last_activity, sub."updatedAt", ss."updatedAt") AS last_activity,
+      ss."uninstalledAt" AS uninstalled_on,
       session_agg.shop IS NOT NULL AS has_session,
       COALESCE(session_agg.has_offline_session, false) AS has_offline_session,
       session_agg.user_id AS user_id,
@@ -142,12 +142,6 @@ const SHOP_ROWS_SQL = Prisma.sql`
     ) session_agg ON session_agg.shop = shops.shop
     LEFT JOIN "ShopSettings" ss ON ss.shop = shops.shop
     LEFT JOIN "Subscription" sub ON sub.shop = shops.shop
-    LEFT JOIN (
-      SELECT shop, MAX("updatedAt") AS last_activity
-      FROM "Task"
-      WHERE shop IS NOT NULL
-      GROUP BY shop
-    ) latest_task ON latest_task.shop = shops.shop
   )
 `;
 

@@ -6,6 +6,7 @@ import { buildPageItems, getPageRange, parsePage, parsePageSize } from "./admin-
 import { SHOP_EXPORT_HEADERS, shopsToExportRows, toCsv } from "./admin-csv.server.js";
 import { buildAdminHref } from "./admin-query.js";
 import { formatAdminDateTime } from "./admin-datetime.js";
+import { isShopifyAccessRevoked } from "./admin-shopify-error.js";
 
 function test(name, fn) {
   return Promise.resolve(fn()).then(() => {
@@ -73,13 +74,15 @@ await test("exports shops without sensitive fields", () => {
         isPaymentOk: true,
         isReview: false,
         installedOn: "2026-08-11T11:40:00.000Z",
-        lastActivity: "2026-08-11T11:40:00.000Z",
+        uninstalledOn: "2026-08-16T11:40:00.000Z",
         accessToken: "should-not-appear",
       },
     ]),
   );
 
   assert.match(csv, /demo\.myshopify\.com/);
+  assert.match(csv, /uninstalled_on/);
+  assert.doesNotMatch(csv, /last_activity/);
   assert.doesNotMatch(csv, /accessToken|should-not-appear|shpat_/);
 });
 
@@ -88,6 +91,13 @@ await test("builds admin query hrefs without empty params", () => {
     buildAdminHref("/admin/users", { q: "acme", page: 2, pageSize: 10, status: "" }, { page: 3 }),
     "/admin/users?q=acme&page=3&pageSize=10",
   );
+});
+
+await test("detects revoked Shopify access", () => {
+  assert.equal(isShopifyAccessRevoked({ response: { code: 401 } }), true);
+  assert.equal(isShopifyAccessRevoked(new Error("Unauthorized")), true);
+  assert.equal(isShopifyAccessRevoked(new Error("Invalid API key or access token")), true);
+  assert.equal(isShopifyAccessRevoked(new Error("GraphQL timeout")), false);
 });
 
 await test("formats admin timestamps", () => {

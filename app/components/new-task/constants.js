@@ -491,4 +491,4 @@ export function buildVariantDisplayTitle(productTitle, variantTitle) {
   return `${productTitle} (${variantTitle})`;
 }
 
-export const PREVIEW_PAGE_SIZE = 25;
+export const PREVIEW_PAGE_SIZE = 5;

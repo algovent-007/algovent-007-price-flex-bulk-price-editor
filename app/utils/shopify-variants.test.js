@@ -348,7 +348,7 @@ await test("TEST 5: 100 prices change and 150 stay no-change", () => {
 });
 
 await test("TEST 8: Select All includes all 250 variants, not the visible preview page", () => {
-  const previewPageSize = 25;
+  const previewPageSize = 5;
   const previewVariants = Array.from({ length: 250 }, (_, i) => makeVariant(i + 1));
   const visiblePage = previewVariants.slice(0, previewPageSize);
   assert.equal(previewVariants.length, 250);

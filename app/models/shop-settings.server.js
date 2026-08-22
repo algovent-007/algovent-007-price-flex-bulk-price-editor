@@ -29,6 +29,7 @@ export async function saveShopSettings({ shop, name, email, timezone }) {
         name,
         email,
         timezone,
+        uninstalledAt: null,
       },
     });
   }
@@ -40,6 +41,7 @@ export async function saveShopSettings({ shop, name, email, timezone }) {
       "name" = EXCLUDED."name",
       "email" = EXCLUDED."email",
       "timezone" = EXCLUDED."timezone",
+      "uninstalledAt" = NULL,
       "updatedAt" = NOW()
   `;
 
@@ -69,4 +71,52 @@ export async function setTaskFinishedEmailEnabled(shop, enabled) {
   `;
 
   return { taskFinishedEmailEnabled: enabled };
+}
+
+export async function clearShopUninstalled(shop) {
+  if (!shop) return null;
+
+  if (prisma.shopSettings) {
+    return prisma.shopSettings.updateMany({
+      where: { shop },
+      data: { uninstalledAt: null },
+    });
+  }
+
+  await prisma.$executeRaw`
+    UPDATE "ShopSettings"
+    SET "uninstalledAt" = NULL, "updatedAt" = NOW()
+    WHERE "shop" = ${shop}
+  `;
+
+  return { shop, uninstalledAt: null };
+}
+
+export async function markShopUninstalled(shop) {
+  if (!shop) return null;
+
+  if (prisma.shopSettings) {
+    const existing = await prisma.shopSettings.findUnique({ where: { shop } });
+    const uninstalledAt = existing?.uninstalledAt || new Date();
+    return prisma.shopSettings.upsert({
+      where: { shop },
+      create: {
+        shop,
+        uninstalledAt,
+      },
+      update: {
+        uninstalledAt,
+      },
+    });
+  }
+
+  await prisma.$executeRaw`
+    INSERT INTO "ShopSettings" ("shop", "uninstalledAt", "updatedAt")
+    VALUES (${shop}, NOW(), NOW())
+    ON CONFLICT ("shop") DO UPDATE SET
+      "uninstalledAt" = NOW(),
+      "updatedAt" = NOW()
+  `;
+
+  return { shop, uninstalledAt: new Date() };
 }

@@ -1,0 +1,69 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "dc5d73e8d42e549685c5663de25e6bbc"
+name = "Price Flex Local"
+application_url = "https://priceflex-local.algovent.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-04"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
+[access_scopes]
+# Minimum scopes for bulk price editing:
+# - read_products / write_products: product search, variant prices, tags, collections
+# - read_inventory / write_inventory: cost per item, inventory-level conditions
+# - read_locations: inventory location filter options
+# - read_markets / write_markets: upcoming Markets price editing feature
+# After changing scopes, run `shopify app deploy` and ask merchants to re-authorize the app.
+scopes = "read_products,write_products,read_inventory,write_inventory,read_locations,read_markets,write_markets"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://priceflex-local.algovent.com/auth/callback"
+]
+
+[app_proxy]
+url = "https://priceflex-local.algovent.com/proxy"
+subpath = "priceflex"
+prefix = "apps"
+
+[product.metafields.app.demo_info]
+type = "single_line_text_field"
+name = "Demo Source Info"
+description = "Tracks products created by the Shopify app template for development"
+
+  [product.metafields.app.demo_info.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example]
+name = "Example"
+description = "An example metaobject definition created by this template"
+
+  [metaobjects.app.example.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example.fields.title]
+name = "Title"
+type = "single_line_text_field"
+required = true
+
+[metaobjects.app.example.fields.description]
+name = "Description"
+type = "multi_line_text_field"

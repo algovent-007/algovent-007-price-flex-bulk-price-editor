@@ -1,3 +1,5 @@
+import { parseAfterDays } from "./schedule";
+
 export const COPY_TASK_STORAGE_KEY = "price_flex_copy_task";
 
 export function canCopyTask(actionData) {
@@ -20,7 +22,10 @@ function getScheduleDraft(task, actionData) {
     scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth || "1",
     revertRecurrenceType: actionData.revertRecurrenceType || "one_time",
     revertRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek || "1",
-    revertRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth || "1",
+    revertRecurrenceDayOfMonth:
+      actionData.revertRecurrenceType === "monthly"
+        ? String(parseAfterDays(actionData.revertRecurrenceDayOfMonth) || "1")
+        : actionData.revertRecurrenceDayOfMonth || "1",
     startDateStr: actionData.changePricesAtDate || "",
     startTimeStr: actionData.changePricesAtTime || "",
     revertDateStr: actionData.revertPricesAtDate || "",

@@ -41,6 +41,8 @@ export const ERROR_MESSAGE_KEYS = {
   "Pick a valid day.": "errors.pickDay",
   "Pick a date.": "errors.pickDate",
   "Pick a valid date.": "errors.pickValidDate",
+  "Enter after days.": "errors.afterDays",
+  "Pick a valid after days value.": "errors.validAfterDays",
   "Please upload a CSV file.": "errors.uploadCsv",
   "No products found matching your criteria.": "newTask.noProductsFound",
   "Please complete all product condition fields before searching.": "newTask.completeConditions",

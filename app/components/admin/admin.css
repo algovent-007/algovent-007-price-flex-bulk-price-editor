@@ -188,7 +188,19 @@ body {
 .admin-copy { background: none; border: 0; color: #9ca3af; cursor: pointer; display: inline-flex; padding: 0; }
 .admin-shop-cell { display: flex; flex-direction: column; gap: 2px; min-width: 180px; }
 .admin-shop-cell a { color: var(--admin-blue); font-weight: 600; text-decoration: none; }
+.admin-shop-meta-row { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-shop-meta { color: var(--admin-muted); font-size: 12px; }
+.admin-status-link {
+  background: none;
+  border: 0;
+  color: var(--admin-blue);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+}
+.admin-status-link:disabled { cursor: wait; opacity: 0.65; }
 
 .admin-badge { border-radius: 999px; display: inline-flex; font-size: 12px; font-weight: 700; padding: 3px 8px; }
 .admin-badge.basic,

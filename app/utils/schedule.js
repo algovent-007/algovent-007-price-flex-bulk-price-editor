@@ -195,8 +195,37 @@ export const MONTH_DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => {
   return { value: day, label: day };
 });
 
+export const AFTER_DAYS_OPTIONS = Array.from({ length: 28 }, (_, index) => {
+  const day = String(index + 1);
+  return { value: day, label: day };
+});
+
+export function parseAfterDays(value) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 28) return null;
+  return parsed;
+}
+
 export function isOneTimeScheduleRecurrence(recurrenceType) {
   return !recurrenceType || recurrenceType === "one_time";
+}
+
+export function resolveRevertRecurrenceType(
+  changePricesSchedule,
+  scheduleRecurrenceType,
+  _revertRecurrenceType
+) {
+  if (changePricesSchedule !== "later") {
+    return "one_time";
+  }
+
+  return isOneTimeScheduleRecurrence(scheduleRecurrenceType)
+    ? "one_time"
+    : scheduleRecurrenceType;
+}
+
+export function getRevertRecurrenceAllowedValues(changePricesSchedule, scheduleRecurrenceType) {
+  return [resolveRevertRecurrenceType(changePricesSchedule, scheduleRecurrenceType)];
 }
 
 export const RECURRING_REVERT_MIN_GAP_HOURS = 3;
@@ -322,12 +351,35 @@ function getNextMonthlyOccurrence(dayOfMonth, time, now, timeZone) {
   return scheduledAt;
 }
 
+function getOccurrenceAfterDays(fromDate, afterDays, time, timeZone) {
+  const days = parseAfterDays(afterDays);
+  if (!days || !time || !(fromDate instanceof Date) || Number.isNaN(fromDate.getTime())) {
+    return null;
+  }
+
+  const parts = getZonedDateTimeParts(fromDate, timeZone);
+  const next = addCalendarDays(
+    { year: parts.year, month: parts.month, day: parts.day },
+    days
+  );
+
+  return wallClockToDate({
+    year: next.year,
+    month: next.month,
+    day: next.day,
+    hours: time.hours,
+    minutes: time.minutes,
+    timeZone,
+  });
+}
+
 export function computeScheduledAt({
   recurrenceType,
   changePricesAtDate,
   changePricesAtTime,
   scheduleRecurrenceDayOfWeek,
   scheduleRecurrenceDayOfMonth,
+  afterDays,
   now,
   timeZone,
 }) {
@@ -347,6 +399,9 @@ export function computeScheduledAt({
   }
 
   if (recurrenceType === "monthly") {
+    if (afterDays != null && afterDays !== "") {
+      return getOccurrenceAfterDays(now, afterDays, time, timeZone);
+    }
     return getNextMonthlyOccurrence(scheduleRecurrenceDayOfMonth, time, now, timeZone);
   }
 
@@ -367,6 +422,7 @@ function addRecurrenceFieldErrors({
   validDate,
   timeRequired,
   validTime,
+  monthMode = "date",
   addError,
 }) {
   const oneTime = isOneTimeScheduleRecurrence(recurrenceType);
@@ -390,7 +446,13 @@ function addRecurrenceFieldErrors({
   }
 
   if (isMonthly) {
-    if (!String(dayOfMonth ?? "").trim()) {
+    if (monthMode === "afterDays") {
+      if (!String(dayOfMonth ?? "").trim()) {
+        addError(monthField, "Enter after days.");
+      } else if (!parseAfterDays(dayOfMonth)) {
+        addError(monthField, "Pick a valid after days value.");
+      }
+    } else if (!String(dayOfMonth ?? "").trim()) {
       addError(monthField, "Pick a date.");
     } else if (!MONTH_DAY_OPTIONS.some((option) => option.value === String(dayOfMonth))) {
       addError(monthField, "Pick a valid date.");
@@ -480,6 +542,7 @@ export function validateScheduleConfig({
 
   let revertAt = null;
   if (revertPrices === "true" || revertPrices === true) {
+    const revertUsesAfterDays = revertRecurrenceType === "monthly";
     const oneTime = addRecurrenceFieldErrors({
       recurrenceType: revertRecurrenceType,
       dateValue: revertPricesAtDate,
@@ -494,6 +557,7 @@ export function validateScheduleConfig({
       validDate: "Enter a valid revert date.",
       timeRequired: "Enter a revert time.",
       validTime: "Enter a valid revert time.",
+      monthMode: revertUsesAfterDays ? "afterDays" : "date",
       addError,
     });
 
@@ -504,6 +568,7 @@ export function validateScheduleConfig({
       changePricesAtTime: revertPricesAtTime,
       scheduleRecurrenceDayOfWeek: revertRecurrenceDayOfWeek,
       scheduleRecurrenceDayOfMonth: revertRecurrenceDayOfMonth,
+      afterDays: revertUsesAfterDays ? revertRecurrenceDayOfMonth : undefined,
       now: revertAnchor,
       timeZone,
     });

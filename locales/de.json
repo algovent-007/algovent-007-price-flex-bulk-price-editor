@@ -518,6 +518,7 @@
     "date": "Datum",
     "timeExample": "Beispiel: 16:30",
     "pickDate": "Datum wählen",
+    "afterDays": "Nach Tagen",
     "applyDate": "Übernehmen",
     "timezoneBanner": "Daten und Uhrzeiten verwenden {{timezone}}. Die aktuelle Uhrzeit ist {{currentTime}}.",
     "saveTimezoneHint": " Speichern Sie Ihre Zeitzone auf der Kontoseite, um sie auf allen Geräten festzulegen.",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "Geben Sie ein gültiges Rücksetzdatum und eine gültige Rücksetzzeit ein.",
     "pickDay": "Wählen Sie einen gültigen Tag.",
     "pickDate": "Wählen Sie ein Datum.",
+    "afterDays": "Geben Sie die Anzahl der Tage ein.",
     "pickValidDate": "Wählen Sie ein gültiges Datum.",
+    "validAfterDays": "Wählen Sie eine gültige Anzahl von Tagen.",
     "uploadCsv": "Bitte laden Sie eine CSV-Datei hoch.",
     "revertMinGap": "Die Rücksetzzeit muss mindestens 3 Stunden nach der Preisänderung liegen."
   },

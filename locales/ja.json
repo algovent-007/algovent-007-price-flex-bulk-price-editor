@@ -518,6 +518,7 @@
     "date": "日付",
     "timeExample": "例: 午後4:30",
     "pickDate": "日付を選ぶ",
+    "afterDays": "日後",
     "applyDate": "適用",
     "timezoneBanner": "日付と時刻は {{timezone}} を使用します。現在時刻は {{currentTime}} です。",
     "saveTimezoneHint": " アカウントページでタイムゾーンを保存すると、すべてのデバイスに適用されます。",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "有効な復元日時を入力してください。",
     "pickDay": "有効な曜日を選んでください。",
     "pickDate": "日付を選んでください。",
+    "afterDays": "日数を入力してください。",
     "pickValidDate": "有効な日付を選んでください。",
+    "validAfterDays": "有効な日数を選んでください。",
     "uploadCsv": "CSV ファイルをアップロードしてください。",
     "revertMinGap": "元に戻す時刻は、価格変更の少なくとも3時間後にしてください。"
   },

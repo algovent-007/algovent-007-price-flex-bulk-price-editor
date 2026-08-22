@@ -518,6 +518,7 @@
     "date": "Date",
     "timeExample": "Example: 4:30 PM",
     "pickDate": "Pick date",
+    "afterDays": "After days",
     "applyDate": "Apply",
     "timezoneBanner": "Dates and times use {{timezone}}. The current time is {{currentTime}}.",
     "saveTimezoneHint": " Save your timezone on the Account page to lock this in for all devices.",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "Enter a valid revert date and time.",
     "pickDay": "Pick a valid day.",
     "pickDate": "Pick a date.",
+    "afterDays": "Enter after days.",
     "pickValidDate": "Pick a valid date.",
+    "validAfterDays": "Pick a valid after days value.",
     "uploadCsv": "Please upload a CSV file.",
     "revertMinGap": "Revert time must be at least 3 hours after the price change time."
   },

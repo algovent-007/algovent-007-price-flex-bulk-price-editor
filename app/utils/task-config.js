@@ -1,4 +1,4 @@
-import { formatDateMDY, formatTime12Hour } from "./schedule";
+import { formatDateMDY, formatTime12Hour, parseAfterDays } from "./schedule";
 
 export function canViewTaskConfiguration(actionData) {
   return !!actionData?.runPayload;
@@ -156,7 +156,10 @@ export function buildTaskConfigState(task, actionData, timeZone) {
   config.scheduleRecurrenceDayOfMonth = actionData.scheduleRecurrenceDayOfMonth || "1";
   config.revertRecurrenceType = actionData.revertRecurrenceType || "one_time";
   config.revertRecurrenceDayOfWeek = actionData.revertRecurrenceDayOfWeek || "1";
-  config.revertRecurrenceDayOfMonth = actionData.revertRecurrenceDayOfMonth || "1";
+  config.revertRecurrenceDayOfMonth =
+    actionData.revertRecurrenceType === "monthly"
+      ? String(parseAfterDays(actionData.revertRecurrenceDayOfMonth) || "1")
+      : actionData.revertRecurrenceDayOfMonth || "1";
 
   const scheduleTimezone = actionData?.scheduleTimezone || timeZone;
 

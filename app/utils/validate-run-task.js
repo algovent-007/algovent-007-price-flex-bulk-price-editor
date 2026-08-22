@@ -1,4 +1,4 @@
-import { validateScheduleConfig } from "./schedule";
+import { validateScheduleConfig, resolveRevertRecurrenceType } from "./schedule";
 import { validatePricingConfig } from "./pricing";
 import {
   buildPricingRulesSnapshot,
@@ -141,7 +141,11 @@ export function validateRunTaskForm(formState) {
     changePricesAtDate: formState.startDateStr,
     changePricesAtTime: formState.startTimeStr,
     revertPrices: formState.revertLater,
-    revertRecurrenceType: formState.revertRecurrenceType,
+    revertRecurrenceType: resolveRevertRecurrenceType(
+      formState.scheduleType,
+      formState.scheduleRecurrenceType,
+      formState.revertRecurrenceType
+    ),
     revertRecurrenceDayOfWeek: formState.revertRecurrenceDayOfWeek,
     revertRecurrenceDayOfMonth: formState.revertRecurrenceDayOfMonth,
     revertPricesAtDate: formState.revertDateStr,

@@ -518,6 +518,7 @@
     "date": "Data",
     "timeExample": "Exemplo: 16:30",
     "pickDate": "Escolher data",
+    "afterDays": "Após (dias)",
     "applyDate": "Aplicar",
     "timezoneBanner": "Datas e horários usam {{timezone}}. A hora atual é {{currentTime}}.",
     "saveTimezoneHint": " Salve seu fuso horário na página Conta para aplicá-lo em todos os dispositivos.",
@@ -563,7 +564,9 @@
     "validRevertDateTime": "Informe uma data e hora de reversão válidas.",
     "pickDay": "Escolha um dia válido.",
     "pickDate": "Escolha uma data.",
+    "afterDays": "Informe o número de dias.",
     "pickValidDate": "Escolha uma data válida.",
+    "validAfterDays": "Escolha um número de dias válido.",
     "uploadCsv": "Envie um arquivo CSV.",
     "revertMinGap": "O horário de reversão deve ser pelo menos 3 horas após a alteração de preço."
   },

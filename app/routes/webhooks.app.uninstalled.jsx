@@ -1,5 +1,6 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { markShopUninstalled } from "../models/shop-settings.server";
 import { clearSubscriptionForShop } from "../services/subscription.server";
 import { revokeSupportSessionsForShop } from "../services/admin-support-session.server";
 
@@ -15,7 +16,7 @@ export const action = async ({ request }) => {
   }
 
   await db.task.deleteMany({ where: { shop } });
-  await db.shopSettings.deleteMany({ where: { shop } });
+  await markShopUninstalled(shop);
   await clearSubscriptionForShop(shop);
   await revokeSupportSessionsForShop(shop);
 

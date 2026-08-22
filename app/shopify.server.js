@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ override: true });
+dotenv.config();
 import "@shopify/shopify-app-react-router/adapters/node";
 import { redirect } from "react-router";
 import {

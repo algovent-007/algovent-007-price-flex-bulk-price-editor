@@ -31,6 +31,10 @@ export async function createScheduledRevertTask({
   revertRecurrenceType = "one_time",
   revertRecurrenceDayOfWeek = "1",
   revertRecurrenceDayOfMonth = "1",
+  scheduleRecurrenceType = "one_time",
+  scheduleRecurrenceDayOfWeek = "1",
+  scheduleRecurrenceDayOfMonth = "1",
+  changePricesAtTime,
   scheduleTimezone,
 }) {
   const revertTaskId = `scheduled-rollback-${sourceTaskId}`;
@@ -44,6 +48,10 @@ export async function createScheduledRevertTask({
     revertRecurrenceType,
     revertRecurrenceDayOfWeek,
     revertRecurrenceDayOfMonth,
+    scheduleRecurrenceType,
+    scheduleRecurrenceDayOfWeek,
+    scheduleRecurrenceDayOfMonth,
+    changePricesAtTime,
     scheduleTimezone,
   });
 
@@ -108,15 +116,43 @@ async function shopCanUseRecurringTasks(shop) {
   );
 }
 
-function computeNextRevertAt(actionData, now) {
+function computeNextRevertAt(actionData, now, { afterSourceRun = false } = {}) {
+  const timeZone = actionData.scheduleTimezone || null;
+  const revertRecurrenceType = actionData.revertRecurrenceType || "one_time";
+
+  if (revertRecurrenceType === "monthly") {
+    let anchor = now;
+    if (!afterSourceRun) {
+      const nextPrimary = computeScheduledAt({
+        recurrenceType: actionData.scheduleRecurrenceType || "monthly",
+        changePricesAtTime: actionData.changePricesAtTime,
+        scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek,
+        scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth,
+        now,
+        timeZone,
+      });
+      if (nextPrimary instanceof Date) {
+        anchor = nextPrimary;
+      }
+    }
+
+    return computeScheduledAt({
+      recurrenceType: "monthly",
+      changePricesAtTime: actionData.revertPricesAtTime,
+      afterDays: actionData.revertRecurrenceDayOfMonth,
+      now: anchor,
+      timeZone,
+    });
+  }
+
   return computeScheduledAt({
-    recurrenceType: actionData.revertRecurrenceType || "one_time",
+    recurrenceType: revertRecurrenceType,
     changePricesAtDate: actionData.revertPricesAtDate,
     changePricesAtTime: actionData.revertPricesAtTime,
     scheduleRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek,
     scheduleRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth,
     now,
-    timeZone: actionData.scheduleTimezone || null,
+    timeZone,
   });
 }
 
@@ -133,6 +169,10 @@ async function scheduleRevertIfEnabled({ shop, task, actionData, revertAt }) {
     revertRecurrenceType: actionData.revertRecurrenceType,
     revertRecurrenceDayOfWeek: actionData.revertRecurrenceDayOfWeek,
     revertRecurrenceDayOfMonth: actionData.revertRecurrenceDayOfMonth,
+    scheduleRecurrenceType: actionData.scheduleRecurrenceType,
+    scheduleRecurrenceDayOfWeek: actionData.scheduleRecurrenceDayOfWeek,
+    scheduleRecurrenceDayOfMonth: actionData.scheduleRecurrenceDayOfMonth,
+    changePricesAtTime: actionData.changePricesAtTime,
     scheduleTimezone: actionData.scheduleTimezone,
   });
 }
@@ -249,7 +289,7 @@ async function processScheduledEditTask({ admin, shop, task, actionData }) {
   let nextRevertAt = null;
   if (actionData.revertEnabled) {
     if (isRevertRecurring) {
-      nextRevertAt = computeNextRevertAt(scheduleMeta, now);
+      nextRevertAt = computeNextRevertAt(scheduleMeta, now, { afterSourceRun: true });
     } else if (task.revertAt && new Date(task.revertAt) > now) {
       nextRevertAt = new Date(task.revertAt);
     }

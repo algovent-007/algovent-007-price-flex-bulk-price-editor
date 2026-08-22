@@ -219,6 +219,11 @@ export default function PriceChangePreview({ previewVariants, visible = false, o
             </s-table-body>
           </s-table>
         )}
+        {showPagination && (
+          <s-text color="subdued">
+            {t("common.pageOf", { current: safePage + 1, total: totalPages })}
+          </s-text>
+        )}
       </s-stack>
     </s-box>
   );

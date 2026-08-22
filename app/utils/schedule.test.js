@@ -8,6 +8,8 @@ import {
   formatScheduleDateTime,
   parseStoredDate,
   formatScheduledTaskLabel,
+  resolveRevertRecurrenceType,
+  getRevertRecurrenceAllowedValues,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -195,6 +197,22 @@ test("validateScheduleConfig requires day of month for monthly schedule", () => 
   assert.ok(result.fieldErrors.scheduleRecurrenceDate);
 });
 
+test("one-time primary forces revert to one-time", () => {
+  assert.equal(
+    resolveRevertRecurrenceType("later", "one_time", "daily"),
+    "one_time"
+  );
+  assert.deepEqual(getRevertRecurrenceAllowedValues("later", "one_time"), ["one_time"]);
+});
+
+test("revert schedule type always matches the primary schedule type", () => {
+  assert.equal(resolveRevertRecurrenceType("later", "daily", "one_time"), "daily");
+  assert.equal(resolveRevertRecurrenceType("later", "weekly", "daily"), "weekly");
+  assert.equal(resolveRevertRecurrenceType("later", "monthly", "weekly"), "monthly");
+  assert.equal(resolveRevertRecurrenceType("now", "daily", "weekly"), "one_time");
+  assert.deepEqual(getRevertRecurrenceAllowedValues("later", "weekly"), ["weekly"]);
+});
+
 test("validateScheduleConfig accepts recurring daily revert without date", () => {
   const result = validateScheduleConfig({
     changePricesSchedule: "later",
@@ -295,7 +313,7 @@ test("validateScheduleConfig requires weekday for weekly revert", () => {
   assert.ok(result.fieldErrors.revertRecurrenceDay);
 });
 
-test("validateScheduleConfig requires day of month for monthly revert", () => {
+test("validateScheduleConfig requires after days for monthly revert", () => {
   const result = validateScheduleConfig({
     changePricesSchedule: "now",
     revertPrices: true,
@@ -305,6 +323,58 @@ test("validateScheduleConfig requires day of month for monthly revert", () => {
   });
 
   assert.ok(result.fieldErrors.revertRecurrenceDate);
+});
+
+test("monthly revert uses after days instead of a calendar date", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "monthly",
+    scheduleRecurrenceDayOfMonth: "15",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "monthly",
+    revertRecurrenceDayOfMonth: "5",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 6, 10, 7, 0),
+  });
+
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.scheduledAt.getDate(), 15);
+  assert.equal(result.scheduledAt.getMonth(), 6);
+  assert.equal(result.revertAt.getDate(), 20);
+  assert.equal(result.revertAt.getMonth(), 6);
+});
+
+test("monthly revert rejects after days outside 1-28", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "monthly",
+    scheduleRecurrenceDayOfMonth: "15",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "monthly",
+    revertRecurrenceDayOfMonth: "31",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 6, 10, 7, 0),
+  });
+
+  assert.ok(result.fieldErrors.revertRecurrenceDate);
+});
+
+test("monthly revert after days that lands on the next price change is rejected", () => {
+  const result = validateScheduleConfig({
+    changePricesSchedule: "later",
+    scheduleRecurrenceType: "monthly",
+    scheduleRecurrenceDayOfMonth: "1",
+    changePricesAtTime: "09:00 AM",
+    revertPrices: true,
+    revertRecurrenceType: "monthly",
+    revertRecurrenceDayOfMonth: "28",
+    revertPricesAtTime: "09:00 AM",
+    now: at(2026, 0, 10, 7, 0),
+  });
+
+  assert.ok(result.fieldErrors.revertTimeStr);
 });
 
 test("validateScheduleConfig skips schedule fields when running now", () => {
