@@ -14,7 +14,26 @@ import {
   isSupportEligiblePath,
 } from "./services/admin-support-session.server";
 
-void ensurePrismaConnected();
+function createDeferredSessionStorage() {
+  let storage;
+  const ready = ensurePrismaConnected().then(() => {
+    storage = new PrismaSessionStorage(prisma);
+    return storage;
+  });
+
+  const call = (method) => async (...args) => {
+    const impl = storage || (await ready);
+    return impl[method](...args);
+  };
+
+  return {
+    storeSession: call("storeSession"),
+    loadSession: call("loadSession"),
+    deleteSession: call("deleteSession"),
+    deleteSessions: call("deleteSessions"),
+    findSessionsByShop: call("findSessionsByShop"),
+  };
+}
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -23,7 +42,7 @@ const shopify = shopifyApp({
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
-  sessionStorage: new PrismaSessionStorage(prisma),
+  sessionStorage: createDeferredSessionStorage(),
   distribution: AppDistribution.AppStore,
   future: {
     expiringOfflineAccessTokens: true,
