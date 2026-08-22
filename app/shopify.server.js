@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ override: true });
 import "@shopify/shopify-app-react-router/adapters/node";
 import { redirect } from "react-router";
 import {
@@ -8,11 +8,13 @@ import {
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
-import prisma from "./db.server";
+import prisma, { ensurePrismaConnected } from "./db.server";
 import {
   getSupportAuthDecision,
   isSupportEligiblePath,
 } from "./services/admin-support-session.server";
+
+await ensurePrismaConnected();
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
