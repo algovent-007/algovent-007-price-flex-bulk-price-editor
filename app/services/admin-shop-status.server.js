@@ -30,7 +30,6 @@ export async function applyAdminShopAccessFlags({
   shop,
   isInstall,
   isPayment,
-  planName,
 } = {}) {
   if (!shop) {
     return { ok: false, error: "Shop is required." };
@@ -39,7 +38,8 @@ export async function applyAdminShopAccessFlags({
   const installed = Boolean(isInstall);
   const paymentOk = Boolean(isPayment);
   const existing = await getSubscriptionByShop(shop);
-  const resolvedPlanName = resolveAdminGrantPlanName(planName, existing?.planName);
+  const grants = await getShopAccessGrants(shop);
+  const resolvedPlanName = resolveAdminGrantPlanName(grants.adminPlanName, existing?.planName);
 
   await prisma.shopSettings.upsert({
     where: { shop },

@@ -76,7 +76,6 @@ export const action = async ({ request }) => {
       shop,
       isInstall: form.get("isInstall") === "true",
       isPayment: form.get("isPayment") === "true",
-      planName: String(form.get("planName") || ""),
     });
     await recordAdminAudit({
       adminUser: admin,
@@ -395,7 +394,6 @@ export default function AdminUsers() {
                                 isInstall:
                                   user.adminGrantedInstall || user.installStatus === "Installed",
                                 isPayment: Boolean(user.adminGrantedPayment),
-                                planName: plans.includes(user.planName) ? user.planName : "Super",
                               })
                             }
                           >
@@ -555,24 +553,6 @@ export default function AdminUsers() {
                 />
               </div>
             </div>
-            {statusEditor.isPayment ? (
-              <div className="admin-field">
-                <label htmlFor="status-plan">Plan</label>
-                <select
-                  id="status-plan"
-                  value={statusEditor.planName}
-                  onChange={(event) =>
-                    setStatusEditor((current) => ({ ...current, planName: event.target.value }))
-                  }
-                >
-                  {plans.map((plan) => (
-                    <option key={plan} value={plan}>
-                      {plan}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
             <div className="admin-modal-actions">
               <statusFetcher.Form method="post">
                 <input type="hidden" name="intent" value="update_status" />
@@ -601,7 +581,6 @@ export default function AdminUsers() {
                   <input type="hidden" name="shop" value={statusEditor.shop} />
                   <input type="hidden" name="isInstall" value={statusEditor.isInstall ? "true" : "false"} />
                   <input type="hidden" name="isPayment" value={statusEditor.isPayment ? "true" : "false"} />
-                  <input type="hidden" name="planName" value={statusEditor.planName} />
                   <button className="admin-btn primary" type="submit" disabled={statusBusy}>
                     {statusBusy && statusIntent === "set_access" ? "Saving…" : "Save"}
                   </button>

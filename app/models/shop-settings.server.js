@@ -1,24 +1,45 @@
 import prisma from "../db.server";
 
 export async function getShopAccessGrants(shop) {
+  const empty = { adminGrantedInstall: false, adminGrantedPayment: false, adminPlanName: "" };
   if (!shop) {
-    return { adminGrantedInstall: false, adminGrantedPayment: false, adminPlanName: "" };
+    return empty;
   }
 
-  const row = await prisma.shopSettings.findUnique({
-    where: { shop },
-    select: {
-      adminGrantedInstall: true,
-      adminGrantedPayment: true,
-      adminPlanName: true,
-    },
-  });
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT
+        COALESCE("adminGrantedInstall", false) AS "adminGrantedInstall",
+        COALESCE("adminGrantedPayment", false) AS "adminGrantedPayment",
+        COALESCE("adminPlanName", '') AS "adminPlanName"
+      FROM "ShopSettings"
+      WHERE "shop" = ${shop}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) {
+      return empty;
+    }
 
-  return {
-    adminGrantedInstall: Boolean(row?.adminGrantedInstall),
-    adminGrantedPayment: Boolean(row?.adminGrantedPayment),
-    adminPlanName: row?.adminPlanName || "",
-  };
+    return {
+      adminGrantedInstall: Boolean(row.adminGrantedInstall),
+      adminGrantedPayment: Boolean(row.adminGrantedPayment),
+      adminPlanName: row.adminPlanName || "",
+    };
+  } catch (error) {
+    const message = String(error?.message || error?.code || "");
+    if (
+      message.includes("adminGranted") ||
+      message.includes("adminPlanName") ||
+      message.includes("does not exist") ||
+      error?.code === "P2022" ||
+      error?.code === "42703"
+    ) {
+      return empty;
+    }
+
+    throw error;
+  }
 }
 
 export async function getShopSettings(shop) {

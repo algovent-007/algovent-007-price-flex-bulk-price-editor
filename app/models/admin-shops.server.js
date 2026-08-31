@@ -112,7 +112,7 @@ const SHOP_ROWS_SQL = Prisma.sql`
       COALESCE(session_agg.email, ss.email) AS email,
       ss.name AS shop_name,
       ss.timezone AS timezone,
-      COALESCE(ss."isReview", false) AS is_review,
+      COALESCE(ss."isReview", true) AS is_review,
       COALESCE(ss."adminGrantedInstall", false) AS admin_granted_install,
       COALESCE(ss."adminGrantedPayment", false) AS admin_granted_payment,
       ss."adminPlanName" AS admin_plan_name,

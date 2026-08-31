@@ -56,7 +56,7 @@ model ShopSettings {
   email                    String?
   timezone                 String?
   taskFinishedEmailEnabled Boolean  @default(false)
-  isReview                 Boolean  @default(false)
+  isReview                 Boolean  @default(true)
   adminGrantedInstall      Boolean  @default(false)
   adminGrantedPayment      Boolean  @default(false)
   adminPlanName            String?
