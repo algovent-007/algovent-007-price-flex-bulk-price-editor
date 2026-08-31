@@ -1,4 +1,5 @@
 import {
+  ADMIN_GRANT_CHARGE_ID,
   BILLING_FEATURES,
   SUBSCRIPTION_STATUS,
   getPlanDefinition,
@@ -10,6 +11,8 @@ import {
   getSubscriptionByShop,
   upsertSubscription,
 } from "../models/subscription.server";
+import { getShopAccessGrants } from "../models/shop-settings.server";
+import { isAdminGrantedSubscription, resolveAdminGrantPlanName } from "../utils/admin-shop-status";
 import {
   fetchActiveShopifySubscription,
   fetchShopBillingContext,
@@ -46,8 +49,34 @@ export async function getSubscriptionRecord(shop) {
   return getSubscriptionByShop(shop);
 }
 
+async function getAdminGrantedSubscription(shop) {
+  const grants = await getShopAccessGrants(shop);
+  if (!grants.adminGrantedPayment) {
+    return null;
+  }
+
+  const existing = await getSubscriptionByShop(shop);
+  if (isAdminGrantedSubscription(existing, true)) {
+    return existing;
+  }
+
+  const planName = resolveAdminGrantPlanName(existing?.planName);
+  return upsertSubscription({
+    shop,
+    planName,
+    status: SUBSCRIPTION_STATUS.ACTIVE,
+    chargeId: ADMIN_GRANT_CHARGE_ID,
+  });
+}
+
 export async function requireSubscription(admin, session, { allowCache = true } = {}) {
   const shop = session.shop;
+
+  // Only ticket-granted shops skip Shopify billing. Everyone else still hits the pricing wall.
+  const granted = await getAdminGrantedSubscription(shop);
+  if (granted) {
+    return granted;
+  }
 
   const recent = await getSubscriptionByShop(shop);
   if (

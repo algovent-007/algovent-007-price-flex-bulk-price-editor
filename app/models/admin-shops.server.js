@@ -1,32 +1,17 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import { SUBSCRIPTION_STATUS } from "../constants/billing";
+import { deriveInstallStatus, derivePaymentOk } from "../utils/admin-shop-status";
 
 export const INSTALL_STATUSES = ["Installed", "Uninstalled", "Inactive"];
-
-function deriveInstallStatus({ hasSession, subscriptionStatus }) {
-  if (!hasSession) {
-    return "Uninstalled";
-  }
-  if (
-    subscriptionStatus === SUBSCRIPTION_STATUS.FROZEN ||
-    subscriptionStatus === SUBSCRIPTION_STATUS.EXPIRED ||
-    subscriptionStatus === SUBSCRIPTION_STATUS.CANCELLED
-  ) {
-    return "Inactive";
-  }
-  return "Installed";
-}
-
-function derivePaymentOk(subscriptionStatus) {
-  return subscriptionStatus === SUBSCRIPTION_STATUS.ACTIVE;
-}
 
 function mapShopRow(row) {
   const shop = row.shop;
   const subscriptionStatus = row.subscription_status || null;
   const hasSession = Boolean(row.has_session);
   const displayId = Number(row.display_id);
+  const adminGrantedInstall = Boolean(row.admin_granted_install);
+  const adminGrantedPayment = Boolean(row.admin_granted_payment);
 
   return {
     shop,
@@ -38,15 +23,18 @@ function mapShopRow(row) {
     subscriptionStatus,
     isReview: Boolean(row.is_review),
     isTrial: false,
-    isPaymentOk: derivePaymentOk(subscriptionStatus),
+    adminGrantedInstall,
+    adminGrantedPayment,
+    isPaymentOk: derivePaymentOk(subscriptionStatus, adminGrantedPayment),
     installStatus: deriveInstallStatus({
       hasSession,
       subscriptionStatus,
+      adminGrantedInstall,
     }),
     hasOfflineSession: Boolean(row.has_offline_session),
     merchantUserId: row.user_id ? String(row.user_id) : null,
     installedOn: row.installed_on,
-    uninstalledOn: row.has_session ? null : row.uninstalled_on,
+    uninstalledOn: hasSession || adminGrantedInstall ? null : row.uninstalled_on,
     canAccessAccount: Boolean(row.has_offline_session),
   };
 }
@@ -71,11 +59,18 @@ function buildFilterSql({ query, status, plan, payment, review }) {
   if (status && INSTALL_STATUSES.includes(status)) {
     if (status === "Uninstalled") {
       conditions.push(Prisma.sql`shop_rows.has_session = false`);
+      conditions.push(Prisma.sql`shop_rows.admin_granted_install = false`);
     } else if (status === "Installed") {
-      conditions.push(Prisma.sql`shop_rows.has_session = true`);
-      conditions.push(Prisma.sql`COALESCE(shop_rows.subscription_status, '') NOT IN ('FROZEN', 'EXPIRED', 'CANCELLED')`);
+      conditions.push(Prisma.sql`(
+        shop_rows.admin_granted_install = true
+        OR (
+          shop_rows.has_session = true
+          AND COALESCE(shop_rows.subscription_status, '') NOT IN ('FROZEN', 'EXPIRED', 'CANCELLED')
+        )
+      )`);
     } else if (status === "Inactive") {
       conditions.push(Prisma.sql`shop_rows.has_session = true`);
+      conditions.push(Prisma.sql`shop_rows.admin_granted_install = false`);
       conditions.push(Prisma.sql`shop_rows.subscription_status IN ('FROZEN', 'EXPIRED', 'CANCELLED')`);
     }
   }
@@ -85,10 +80,12 @@ function buildFilterSql({ query, status, plan, payment, review }) {
   }
 
   if (payment === "ok") {
-    conditions.push(Prisma.sql`shop_rows.subscription_status = ${SUBSCRIPTION_STATUS.ACTIVE}`);
+    conditions.push(
+      Prisma.sql`(shop_rows.subscription_status = ${SUBSCRIPTION_STATUS.ACTIVE} OR shop_rows.admin_granted_payment = true)`,
+    );
   } else if (payment === "not_ok") {
     conditions.push(
-      Prisma.sql`(shop_rows.subscription_status IS NULL OR shop_rows.subscription_status <> ${SUBSCRIPTION_STATUS.ACTIVE})`,
+      Prisma.sql`shop_rows.admin_granted_payment = false AND (shop_rows.subscription_status IS NULL OR shop_rows.subscription_status <> ${SUBSCRIPTION_STATUS.ACTIVE})`,
     );
   }
 
@@ -109,6 +106,8 @@ const SHOP_ROWS_SQL = Prisma.sql`
       ss.name AS shop_name,
       ss.timezone AS timezone,
       COALESCE(ss."isReview", false) AS is_review,
+      COALESCE(ss."adminGrantedInstall", false) AS admin_granted_install,
+      COALESCE(ss."adminGrantedPayment", false) AS admin_granted_payment,
       sub.id AS subscription_id,
       sub."planName" AS plan_name,
       sub.status AS subscription_status,

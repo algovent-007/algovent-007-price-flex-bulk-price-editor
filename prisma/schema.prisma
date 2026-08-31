@@ -57,6 +57,8 @@ model ShopSettings {
   timezone                 String?
   taskFinishedEmailEnabled Boolean  @default(false)
   isReview                 Boolean  @default(false)
+  adminGrantedInstall      Boolean  @default(false)
+  adminGrantedPayment      Boolean  @default(false)
   uninstalledAt            DateTime?
   updatedAt                DateTime @updatedAt
 }

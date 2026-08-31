@@ -8,7 +8,7 @@ import {
   startSupportSession,
 } from "../services/admin-support-session.server";
 import { listAdminShops, setShopReviewFlag } from "../models/admin-shops.server";
-import { refreshAdminShopStatus } from "../services/admin-shop-status.server";
+import { applyAdminShopAccessFlags, refreshAdminShopStatus } from "../services/admin-shop-status.server";
 import { PLAN_NAMES } from "../constants/billing";
 import { parsePage, parsePageSize } from "../utils/admin-pagination";
 import { buildAdminHref, readAdminListParams } from "../utils/admin-query";
@@ -69,6 +69,29 @@ export const action = async ({ request }) => {
       details: { isReview },
     });
     return { ok: true };
+  }
+
+  if (intent === "set_access" && shop) {
+    const result = await applyAdminShopAccessFlags({
+      shop,
+      isInstall: form.get("isInstall") === "true",
+      isPayment: form.get("isPayment") === "true",
+      planName: String(form.get("planName") || ""),
+    });
+    await recordAdminAudit({
+      adminUser: admin,
+      shop,
+      action: "admin.set_access",
+      success: Boolean(result.ok),
+      details: {
+        installed: result.installed,
+        isPaymentOk: result.isPaymentOk,
+        planName: result.planName,
+        subscriptionStatus: result.subscriptionStatus,
+        error: result.error || null,
+      },
+    });
+    return result;
   }
 
   if (intent === "update_status" && shop) {
@@ -139,11 +162,14 @@ export default function AdminUsers() {
     Boolean(params.status || params.plan || params.payment || params.review),
   );
   const [openMenu, setOpenMenu] = useState("");
+  const [statusEditor, setStatusEditor] = useState(null);
   const menuRef = useRef(null);
   const exportHref = buildAdminHref("/internal/admin/export-users", params, { page: "", pageSize: "" });
   const updatingShop =
     statusFetcher.state !== "idle" ? String(statusFetcher.formData?.get("shop") || "") : "";
+  const statusBusy = statusFetcher.state !== "idle";
   const statusError = statusFetcher.data?.ok === false ? statusFetcher.data.error : "";
+  const statusIntent = String(statusFetcher.formData?.get("intent") || "");
 
   useEffect(() => {
     if (!openMenu) {
@@ -168,12 +194,38 @@ export default function AdminUsers() {
     };
   }, [openMenu]);
 
+  const statusFetcherState = useRef(statusFetcher.state);
+  useEffect(() => {
+    const wasBusy = statusFetcherState.current !== "idle";
+    statusFetcherState.current = statusFetcher.state;
+    if (wasBusy && statusFetcher.state === "idle" && statusFetcher.data?.ok === true && statusEditor) {
+      setStatusEditor(null);
+    }
+  }, [statusFetcher.state, statusFetcher.data, statusEditor]);
+
+  useEffect(() => {
+    if (!statusEditor) {
+      return undefined;
+    }
+
+    function closeEditor(event) {
+      if (event.key === "Escape" && statusFetcher.state === "idle") {
+        setStatusEditor(null);
+      }
+    }
+
+    document.addEventListener("keydown", closeEditor);
+    return () => document.removeEventListener("keydown", closeEditor);
+  }, [statusEditor, statusFetcher.state]);
+
   return (
     <div>
       <div className="admin-page-head">
         <div>
           <h2>User list</h2>
-          <p>All stores that have installed the staging app.</p>
+          <p>
+            Stores still hit the pricing wall until a support ticket is granted with Update Status.
+          </p>
         </div>
         <div className="admin-toolbar">
           <button type="button" className="admin-btn" onClick={() => setFiltersOpen((open) => !open)}>
@@ -311,17 +363,21 @@ export default function AdminUsers() {
                         </a>
                         <div className="admin-shop-meta-row">
                           {shopPlanLabel ? <span className="admin-shop-meta">{shopPlanLabel}</span> : null}
-                          <statusFetcher.Form method="post">
-                            <input type="hidden" name="intent" value="update_status" />
-                            <input type="hidden" name="shop" value={user.shop} />
-                            <button
-                              type="submit"
-                              className="admin-status-link"
-                              disabled={updatingShop === user.shop}
-                            >
-                              {updatingShop === user.shop ? "Updating…" : "Update Status"}
-                            </button>
-                          </statusFetcher.Form>
+                          <button
+                            type="button"
+                            className="admin-status-link"
+                            onClick={() =>
+                              setStatusEditor({
+                                shop: user.shop,
+                                isInstall:
+                                  user.adminGrantedInstall || user.installStatus === "Installed",
+                                isPayment: Boolean(user.adminGrantedPayment),
+                                planName: plans.includes(user.planName) ? user.planName : "Super",
+                              })
+                            }
+                          >
+                            Update Status
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -406,6 +462,118 @@ export default function AdminUsers() {
       </div>
 
       <AdminPagination pathname="/admin/users" params={params} page={page} pageSize={pageSize} total={total} />
+
+      {statusEditor ? (
+        <div className="admin-modal-backdrop">
+          <button
+            type="button"
+            className="admin-modal-scrim"
+            aria-label="Close status editor"
+            onClick={() => !statusBusy && setStatusEditor(null)}
+          />
+          <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="status-editor-title">
+            <div className="admin-modal-head">
+              <div>
+                <h3 id="status-editor-title">Update status</h3>
+                <p>{statusEditor.shop}</p>
+              </div>
+              <button
+                type="button"
+                className="admin-btn icon-only"
+                aria-label="Close"
+                disabled={statusBusy}
+                onClick={() => setStatusEditor(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="admin-muted">
+              This store still sees the pricing wall. After a support ticket, turn Payment OK on so they
+              can use the app. Development, affiliate, and staff stores are not skipped automatically.
+            </p>
+            {statusError ? <div className="admin-alert">{statusError}</div> : null}
+            <div className="admin-status-toggles">
+              <div className="admin-status-toggle">
+                <span>Installed</span>
+                <button
+                  type="button"
+                  className={`admin-toggle${statusEditor.isInstall ? " on" : ""}`}
+                  aria-label="Toggle installed"
+                  aria-pressed={statusEditor.isInstall}
+                  onClick={() =>
+                    setStatusEditor((current) => ({ ...current, isInstall: !current.isInstall }))
+                  }
+                />
+              </div>
+              <div className="admin-status-toggle">
+                <span>Payment OK — lifts pricing wall</span>
+                <button
+                  type="button"
+                  className={`admin-toggle${statusEditor.isPayment ? " on" : ""}`}
+                  aria-label="Toggle payment OK"
+                  aria-pressed={statusEditor.isPayment}
+                  onClick={() =>
+                    setStatusEditor((current) => ({ ...current, isPayment: !current.isPayment }))
+                  }
+                />
+              </div>
+            </div>
+            {statusEditor.isPayment ? (
+              <div className="admin-field">
+                <label htmlFor="status-plan">Plan</label>
+                <select
+                  id="status-plan"
+                  value={statusEditor.planName}
+                  onChange={(event) =>
+                    setStatusEditor((current) => ({ ...current, planName: event.target.value }))
+                  }
+                >
+                  {plans.map((plan) => (
+                    <option key={plan} value={plan}>
+                      {plan}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="admin-modal-actions">
+              <statusFetcher.Form method="post">
+                <input type="hidden" name="intent" value="update_status" />
+                <input type="hidden" name="shop" value={statusEditor.shop} />
+                <button
+                  type="submit"
+                  className="admin-btn"
+                  disabled={statusBusy}
+                >
+                  {updatingShop === statusEditor.shop && statusIntent === "update_status"
+                    ? "Refreshing…"
+                    : "Refresh from Shopify"}
+                </button>
+              </statusFetcher.Form>
+              <div className="admin-modal-actions-end">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  disabled={statusBusy}
+                  onClick={() => setStatusEditor(null)}
+                >
+                  Cancel
+                </button>
+                <statusFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="set_access" />
+                  <input type="hidden" name="shop" value={statusEditor.shop} />
+                  <input type="hidden" name="isInstall" value={statusEditor.isInstall ? "true" : "false"} />
+                  <input type="hidden" name="isPayment" value={statusEditor.isPayment ? "true" : "false"} />
+                  <input type="hidden" name="planName" value={statusEditor.planName} />
+                  <button className="admin-btn primary" type="submit" disabled={statusBusy}>
+                    {statusBusy && statusIntent === "set_access" ? "Saving…" : "Save"}
+                  </button>
+                </statusFetcher.Form>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

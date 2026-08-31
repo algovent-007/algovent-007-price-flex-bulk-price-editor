@@ -1,10 +1,11 @@
 import prisma from "../db.server";
-import { isValidPlanName, SUBSCRIPTION_STATUS } from "../constants/billing";
+import { ADMIN_GRANT_CHARGE_ID, isValidPlanName, SUBSCRIPTION_STATUS } from "../constants/billing";
 import { getSubscriptionByShop, updateSubscriptionByShop, upsertSubscription } from "../models/subscription.server";
 import { clearShopUninstalled, markShopUninstalled } from "../models/shop-settings.server";
 import { revokeSupportSessionsForShop } from "./admin-support-session.server";
 import { fetchActiveShopifySubscription } from "./billing.server";
 import { isShopifyAccessRevoked } from "../utils/admin-shopify-error";
+import { resolveAdminGrantPlanName } from "../utils/admin-shop-status";
 import { unauthenticated } from "../shopify.server";
 
 async function markShopAccessRevoked(shop) {
@@ -22,6 +23,56 @@ async function markShopAccessRevoked(shop) {
     isPaymentOk: false,
     planName: existing?.planName || "",
     subscriptionStatus: existing ? SUBSCRIPTION_STATUS.CANCELLED : null,
+  };
+}
+
+export async function applyAdminShopAccessFlags({
+  shop,
+  isInstall,
+  isPayment,
+  planName,
+} = {}) {
+  if (!shop) {
+    return { ok: false, error: "Shop is required." };
+  }
+
+  const installed = Boolean(isInstall);
+  const paymentOk = Boolean(isPayment);
+  const existing = await getSubscriptionByShop(shop);
+  const resolvedPlanName = resolveAdminGrantPlanName(planName, existing?.planName);
+
+  await prisma.shopSettings.upsert({
+    where: { shop },
+    create: {
+      shop,
+      adminGrantedInstall: installed,
+      adminGrantedPayment: paymentOk,
+      ...(installed ? { uninstalledAt: null } : {}),
+    },
+    update: {
+      adminGrantedInstall: installed,
+      adminGrantedPayment: paymentOk,
+      ...(installed ? { uninstalledAt: null } : {}),
+    },
+  });
+
+  if (paymentOk) {
+    await upsertSubscription({
+      shop,
+      planName: resolvedPlanName,
+      status: SUBSCRIPTION_STATUS.ACTIVE,
+      chargeId: ADMIN_GRANT_CHARGE_ID,
+    });
+  } else if (existing && (existing.chargeId === ADMIN_GRANT_CHARGE_ID || !existing.chargeId)) {
+    await updateSubscriptionByShop(shop, { status: SUBSCRIPTION_STATUS.CANCELLED });
+  }
+
+  return {
+    ok: true,
+    installed,
+    isPaymentOk: paymentOk,
+    planName: resolvedPlanName,
+    subscriptionStatus: paymentOk ? SUBSCRIPTION_STATUS.ACTIVE : existing?.status || null,
   };
 }
 

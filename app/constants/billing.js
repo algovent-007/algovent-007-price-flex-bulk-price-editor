@@ -1,5 +1,8 @@
 export const PLAN_NAMES = ["Basic", "Pro", "Super"];
 
+/** Local subscription charge id used when an admin grants access without Shopify billing. */
+export const ADMIN_GRANT_CHARGE_ID = "admin-grant";
+
 /** Default plan charged on first install before the merchant can use the app. */
 export const DEFAULT_INSTALL_PLAN = "Basic";
 

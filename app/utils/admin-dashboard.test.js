@@ -116,4 +116,46 @@ await test("formats admin timestamps", () => {
   assert.equal(Boolean(formatted.zone), true);
 });
 
+const { deriveInstallStatus, derivePaymentOk, isAdminGrantedSubscription, resolveAdminGrantPlanName } =
+  await import("./admin-shop-status.js");
+const { ADMIN_GRANT_CHARGE_ID, SUBSCRIPTION_STATUS } = await import("../constants/billing.js");
+
+await test("derives installed and payment status from admin grants", () => {
+  assert.equal(derivePaymentOk(null, true), true);
+  assert.equal(derivePaymentOk(SUBSCRIPTION_STATUS.ACTIVE, false), true);
+  assert.equal(derivePaymentOk(SUBSCRIPTION_STATUS.CANCELLED, false), false);
+  assert.equal(
+    deriveInstallStatus({
+      hasSession: false,
+      subscriptionStatus: SUBSCRIPTION_STATUS.CANCELLED,
+      adminGrantedInstall: true,
+    }),
+    "Installed",
+  );
+  assert.equal(
+    deriveInstallStatus({
+      hasSession: false,
+      subscriptionStatus: null,
+      adminGrantedInstall: false,
+    }),
+    "Uninstalled",
+  );
+  assert.equal(resolveAdminGrantPlanName("", "Pro"), "Pro");
+  assert.equal(resolveAdminGrantPlanName("nope"), "Super");
+  assert.equal(
+    isAdminGrantedSubscription(
+      { status: SUBSCRIPTION_STATUS.ACTIVE, planName: "Super", chargeId: ADMIN_GRANT_CHARGE_ID },
+      false,
+    ),
+    true,
+  );
+  assert.equal(
+    isAdminGrantedSubscription(
+      { status: SUBSCRIPTION_STATUS.ACTIVE, planName: "Basic", chargeId: "gid://shopify/AppSubscription/1" },
+      true,
+    ),
+    true,
+  );
+});
+
 console.log("All admin dashboard tests passed.");
