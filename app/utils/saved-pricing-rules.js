@@ -39,6 +39,10 @@ export function savePricingRules(shop, rules) {
   localStorage.setItem(getStorageKey(shop), JSON.stringify(rules));
 }
 
+export function clearSavedPricingRules(shop) {
+  localStorage.removeItem(getStorageKey(shop));
+}
+
 export function loadSavedPricingRules(shop) {
   const raw = localStorage.getItem(getStorageKey(shop));
   if (!raw) return null;
@@ -48,70 +52,4 @@ export function loadSavedPricingRules(shop) {
   } catch {
     return null;
   }
-}
-
-export function applySavedPricingRules(rules, setters) {
-  if (!rules) return false;
-
-  const {
-    setChangePrice,
-    setPercentType,
-    setPercentValue,
-    setFixedType,
-    setFixedValue,
-    setRoundCents,
-    setRoundCentsDigit,
-    setComparePriceType,
-    setCostPriceType,
-    setFixedPriceAmount,
-    setPriceFormula,
-    setComparePriceFormula,
-    setComparePercentType,
-    setComparePercentValue,
-    setCompareFixedType,
-    setCompareFixedValue,
-    setCompareFixedPriceAmount,
-    setCompareRoundCents,
-    setCompareRoundCentsDigit,
-    setCostPercentType,
-    setCostPercentValue,
-    setCostFixedType,
-    setCostFixedValue,
-    setCostFixedPriceAmount,
-    setCostRoundCents,
-    setCostRoundCentsDigit,
-  } = setters;
-
-  if (rules.changePrice != null) setChangePrice(String(rules.changePrice));
-  if (rules.percentType != null) setPercentType(String(rules.percentType));
-  if (rules.percentValue != null) setPercentValue(String(rules.percentValue));
-  if (rules.fixedType != null) setFixedType(String(rules.fixedType));
-  if (rules.fixedValue != null) setFixedValue(String(rules.fixedValue));
-  if (rules.roundCents != null) setRoundCents(String(rules.roundCents));
-  if (rules.roundCentsDigit != null) setRoundCentsDigit(String(rules.roundCentsDigit));
-  if (rules.comparePriceType != null) setComparePriceType(String(rules.comparePriceType));
-  if (rules.costPriceType != null) setCostPriceType(String(rules.costPriceType));
-  if (rules.fixedPriceAmount != null) setFixedPriceAmount(String(rules.fixedPriceAmount));
-  if (rules.priceFormula != null) setPriceFormula(rules.priceFormula);
-  if (rules.comparePriceFormula != null) setComparePriceFormula(rules.comparePriceFormula);
-  if (rules.comparePercentType != null) setComparePercentType(String(rules.comparePercentType));
-  if (rules.comparePercentValue != null) setComparePercentValue(String(rules.comparePercentValue));
-  if (rules.compareFixedType != null) setCompareFixedType(String(rules.compareFixedType));
-  if (rules.compareFixedValue != null) setCompareFixedValue(String(rules.compareFixedValue));
-  if (rules.compareFixedPriceAmount != null) {
-    setCompareFixedPriceAmount(String(rules.compareFixedPriceAmount));
-  }
-  if (rules.compareRoundCents != null) setCompareRoundCents(String(rules.compareRoundCents));
-  if (rules.compareRoundCentsDigit != null) {
-    setCompareRoundCentsDigit(String(rules.compareRoundCentsDigit));
-  }
-  if (rules.costPercentType != null) setCostPercentType(String(rules.costPercentType));
-  if (rules.costPercentValue != null) setCostPercentValue(String(rules.costPercentValue));
-  if (rules.costFixedType != null) setCostFixedType(String(rules.costFixedType));
-  if (rules.costFixedValue != null) setCostFixedValue(String(rules.costFixedValue));
-  if (rules.costFixedPriceAmount != null) setCostFixedPriceAmount(String(rules.costFixedPriceAmount));
-  if (rules.costRoundCents != null) setCostRoundCents(String(rules.costRoundCents));
-  if (rules.costRoundCentsDigit != null) setCostRoundCentsDigit(String(rules.costRoundCentsDigit));
-
-  return true;
 }

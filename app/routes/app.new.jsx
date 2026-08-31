@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useFetcher, useLoaderData, useNavigate } from "react-router";
+import { useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -54,9 +54,8 @@ import {
 } from "../components/new-task/constants";
 import { applyStoredTaskCopy, readStoredTaskCopy } from "../utils/copy-task";
 import {
-  applySavedPricingRules,
   buildPricingRulesSnapshot,
-  loadSavedPricingRules,
+  clearSavedPricingRules,
   savePricingRules,
 } from "../utils/saved-pricing-rules";
 import { validateRunTaskForm } from "../utils/validate-run-task";
@@ -633,7 +632,13 @@ function createInitialScheduleState(timezone) {
   };
 }
 
-export default function NewTask() {
+export default function NewTaskPage() {
+  const location = useLocation();
+  const { defaultTaskName } = useLoaderData();
+  return <NewTaskForm key={`${location.key}:${defaultTaskName || ""}`} />;
+}
+
+function NewTaskForm() {
   const { t } = useI18n();
   const fetcher = useFetcher();
   const fetcherRef = useRef(fetcher);
@@ -812,38 +817,6 @@ export default function NewTask() {
       }
       return;
     }
-
-    const savedPricingRules = loadSavedPricingRules(shop);
-    if (savedPricingRules) {
-      applySavedPricingRules(savedPricingRules, {
-        setChangePrice,
-        setPercentType,
-        setPercentValue,
-        setFixedType,
-        setFixedValue,
-        setRoundCents,
-        setRoundCentsDigit,
-        setComparePriceType,
-        setCostPriceType,
-        setFixedPriceAmount,
-        setPriceFormula,
-        setComparePriceFormula,
-        setComparePercentType,
-        setComparePercentValue,
-        setCompareFixedType,
-        setCompareFixedValue,
-        setCompareFixedPriceAmount,
-        setCompareRoundCents,
-        setCompareRoundCentsDigit,
-        setCostPercentType,
-        setCostPercentValue,
-        setCostFixedType,
-        setCostFixedValue,
-        setCostFixedPriceAmount,
-        setCostRoundCents,
-        setCostRoundCentsDigit,
-      });
-    }
   }, [shop]);
 
   useEffect(() => {
@@ -993,6 +966,8 @@ export default function NewTask() {
   useEffect(() => {
     if (!runFetcher.data?.success || !runFetcher.data.taskId) return;
 
+    clearSavedPricingRules(shop);
+
     if (runFetcher.data.taskStarted) {
       writeActiveTaskId(runFetcher.data.taskId);
       navigate(`/app/current?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
@@ -1002,7 +977,7 @@ export default function NewTask() {
     if (runFetcher.data.scheduled) {
       navigate("/app/scheduled");
     }
-  }, [navigate, runFetcher.data]);
+  }, [navigate, runFetcher.data, shop]);
 
   const clearFieldError = (key) => {
     setFieldErrors((prev) => {
@@ -1214,8 +1189,9 @@ export default function NewTask() {
     if (runFetcher.state !== "idle" || !runFetcher.data?.success || !runFetcher.data?.updated) {
       return;
     }
+    clearSavedPricingRules(shop);
     navigate("/app/scheduled");
-  }, [navigate, runFetcher.data, runFetcher.state]);
+  }, [navigate, runFetcher.data, runFetcher.state, shop]);
 
   const addCondition = () => {
     setConditions([...conditions, { field: "title", operator: "equals", value: "" }]);
