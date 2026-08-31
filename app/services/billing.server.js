@@ -7,6 +7,7 @@ import {
 } from "../constants/billing";
 import { getSubscriptionByShop, upsertSubscription } from "../models/subscription.server";
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
+import { isShopifyAccessRevoked } from "../utils/admin-shopify-error";
 
 const SHOPIFY_RETURN_URL_MAX_LENGTH = 255;
 
@@ -90,7 +91,16 @@ const APP_SUBSCRIPTION_CANCEL_MUTATION = `#graphql
 
 async function runGraphql(admin, query, variables = {}) {
   const response = await admin.graphql(query, { variables });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(`GraphQL Client: Forbidden (${response.status})`);
+  }
+
   const json = await response.json();
+
+  if (json.errors?.networkStatusCode === 401 || json.errors?.networkStatusCode === 403) {
+    throw new Error(json.errors.message || "GraphQL Client: Forbidden");
+  }
 
   if (json.errors?.length) {
     throw new Error(json.errors[0].message);
@@ -228,64 +238,65 @@ export async function createBillingRequest({ admin, session, planName, request }
 
   const plan = getPlanDefinition(planName);
   const existingSubscription = await getSubscriptionByShop(shop);
-  const devStore = await isDevelopmentStore(admin);
-
-  if (
-    existingSubscription &&
-    existingSubscription.planName === planName &&
-    existingSubscription.status === SUBSCRIPTION_STATUS.ACTIVE
-  ) {
-    return { error: "You are already subscribed to this plan." };
-  }
-
-  const activeShopifySubscription = await fetchActiveShopifySubscription(admin);
-  if (
-    activeShopifySubscription &&
-    activeShopifySubscription.name === planName &&
-    String(activeShopifySubscription.status).toUpperCase() === SUBSCRIPTION_STATUS.ACTIVE
-  ) {
-    await upsertSubscription({
-      shop,
-      planName: plan.name,
-      status: SUBSCRIPTION_STATUS.ACTIVE,
-      chargeId: activeShopifySubscription.id,
-    });
-    return { error: "You are already subscribed to this plan." };
-  }
-
-  if (
-    activeShopifySubscription &&
-    String(activeShopifySubscription.status).toUpperCase() === SUBSCRIPTION_STATUS.ACTIVE &&
-    isValidPlanName(activeShopifySubscription.name)
-  ) {
-    await upsertSubscription({
-      shop,
-      planName: activeShopifySubscription.name,
-      status: SUBSCRIPTION_STATUS.ACTIVE,
-      chargeId: activeShopifySubscription.id,
-    });
-  } else if (existingSubscription?.status === SUBSCRIPTION_STATUS.PENDING) {
-    return {
-      error:
-        "You already have a pending billing request. Approve or decline it in Shopify before trying again.",
-    };
-  }
-
-  const replacementBehavior = (existingSubscription?.planName || activeShopifySubscription?.name)
-    ? getReplacementBehavior(
-        existingSubscription?.planName || activeShopifySubscription.name,
-        planName,
-      )
-    : "STANDARD";
-
-  const comparison = (existingSubscription?.planName || activeShopifySubscription?.name)
-    ? comparePlans(
-        existingSubscription?.planName || activeShopifySubscription.name,
-        planName,
-      )
-    : 0;
 
   try {
+    const devStore = await isDevelopmentStore(admin);
+
+    if (
+      existingSubscription &&
+      existingSubscription.planName === planName &&
+      existingSubscription.status === SUBSCRIPTION_STATUS.ACTIVE
+    ) {
+      return { error: "You are already subscribed to this plan." };
+    }
+
+    const activeShopifySubscription = await fetchActiveShopifySubscription(admin);
+    if (
+      activeShopifySubscription &&
+      activeShopifySubscription.name === planName &&
+      String(activeShopifySubscription.status).toUpperCase() === SUBSCRIPTION_STATUS.ACTIVE
+    ) {
+      await upsertSubscription({
+        shop,
+        planName: plan.name,
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        chargeId: activeShopifySubscription.id,
+      });
+      return { error: "You are already subscribed to this plan." };
+    }
+
+    if (
+      activeShopifySubscription &&
+      String(activeShopifySubscription.status).toUpperCase() === SUBSCRIPTION_STATUS.ACTIVE &&
+      isValidPlanName(activeShopifySubscription.name)
+    ) {
+      await upsertSubscription({
+        shop,
+        planName: activeShopifySubscription.name,
+        status: SUBSCRIPTION_STATUS.ACTIVE,
+        chargeId: activeShopifySubscription.id,
+      });
+    } else if (existingSubscription?.status === SUBSCRIPTION_STATUS.PENDING) {
+      return {
+        error:
+          "You already have a pending billing request. Approve or decline it in Shopify before trying again.",
+      };
+    }
+
+    const replacementBehavior = (existingSubscription?.planName || activeShopifySubscription?.name)
+      ? getReplacementBehavior(
+          existingSubscription?.planName || activeShopifySubscription.name,
+          planName,
+        )
+      : "STANDARD";
+
+    const comparison = (existingSubscription?.planName || activeShopifySubscription?.name)
+      ? comparePlans(
+          existingSubscription?.planName || activeShopifySubscription.name,
+          planName,
+        )
+      : 0;
+
     const data = await runGraphql(admin, APP_SUBSCRIPTION_CREATE_MUTATION, {
       name: plan.name,
       returnUrl: await buildReturnUrl({
@@ -336,6 +347,10 @@ export async function createBillingRequest({ admin, session, planName, request }
 
     return { confirmationUrl };
   } catch (error) {
+    if (isShopifyAccessRevoked(error)) {
+      throw error;
+    }
+
     logBillingError("billing_creation", error, { shop, planName });
     return { error: error.message || "Failed to create billing request." };
   }

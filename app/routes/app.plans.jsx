@@ -5,13 +5,21 @@ import { authenticate } from "../shopify.server";
 import { comparePlans, PLANS, SUBSCRIPTION_STATUS } from "../constants/billing";
 import { getPlansPageData } from "../services/subscription.server";
 import { handleBillingAction } from "../services/billing-action.server";
+import { retryAfterRevokedShopifyAccess } from "../utils/shopify-reauth.server";
 import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
 import AppPage from "../components/AppPage";
 
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-  return getPlansPageData(admin, session);
+  let shop = new URL(request.url).searchParams.get("shop");
+  try {
+    const { admin, session } = await authenticate.admin(request);
+    shop = session.shop;
+    return getPlansPageData(admin, session);
+  } catch (error) {
+    await retryAfterRevokedShopifyAccess(error, request, shop);
+    throw error;
+  }
 };
 
 export const action = handleBillingAction;

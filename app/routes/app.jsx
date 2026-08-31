@@ -5,6 +5,7 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { requireSubscription } from "../services/subscription.server";
 import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
+import { retryAfterRevokedShopifyAccess } from "../utils/shopify-reauth.server";
 import { getValidSupportContext } from "../services/admin-support-session.server";
 import { useI18n } from "../i18n/I18nProvider";
 import AdminSupportBanner from "../components/admin/AdminSupportBanner";
@@ -19,8 +20,11 @@ function isBillingExemptPath(pathname) {
 }
 
 export const loader = async ({ request }) => {
+  let shop = new URL(request.url).searchParams.get("shop");
+
   try {
     const { admin, session, redirect } = await authenticate.admin(request);
+    shop = session.shop;
 
     const url = new URL(request.url);
     const billingExempt = isBillingExemptPath(url.pathname);
@@ -44,6 +48,8 @@ export const loader = async ({ request }) => {
         : null,
     };
   } catch (error) {
+    await retryAfterRevokedShopifyAccess(error, request, shop);
+
     if (error instanceof Response) {
       throw error;
     }

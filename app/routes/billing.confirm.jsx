@@ -9,6 +9,7 @@ import {
   appendEmbeddedAppParams,
   isValidShopifyBillingConfirmationUrl,
 } from "../utils/embedded-app-params.server";
+import { retryAfterRevokedShopifyAccess } from "../utils/shopify-reauth.server";
 
 async function resolveConfirmationUrl({ admin, session, request }) {
   const url = new URL(request.url);
@@ -57,16 +58,24 @@ async function resolveConfirmationUrl({ admin, session, request }) {
 
 /** Resource route — no UI export; returns raw HTML to break out of the iframe. */
 export const loader = async ({ request }) => {
-  const { admin, session } = await authenticate.admin(request);
-  const confirmationUrl = await resolveConfirmationUrl({
-    admin,
-    session,
-    request,
-  });
-  // eslint-disable-next-line no-undef
-  const apiKey = process.env.SHOPIFY_API_KEY || "";
+  let shop = new URL(request.url).searchParams.get("shop");
 
-  return createBillingRedirectResponse(confirmationUrl, apiKey);
+  try {
+    const { admin, session } = await authenticate.admin(request);
+    shop = session.shop;
+    const confirmationUrl = await resolveConfirmationUrl({
+      admin,
+      session,
+      request,
+    });
+    // eslint-disable-next-line no-undef
+    const apiKey = process.env.SHOPIFY_API_KEY || "";
+
+    return createBillingRedirectResponse(confirmationUrl, apiKey);
+  } catch (error) {
+    await retryAfterRevokedShopifyAccess(error, request, shop);
+    throw error;
+  }
 };
 
 export const headers = (headersArgs) => {

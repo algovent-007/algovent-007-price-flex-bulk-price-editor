@@ -17,6 +17,7 @@ import {
   syncSubscriptionFromShopify,
 } from "./billing.server";
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
+import { isShopifyAccessRevoked } from "../utils/admin-shopify-error";
 
 const SUBSCRIPTION_CACHE_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const SUBSCRIPTION_CACHE_FRESH_MS = 2 * 60 * 1000;
@@ -85,6 +86,10 @@ export async function requireSubscription(admin, session, { allowCache = true } 
       return subscription;
     }
   } catch (error) {
+    if (isShopifyAccessRevoked(error)) {
+      throw error;
+    }
+
     logBillingError("subscription_update", error, { shop, source: "requireSubscription" });
 
     const cached = await getSubscriptionByShop(shop);
@@ -115,7 +120,16 @@ export async function clearSubscriptionForShop(shop) {
 
 export async function getPlansPageData(admin, session) {
   const shop = session.shop;
-  const devStore = await isDevelopmentStore(admin);
+  let devStore = false;
+  try {
+    devStore = await isDevelopmentStore(admin);
+  } catch (error) {
+    if (isShopifyAccessRevoked(error)) {
+      throw error;
+    }
+    logBillingError("billing_error", error, { shop, source: "getPlansPageData_shop" });
+  }
+
   const subscription = await getSubscriptionByShop(shop);
   let renewalDate = null;
   let billingStatus = subscription?.status || "NONE";

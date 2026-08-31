@@ -98,6 +98,15 @@ await test("detects revoked Shopify access", () => {
   assert.equal(isShopifyAccessRevoked(new Error("Unauthorized")), true);
   assert.equal(isShopifyAccessRevoked(new Error("Invalid API key or access token")), true);
   assert.equal(isShopifyAccessRevoked(new Error("GraphQL timeout")), false);
+  assert.equal(isShopifyAccessRevoked(new Error("GraphQL Client: Forbidden")), true);
+  assert.equal(
+    isShopifyAccessRevoked({
+      errors: { networkStatusCode: 403, message: "GraphQL Client: Forbidden", response: {} },
+    }),
+    true,
+  );
+  assert.equal(isShopifyAccessRevoked(new Response("{}", { status: 403 })), true);
+  assert.equal(isShopifyAccessRevoked(new Response(null, { status: 302 })), false);
 });
 
 await test("formats admin timestamps", () => {
