@@ -13,6 +13,7 @@ import {
   getSupportAuthDecision,
   isSupportEligiblePath,
 } from "./services/admin-support-session.server";
+import { cycleAllNonExpiringOfflineTokens, cycleShopOfflineTokenIfNeeded } from "./services/cycle-offline-tokens.server";
 
 function createDeferredSessionStorage() {
   let storage;
@@ -24,6 +25,12 @@ function createDeferredSessionStorage() {
       ready = ensurePrismaConnected()
         .then(() => {
           storage = new PrismaSessionStorage(prisma);
+          void cycleAllNonExpiringOfflineTokens().catch((error) => {
+            console.error(
+              "[auth:offline_token_cycle] startup cycle failed:",
+              error?.message || error,
+            );
+          });
           return storage;
         })
         .catch((error) => {
@@ -85,6 +92,19 @@ const shopify = shopifyApp({
 
 const adminAuthByRequest = new WeakMap();
 
+function shopFromRequest(request) {
+  try {
+    return new URL(request.url).searchParams.get("shop") || "";
+  } catch {
+    return "";
+  }
+}
+
+async function unauthenticatedAdmin(shop, ...rest) {
+  await cycleShopOfflineTokenIfNeeded(shop);
+  return shopify.unauthenticated.admin(shop, ...rest);
+}
+
 async function authenticateAdmin(request, options) {
   const cached = adminAuthByRequest.get(request);
   if (cached) return cached;
@@ -101,7 +121,7 @@ async function authenticateAdminUncached(request, options) {
     const decision = await getSupportAuthDecision(request);
     if (decision.type === "active") {
       try {
-        const result = await shopify.unauthenticated.admin(decision.support.shop);
+        const result = await unauthenticatedAdmin(decision.support.shop);
         return {
           session: result.session,
           admin: result.admin,
@@ -115,6 +135,11 @@ async function authenticateAdminUncached(request, options) {
     if (decision.type === "stale") {
       throw redirect("/admin/users?error=support_session_expired");
     }
+  }
+
+  const shop = shopFromRequest(request);
+  if (shop) {
+    await cycleShopOfflineTokenIfNeeded(shop);
   }
 
   return shopify.authenticate.admin(request, options);
@@ -132,7 +157,15 @@ export const authenticate = new Proxy(shopify.authenticate, {
     return typeof value === "function" ? value.bind(target) : value;
   },
 });
-export const unauthenticated = shopify.unauthenticated;
+export const unauthenticated = new Proxy(shopify.unauthenticated, {
+  get(target, prop, receiver) {
+    if (prop === "admin") {
+      return unauthenticatedAdmin;
+    }
+    const value = Reflect.get(target, prop, receiver);
+    return typeof value === "function" ? value.bind(target) : value;
+  },
+});
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;
 export const sessionStorage = shopify.sessionStorage;
