@@ -2,7 +2,7 @@ import prisma from "../db.server";
 
 export async function getShopAccessGrants(shop) {
   if (!shop) {
-    return { adminGrantedInstall: false, adminGrantedPayment: false };
+    return { adminGrantedInstall: false, adminGrantedPayment: false, adminPlanName: "" };
   }
 
   const row = await prisma.shopSettings.findUnique({
@@ -10,12 +10,14 @@ export async function getShopAccessGrants(shop) {
     select: {
       adminGrantedInstall: true,
       adminGrantedPayment: true,
+      adminPlanName: true,
     },
   });
 
   return {
     adminGrantedInstall: Boolean(row?.adminGrantedInstall),
     adminGrantedPayment: Boolean(row?.adminGrantedPayment),
+    adminPlanName: row?.adminPlanName || "",
   };
 }
 
@@ -127,6 +129,7 @@ export async function markShopUninstalled(shop) {
         uninstalledAt,
         adminGrantedInstall: false,
         adminGrantedPayment: false,
+        adminPlanName: null,
       },
     });
   }
@@ -138,6 +141,7 @@ export async function markShopUninstalled(shop) {
       "uninstalledAt" = NOW(),
       "adminGrantedInstall" = false,
       "adminGrantedPayment" = false,
+      "adminPlanName" = NULL,
       "updatedAt" = NOW()
   `;
 

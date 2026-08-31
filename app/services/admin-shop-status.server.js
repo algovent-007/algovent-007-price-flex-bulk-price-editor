@@ -1,7 +1,7 @@
 import prisma from "../db.server";
 import { ADMIN_GRANT_CHARGE_ID, isValidPlanName, SUBSCRIPTION_STATUS } from "../constants/billing";
 import { getSubscriptionByShop, updateSubscriptionByShop, upsertSubscription } from "../models/subscription.server";
-import { clearShopUninstalled, markShopUninstalled } from "../models/shop-settings.server";
+import { getShopAccessGrants, clearShopUninstalled, markShopUninstalled } from "../models/shop-settings.server";
 import { revokeSupportSessionsForShop } from "./admin-support-session.server";
 import { fetchActiveShopifySubscription } from "./billing.server";
 import { isShopifyAccessRevoked } from "../utils/admin-shopify-error";
@@ -76,6 +76,40 @@ export async function applyAdminShopAccessFlags({
   };
 }
 
+export async function applyAdminPlanChange({ shop, planName } = {}) {
+  if (!shop) {
+    return { ok: false, error: "Shop is required." };
+  }
+
+  if (!isValidPlanName(planName)) {
+    return { ok: false, error: "Choose Basic, Pro, or Super." };
+  }
+
+  const existing = await getSubscriptionByShop(shop);
+
+  await prisma.shopSettings.upsert({
+    where: { shop },
+    create: {
+      shop,
+      adminPlanName: planName,
+    },
+    update: {
+      adminPlanName: planName,
+    },
+  });
+
+  if (existing) {
+    await updateSubscriptionByShop(shop, { planName });
+  }
+
+  return {
+    ok: true,
+    planName,
+    previousPlanName: existing?.planName || "",
+    subscriptionStatus: existing?.status || null,
+  };
+}
+
 export async function refreshAdminShopStatus(shop) {
   const offlineSession = await prisma.session.findFirst({
     where: { shop, isOnline: false },
@@ -97,9 +131,11 @@ export async function refreshAdminShopStatus(shop) {
 
     if (activeSubscription) {
       const existing = await getSubscriptionByShop(shop);
-      const planName = isValidPlanName(activeSubscription.name)
+      const grants = await getShopAccessGrants(shop);
+      const shopifyPlanName = isValidPlanName(activeSubscription.name)
         ? activeSubscription.name
         : existing?.planName || activeSubscription.name;
+      const planName = resolveAdminGrantPlanName(grants.adminPlanName, shopifyPlanName);
       const subscription = await upsertSubscription({
         shop,
         planName,

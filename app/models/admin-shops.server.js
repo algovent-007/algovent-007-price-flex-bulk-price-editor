@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import prisma from "../db.server";
 import { SUBSCRIPTION_STATUS } from "../constants/billing";
-import { deriveInstallStatus, derivePaymentOk } from "../utils/admin-shop-status";
+import { deriveInstallStatus, derivePaymentOk, resolveDisplayedPlanName } from "../utils/admin-shop-status";
 
 export const INSTALL_STATUSES = ["Installed", "Uninstalled", "Inactive"];
 
@@ -19,7 +19,7 @@ function mapShopRow(row) {
     email: row.email || "",
     shopName: row.shop_name || "",
     timezone: row.timezone || "UTC",
-    planName: row.plan_name || "",
+    planName: resolveDisplayedPlanName(row.plan_name, row.admin_plan_name),
     subscriptionStatus,
     isReview: Boolean(row.is_review),
     isTrial: false,
@@ -76,7 +76,14 @@ function buildFilterSql({ query, status, plan, payment, review }) {
   }
 
   if (plan) {
-    conditions.push(Prisma.sql`shop_rows.plan_name = ${plan}`);
+    conditions.push(
+      Prisma.sql`(
+        CASE
+          WHEN shop_rows.admin_plan_name IN ('Basic', 'Pro', 'Super') THEN shop_rows.admin_plan_name
+          ELSE shop_rows.plan_name
+        END
+      ) = ${plan}`,
+    );
   }
 
   if (payment === "ok") {
@@ -108,6 +115,7 @@ const SHOP_ROWS_SQL = Prisma.sql`
       COALESCE(ss."isReview", false) AS is_review,
       COALESCE(ss."adminGrantedInstall", false) AS admin_granted_install,
       COALESCE(ss."adminGrantedPayment", false) AS admin_granted_payment,
+      ss."adminPlanName" AS admin_plan_name,
       sub.id AS subscription_id,
       sub."planName" AS plan_name,
       sub.status AS subscription_status,

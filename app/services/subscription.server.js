@@ -9,6 +9,7 @@ import {
 import {
   deleteSubscriptionByShop,
   getSubscriptionByShop,
+  updateSubscriptionByShop,
   upsertSubscription,
 } from "../models/subscription.server";
 import { getShopAccessGrants } from "../models/shop-settings.server";
@@ -49,18 +50,25 @@ export async function getSubscriptionRecord(shop) {
   return getSubscriptionByShop(shop);
 }
 
-async function getAdminGrantedSubscription(shop) {
-  const grants = await getShopAccessGrants(shop);
+async function applyAdminPlanOverride(shop, subscription, overridePlan) {
+  if (!subscription || !overridePlan || subscription.planName === overridePlan) {
+    return subscription;
+  }
+
+  return updateSubscriptionByShop(shop, { planName: overridePlan });
+}
+
+async function getAdminGrantedSubscription(shop, grants) {
   if (!grants.adminGrantedPayment) {
     return null;
   }
 
   const existing = await getSubscriptionByShop(shop);
+  const planName = resolveAdminGrantPlanName(grants.adminPlanName, existing?.planName);
   if (isAdminGrantedSubscription(existing, true)) {
-    return existing;
+    return applyAdminPlanOverride(shop, existing, planName);
   }
 
-  const planName = resolveAdminGrantPlanName(existing?.planName);
   return upsertSubscription({
     shop,
     planName,
@@ -71,9 +79,11 @@ async function getAdminGrantedSubscription(shop) {
 
 export async function requireSubscription(admin, session, { allowCache = true } = {}) {
   const shop = session.shop;
+  const grants = await getShopAccessGrants(shop);
+  const overridePlan = isValidPlanName(grants.adminPlanName) ? grants.adminPlanName : null;
 
   // Only ticket-granted shops skip Shopify billing. Everyone else still hits the pricing wall.
-  const granted = await getAdminGrantedSubscription(shop);
+  const granted = await getAdminGrantedSubscription(shop, grants);
   if (granted) {
     return granted;
   }
@@ -86,7 +96,7 @@ export async function requireSubscription(admin, session, { allowCache = true } 
     isValidPlanName(recent.planName) &&
     Date.now() - new Date(recent.updatedAt).getTime() < SUBSCRIPTION_CACHE_FRESH_MS
   ) {
-    return recent;
+    return applyAdminPlanOverride(shop, recent, overridePlan);
   }
 
   try {
@@ -99,7 +109,7 @@ export async function requireSubscription(admin, session, { allowCache = true } 
     ) {
       const subscription = await upsertSubscription({
         shop,
-        planName: activeShopifySubscription.name,
+        planName: overridePlan || activeShopifySubscription.name,
         status: SUBSCRIPTION_STATUS.ACTIVE,
         chargeId: activeShopifySubscription.id,
       });
@@ -128,14 +138,15 @@ export async function requireSubscription(admin, session, { allowCache = true } 
       isValidPlanName(cached.planName) &&
       isRecentSubscriptionRecord(cached)
     ) {
+      const fallback = await applyAdminPlanOverride(shop, cached, overridePlan);
       logBilling("subscription_update", {
         shop,
-        planName: cached.planName,
-        status: cached.status,
-        chargeId: cached.chargeId,
+        planName: fallback.planName,
+        status: fallback.status,
+        chargeId: fallback.chargeId,
         source: "requireSubscription_cache_fallback",
       });
-      return cached;
+      return fallback;
     }
   }
 
@@ -159,6 +170,7 @@ export async function getPlansPageData(admin, session) {
     logBillingError("billing_error", error, { shop, source: "getPlansPageData_shop" });
   }
 
+  const grants = await getShopAccessGrants(shop);
   const subscription = await getSubscriptionByShop(shop);
   let renewalDate = null;
   let billingStatus = subscription?.status || "NONE";
@@ -173,8 +185,9 @@ export async function getPlansPageData(admin, session) {
     logBillingError("billing_error", error, { shop, source: "getPlansPageData" });
   }
 
-  const currentPlan =
-    shopifyPlanName && isValidPlanName(shopifyPlanName)
+  const currentPlan = isValidPlanName(grants.adminPlanName)
+    ? grants.adminPlanName
+    : shopifyPlanName && isValidPlanName(shopifyPlanName)
       ? shopifyPlanName
       : subscription?.planName || null;
 

@@ -8,7 +8,7 @@ import {
   startSupportSession,
 } from "../services/admin-support-session.server";
 import { listAdminShops, setShopReviewFlag } from "../models/admin-shops.server";
-import { applyAdminShopAccessFlags, refreshAdminShopStatus } from "../services/admin-shop-status.server";
+import { applyAdminPlanChange, applyAdminShopAccessFlags, refreshAdminShopStatus } from "../services/admin-shop-status.server";
 import { PLAN_NAMES } from "../constants/billing";
 import { parsePage, parsePageSize } from "../utils/admin-pagination";
 import { buildAdminHref, readAdminListParams } from "../utils/admin-query";
@@ -94,6 +94,26 @@ export const action = async ({ request }) => {
     return result;
   }
 
+  if (intent === "set_plan" && shop) {
+    const result = await applyAdminPlanChange({
+      shop,
+      planName: String(form.get("planName") || ""),
+    });
+    await recordAdminAudit({
+      adminUser: admin,
+      shop,
+      action: "admin.set_plan",
+      success: Boolean(result.ok),
+      details: {
+        planName: result.planName,
+        previousPlanName: result.previousPlanName || null,
+        subscriptionStatus: result.subscriptionStatus || null,
+        error: result.error || null,
+      },
+    });
+    return result;
+  }
+
   if (intent === "update_status" && shop) {
     const result = await refreshAdminShopStatus(shop);
     await recordAdminAudit({
@@ -163,6 +183,7 @@ export default function AdminUsers() {
   );
   const [openMenu, setOpenMenu] = useState("");
   const [statusEditor, setStatusEditor] = useState(null);
+  const [planEditor, setPlanEditor] = useState(null);
   const menuRef = useRef(null);
   const exportHref = buildAdminHref("/internal/admin/export-users", params, { page: "", pageSize: "" });
   const updatingShop =
@@ -198,25 +219,27 @@ export default function AdminUsers() {
   useEffect(() => {
     const wasBusy = statusFetcherState.current !== "idle";
     statusFetcherState.current = statusFetcher.state;
-    if (wasBusy && statusFetcher.state === "idle" && statusFetcher.data?.ok === true && statusEditor) {
+    if (wasBusy && statusFetcher.state === "idle" && statusFetcher.data?.ok === true) {
       setStatusEditor(null);
+      setPlanEditor(null);
     }
-  }, [statusFetcher.state, statusFetcher.data, statusEditor]);
+  }, [statusFetcher.state, statusFetcher.data]);
 
   useEffect(() => {
-    if (!statusEditor) {
+    if (!statusEditor && !planEditor) {
       return undefined;
     }
 
     function closeEditor(event) {
       if (event.key === "Escape" && statusFetcher.state === "idle") {
         setStatusEditor(null);
+        setPlanEditor(null);
       }
     }
 
     document.addEventListener("keydown", closeEditor);
     return () => document.removeEventListener("keydown", closeEditor);
-  }, [statusEditor, statusFetcher.state]);
+  }, [statusEditor, planEditor, statusFetcher.state]);
 
   return (
     <div>
@@ -382,11 +405,25 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td>
-                      {user.planName ? (
-                        <span className={`admin-badge ${planBadgeClass(user.planName)}`}>{user.planName}</span>
-                      ) : (
-                        "—"
-                      )}
+                      <div className="admin-shop-cell">
+                        {user.planName ? (
+                          <span className={`admin-badge ${planBadgeClass(user.planName)}`}>{user.planName}</span>
+                        ) : (
+                          "—"
+                        )}
+                        <button
+                          type="button"
+                          className="admin-status-link"
+                          onClick={() =>
+                            setPlanEditor({
+                              shop: user.shop,
+                              planName: plans.includes(user.planName) ? user.planName : "Basic",
+                            })
+                          }
+                        >
+                          Change Plan
+                        </button>
+                      </div>
                     </td>
                     <td>{user.isTrial ? "Yes" : "No"}</td>
                     <td>
@@ -567,6 +604,76 @@ export default function AdminUsers() {
                   <input type="hidden" name="planName" value={statusEditor.planName} />
                   <button className="admin-btn primary" type="submit" disabled={statusBusy}>
                     {statusBusy && statusIntent === "set_access" ? "Saving…" : "Save"}
+                  </button>
+                </statusFetcher.Form>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {planEditor ? (
+        <div className="admin-modal-backdrop">
+          <button
+            type="button"
+            className="admin-modal-scrim"
+            aria-label="Close plan editor"
+            onClick={() => !statusBusy && setPlanEditor(null)}
+          />
+          <div className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="plan-editor-title">
+            <div className="admin-modal-head">
+              <div>
+                <h3 id="plan-editor-title">Change plan</h3>
+                <p>{planEditor.shop}</p>
+              </div>
+              <button
+                type="button"
+                className="admin-btn icon-only"
+                aria-label="Close"
+                disabled={statusBusy}
+                onClick={() => setPlanEditor(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="admin-muted">
+              Change this store's plan internally for testing. This does not change Shopify billing or
+              lift the pricing wall.
+            </p>
+            {statusError ? <div className="admin-alert">{statusError}</div> : null}
+            <div className="admin-field">
+              <label htmlFor="change-plan">Plan</label>
+              <select
+                id="change-plan"
+                value={planEditor.planName}
+                onChange={(event) =>
+                  setPlanEditor((current) => ({ ...current, planName: event.target.value }))
+                }
+              >
+                {plans.map((plan) => (
+                  <option key={plan} value={plan}>
+                    {plan}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="admin-modal-actions">
+              <span />
+              <div className="admin-modal-actions-end">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  disabled={statusBusy}
+                  onClick={() => setPlanEditor(null)}
+                >
+                  Cancel
+                </button>
+                <statusFetcher.Form method="post">
+                  <input type="hidden" name="intent" value="set_plan" />
+                  <input type="hidden" name="shop" value={planEditor.shop} />
+                  <input type="hidden" name="planName" value={planEditor.planName} />
+                  <button className="admin-btn primary" type="submit" disabled={statusBusy}>
+                    {statusBusy && statusIntent === "set_plan" ? "Saving…" : "Save"}
                   </button>
                 </statusFetcher.Form>
               </div>

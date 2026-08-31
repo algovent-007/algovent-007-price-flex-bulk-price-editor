@@ -45,3 +45,10 @@ export function resolveAdminGrantPlanName(planName, currentPlanName) {
   }
   return "Super";
 }
+
+export function resolveDisplayedPlanName(subscriptionPlanName, adminPlanName) {
+  if (isValidPlanName(adminPlanName)) {
+    return adminPlanName;
+  }
+  return subscriptionPlanName || "";
+}

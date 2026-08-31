@@ -116,7 +116,7 @@ await test("formats admin timestamps", () => {
   assert.equal(Boolean(formatted.zone), true);
 });
 
-const { deriveInstallStatus, derivePaymentOk, isAdminGrantedSubscription, resolveAdminGrantPlanName } =
+const { deriveInstallStatus, derivePaymentOk, isAdminGrantedSubscription, resolveAdminGrantPlanName, resolveDisplayedPlanName } =
   await import("./admin-shop-status.js");
 const { ADMIN_GRANT_CHARGE_ID, SUBSCRIPTION_STATUS } = await import("../constants/billing.js");
 
@@ -142,6 +142,8 @@ await test("derives installed and payment status from admin grants", () => {
   );
   assert.equal(resolveAdminGrantPlanName("", "Pro"), "Pro");
   assert.equal(resolveAdminGrantPlanName("nope"), "Super");
+  assert.equal(resolveDisplayedPlanName("Basic", "Pro"), "Pro");
+  assert.equal(resolveDisplayedPlanName("Basic", ""), "Basic");
   assert.equal(
     isAdminGrantedSubscription(
       { status: SUBSCRIPTION_STATUS.ACTIVE, planName: "Super", chargeId: ADMIN_GRANT_CHARGE_ID },

@@ -59,6 +59,7 @@ model ShopSettings {
   isReview                 Boolean  @default(false)
   adminGrantedInstall      Boolean  @default(false)
   adminGrantedPayment      Boolean  @default(false)
+  adminPlanName            String?
   uninstalledAt            DateTime?
   updatedAt                DateTime @updatedAt
 }
