@@ -1,3 +1,13 @@
+import { slimTaskActionDetails } from "./schedule";
+
+export function orderRunningTasks(runningTasks, taskId) {
+  if (!taskId) return runningTasks;
+  return [
+    ...runningTasks.filter((task) => task.id === taskId),
+    ...runningTasks.filter((task) => task.id !== taskId),
+  ];
+}
+
 export function toTaskProgressSnapshot(task) {
   if (!task) return null;
 
@@ -8,7 +18,7 @@ export function toTaskProgressSnapshot(task) {
     actionData = {};
   }
 
-  const { logs, csvRows, productIds, ...rest } = actionData;
+  const logs = actionData.logs;
   return {
     id: task.id,
     name: task.name,
@@ -17,8 +27,7 @@ export function toTaskProgressSnapshot(task) {
     totalItems: task.totalItems,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
-    actionDetails: JSON.stringify({
-      ...rest,
+    actionDetails: slimTaskActionDetails(task.actionDetails, {
       logCount: Array.isArray(logs) ? logs.length : 0,
     }),
   };

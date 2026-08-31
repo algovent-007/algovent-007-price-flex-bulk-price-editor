@@ -224,6 +224,11 @@ export default function Plans() {
   );
 }
 
+export function shouldRevalidate({ formMethod }) {
+  if (formMethod && formMethod !== "GET") return true;
+  return false;
+}
+
 export const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
 };

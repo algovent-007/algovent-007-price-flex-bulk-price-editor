@@ -10,6 +10,9 @@ import {
   formatScheduledTaskLabel,
   resolveRevertRecurrenceType,
   getRevertRecurrenceAllowedValues,
+  slimTaskActionDetails,
+  splitTime12Hour,
+  joinTime12Hour,
 } from "./schedule.js";
 
 function test(name, fn) {
@@ -431,6 +434,40 @@ test("formatScheduledTaskLabel prefers stored user-entered schedule strings", ()
   });
 
   assert.equal(label, "8/15/2026, 10:30 PM");
+});
+
+test("slimTaskActionDetails drops logs and catalog snapshots but keeps copy payload", () => {
+  const slimmed = JSON.parse(
+    slimTaskActionDetails(
+      JSON.stringify({
+        taskType: "scheduled_edit",
+        logs: [{ variantId: "gid://shopify/ProductVariant/1" }],
+        runPayload: {
+          editType: "all",
+          csvRows: [{ sku: "A" }],
+          searchResults: [{ id: "gid://shopify/Product/1" }],
+          products: [{ id: "gid://shopify/Product/1" }],
+        },
+      }),
+      { logCount: 1 },
+    ),
+  );
+
+  assert.equal(slimmed.taskType, "scheduled_edit");
+  assert.equal(slimmed.logCount, 1);
+  assert.equal(slimmed.logs, undefined);
+  assert.equal(slimmed.runPayload.editType, "all");
+  assert.deepEqual(slimmed.runPayload.csvRows, [{ sku: "A" }]);
+  assert.equal(slimmed.runPayload.searchResults, undefined);
+  assert.equal(slimmed.runPayload.products, undefined);
+});
+
+test("splitTime12Hour and joinTime12Hour round-trip 12-hour times", () => {
+  assert.deepEqual(splitTime12Hour("4:30 PM"), { hour: "4", minute: "30", meridiem: "PM" });
+  assert.deepEqual(splitTime12Hour("12:05 AM"), { hour: "12", minute: "05", meridiem: "AM" });
+  assert.equal(joinTime12Hour({ hour: "4", minute: "30", meridiem: "PM" }), "4:30 PM");
+  assert.equal(joinTime12Hour({ hour: "12", minute: "5", meridiem: "AM" }), "12:05 AM");
+  assert.deepEqual(splitTime12Hour(""), { hour: "12", minute: "00", meridiem: "PM" });
 });
 
 console.log("All schedule tests passed.");

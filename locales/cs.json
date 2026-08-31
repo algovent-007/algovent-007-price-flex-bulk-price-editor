@@ -572,7 +572,12 @@
     "chooseDate": "Zvolte datum",
     "pickDay": "Vybrat den",
     "dateFormat": "D. M. YYYY",
-    "revertMinGapHint": "Opakované vrácení musí být alespoň 3 hodiny po změně cen."
+    "revertMinGapHint": "Opakované vrácení musí být alespoň 3 hodiny po změně cen.",
+    "hour": "Hodina",
+    "minute": "Minuta",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Neznámá akce.",

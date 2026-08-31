@@ -19,7 +19,7 @@ import {
 } from "../utils/shopify-variants";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
 import {
-  findTaskForShop,
+  findTaskStatusForShop,
   writeRunningTaskProgress,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
 } from "../utils/task-record";
@@ -31,6 +31,65 @@ const HEAVY_PRODUCTS_PAGE_SIZE = 10;
 const LIGHT_PRODUCTS_PAGE_SIZE = 25;
 // Nested product.variants page size. Remaining pages are fetched with cursor pagination up to 250.
 export const PRODUCT_VARIANTS_PAGE_SIZE = 100;
+const STOP_CHECK_INTERVAL = 5;
+const COST_UPDATE_CONCURRENCY = 5;
+const INVENTORY_ITEM_UPDATE_MUTATION = `#graphql
+  mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
+    inventoryItemUpdate(id: $id, input: $input) {
+      inventoryItem { id }
+      userErrors { field message }
+    }
+  }
+`;
+
+function appendLogError(log, message) {
+  if (!message || !log) return;
+  if (!log.error) {
+    log.error = message;
+    return;
+  }
+  if (String(log.error).includes(message)) return;
+  log.error = `${log.error}; ${message}`;
+}
+
+async function updateInventoryItemCosts(shopifyQuery, updates) {
+  if (!Array.isArray(updates) || updates.length === 0) return false;
+
+  let updated = false;
+  let index = 0;
+  const workerCount = Math.min(COST_UPDATE_CONCURRENCY, updates.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (index < updates.length) {
+        const current = updates[index++];
+        try {
+          const invData = await shopifyQuery(INVENTORY_ITEM_UPDATE_MUTATION, {
+            id: current.inventoryItemId,
+            input: { cost: formatPrice(current.newCost) },
+          });
+          const invErrors = invData.inventoryItemUpdate?.userErrors || [];
+          if (invErrors.length > 0) {
+            current.log.costResult = "failed";
+            appendLogError(current.log, invErrors[0].message);
+          } else {
+            current.log.costResult = "updated";
+            updated = true;
+          }
+        } catch (error) {
+          current.log.costResult = "failed";
+          appendLogError(current.log, error?.message || String(error));
+        }
+        current.log.result = classifyVariantResult({
+          error: current.log.error,
+          pricing: current.pricing,
+          priceResult: current.log.priceResult,
+          costResult: current.log.costResult,
+        });
+      }
+    }),
+  );
+  return updated;
+}
 
 const PRICING_VARIANT_FIELDS = `
   id
@@ -379,28 +438,30 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
     }
 
     for (const prod of products) {
-      const currentTask = await findTaskForShop(prisma, { id: taskId, shop });
-      if (!currentTask || currentTask.status !== "running") {
-        await updateTaskStatus(
-          "cancelled",
-          updatedVariantsCount,
-          totalProductsCount,
-          logsList,
-          variantProgressFields(logsList, {
-            processedProductsCount: productIdsList.length,
-            updatedProductsCount,
-          }),
-        );
-        return { success: false, stopped: true };
+      if (productIdsList.length % STOP_CHECK_INTERVAL === 0) {
+        const currentTask = await findTaskStatusForShop(prisma, { id: taskId, shop });
+        if (!currentTask || currentTask.status !== "running") {
+          await updateTaskStatus(
+            "cancelled",
+            updatedVariantsCount,
+            totalProductsCount,
+            logsList,
+            variantProgressFields(logsList, {
+              processedProductsCount: productIdsList.length,
+              updatedProductsCount,
+            }),
+          );
+          return { success: false, stopped: true };
+        }
       }
       let productUpdated = false;
       productIdsList.push(prod.id);
 
       const variants = prod.variants?.nodes || [];
       const variantsToUpdate = [];
+      const pendingCostUpdates = [];
 
       for (const variant of variants) {
-        let variantError = null;
         let priceResult = "no_change";
         let costResult = "no_change";
         const hasCompare = variant.compareAtPrice != null && variant.compareAtPrice !== "";
@@ -469,39 +530,13 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
         }
 
         if (costNeedsUpdate(costPriceType, pricing, currentCost, hasCost) && variant.inventoryItem?.id) {
-          try {
-            const invData = await shopifyQuery(
-              `#graphql
-              mutation inventoryItemUpdate($id: ID!, $input: InventoryItemInput!) {
-                inventoryItemUpdate(id: $id, input: $input) {
-                  inventoryItem { id }
-                  userErrors { field message }
-                }
-              }`,
-              {
-                id: variant.inventoryItem.id,
-                input: { cost: formatPrice(newCost) },
-              }
-            );
-
-            const invErrors = invData.inventoryItemUpdate?.userErrors || [];
-            if (invErrors.length > 0) {
-              variantError = invErrors[0].message;
-              costResult = "failed";
-            } else {
-              productUpdated = true;
-              costResult = "updated";
-            }
-          } catch (error) {
-            variantError = error?.message || String(error);
-            costResult = "failed";
-          }
+          costResult = "pending";
         } else if (costPriceType !== "6" && pricing.costSkipped) {
           costResult = "skipped";
         }
 
         if (changePrice !== "6" || comparePriceType !== "6" || (costPriceType !== "6" && variant.inventoryItem?.id)) {
-          logsList.push({
+          const log = {
             productId: prod.id,
             variantId: variant.id,
             inventoryItemId: variant.inventoryItem?.id || null,
@@ -517,14 +552,26 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
             priceResult,
             costResult,
             result: classifyVariantResult({
-              error: variantError,
               pricing,
               priceResult,
               costResult,
             }),
-            ...(variantError ? { error: variantError } : {}),
-          });
+          };
+          logsList.push(log);
+          if (costResult === "pending") {
+            pendingCostUpdates.push({
+              inventoryItemId: variant.inventoryItem.id,
+              newCost,
+              log,
+              pricing,
+            });
+          }
         }
+      }
+
+      if (pendingCostUpdates.length > 0) {
+        const costUpdated = await updateInventoryItemCosts(shopifyQuery, pendingCostUpdates);
+        if (costUpdated) productUpdated = true;
       }
 
       if (variantsToUpdate.length > 0) {

@@ -1,6 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
 import {
   formatDateIso,
+  parseDateString,
   parseIsoDate,
   SCHEDULE_RECURRENCE_OPTIONS,
   WEEKDAY_OPTIONS,
@@ -10,7 +10,13 @@ import {
   isOneTimeScheduleRecurrence,
   getRevertRecurrenceAllowedValues,
   resolveRevertRecurrenceType,
+  splitTime12Hour,
+  joinTime12Hour,
+  HOUR_12_OPTIONS,
+  MINUTE_OPTIONS,
+  MERIDIEM_OPTIONS,
 } from "../../utils/schedule";
+import { getFieldValue } from "../../utils/numeric-input";
 import { translateError } from "../../i18n/errors";
 import { useI18n } from "../../i18n/I18nProvider";
 
@@ -22,22 +28,58 @@ function ScheduleTimeField({
   onClearTimeError,
 }) {
   const { t } = useI18n();
+  const parts = splitTime12Hour(timeStr);
+  const minuteOptions = MINUTE_OPTIONS.includes(parts.minute)
+    ? MINUTE_OPTIONS
+    : [...MINUTE_OPTIONS, parts.minute].sort();
+
+  const updatePart = (key, value) => {
+    onClearTimeError?.();
+    onTimeChange(joinTime12Hour({ ...parts, [key]: value }));
+  };
+
   return (
-    <s-text-field
-      label={t("schedule.time")}
-      value={timeStr}
-      disabled={readOnly}
-      error={translateError(t, timeError)}
-      onInput={
-        readOnly
-          ? undefined
-          : (e) => {
-              onClearTimeError?.();
-              onTimeChange(e.target.value);
-            }
-      }
-      details={t("schedule.timeExample")}
-    />
+    <s-stack direction="block" gap="small-100">
+      <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="small-100" alignItems="end">
+        <s-select
+          label={t("schedule.hour")}
+          value={parts.hour}
+          disabled={readOnly}
+          error={translateError(t, timeError)}
+          onInput={readOnly ? undefined : (event) => updatePart("hour", getFieldValue(event))}
+        >
+          {HOUR_12_OPTIONS.map((hour) => (
+            <s-option key={hour} value={hour}>
+              {hour}
+            </s-option>
+          ))}
+        </s-select>
+        <s-select
+          label={t("schedule.minute")}
+          value={parts.minute}
+          disabled={readOnly}
+          onInput={readOnly ? undefined : (event) => updatePart("minute", getFieldValue(event))}
+        >
+          {minuteOptions.map((minute) => (
+            <s-option key={minute} value={minute}>
+              {minute}
+            </s-option>
+          ))}
+        </s-select>
+        <s-select
+          label={t("schedule.amPm")}
+          value={parts.meridiem}
+          disabled={readOnly}
+          onInput={readOnly ? undefined : (event) => updatePart("meridiem", getFieldValue(event))}
+        >
+          {MERIDIEM_OPTIONS.map((meridiem) => (
+            <s-option key={meridiem} value={meridiem}>
+              {t(meridiem === "AM" ? "schedule.am" : "schedule.pm")}
+            </s-option>
+          ))}
+        </s-select>
+      </s-grid>
+    </s-stack>
   );
 }
 
@@ -45,7 +87,6 @@ function ScheduleDateTimeFields({
   readOnly = false,
   dateStr,
   timeStr,
-  onDateChange,
   onTimeChange,
   selectedDate,
   onSelectDate,
@@ -58,81 +99,37 @@ function ScheduleDateTimeFields({
 }) {
   const { t } = useI18n();
   const resolvedDateLabel = dateLabel === "Date" ? t("schedule.date") : dateLabel;
-  const rawModalId = useId();
-  const modalId = `schedule-date-picker-${rawModalId.replace(/:/g, "")}`;
-  const modalRef = useRef(null);
-  const [draftDateIso, setDraftDateIso] = useState(formatDateIso(selectedDate, timeZone));
+  const parsedDate = parseDateString(dateStr, timeZone) || selectedDate;
+  const isoValue = formatDateIso(parsedDate, timeZone);
 
-  useEffect(() => {
-    setDraftDateIso(formatDateIso(selectedDate, timeZone));
-  }, [selectedDate, timeZone]);
-
-  const openDatePicker = () => {
-    setDraftDateIso(formatDateIso(selectedDate, timeZone));
-    modalRef.current?.showOverlay?.();
-  };
-
-  const applyDate = () => {
-    const parsed = parseIsoDate(draftDateIso, timeZone);
-    if (parsed) onSelectDate(parsed);
-    modalRef.current?.hideOverlay?.();
+  const handleDateChange = (event) => {
+    const nextIso = getFieldValue(event);
+    const parsed = parseIsoDate(nextIso, timeZone);
+    if (!parsed) return;
+    onClearDateError?.();
+    onSelectDate(parsed);
   };
 
   return (
     <s-stack direction="block" gap="base">
-      <s-grid gridTemplateColumns="1fr 1fr" gap="base" alignItems="end">
-        <s-text-field
-          label={resolvedDateLabel}
-          value={dateStr}
-          disabled={readOnly}
-          error={translateError(t, dateError)}
-          onInput={
-            readOnly
-              ? undefined
-              : (e) => {
-                  onClearDateError?.();
-                  onDateChange(e.target.value);
-                }
-          }
-          details={t("schedule.dateFormat")}
-        />
-        <ScheduleTimeField
-          readOnly={readOnly}
-          timeStr={timeStr}
-          onTimeChange={onTimeChange}
-          timeError={timeError}
-          onClearTimeError={onClearTimeError}
-        />
-      </s-grid>
-      {!readOnly && (
-        <s-box>
-          <s-button variant="secondary" onClick={openDatePicker}>
-            {t("schedule.chooseDate")}
-          </s-button>
-        </s-box>
-      )}
-
-      {!readOnly && (
-        <s-modal
-          id={modalId}
-          ref={modalRef}
-          heading={resolvedDateLabel}
-          onHide={() => setDraftDateIso(formatDateIso(selectedDate, timeZone))}
-        >
-          <s-date-picker
-            type="single"
-            value={draftDateIso}
-            onChange={(e) => setDraftDateIso(e.target?.value || draftDateIso)}
-          />
-
-          <s-button slot="secondary-actions" commandFor={modalId} command="--hide">
-            {t("common.cancel")}
-          </s-button>
-          <s-button slot="primary-action" variant="primary" onClick={applyDate}>
-            {t("schedule.applyDate")}
-          </s-button>
-        </s-modal>
-      )}
+      <s-date-field
+        label={resolvedDateLabel}
+        value={isoValue}
+        view={isoValue ? isoValue.slice(0, 7) : undefined}
+        disabled={readOnly}
+        readOnly={readOnly}
+        placeholder={t("schedule.chooseDate")}
+        error={translateError(t, dateError)}
+        onChange={readOnly ? undefined : handleDateChange}
+        onInput={readOnly ? undefined : handleDateChange}
+      />
+      <ScheduleTimeField
+        readOnly={readOnly}
+        timeStr={timeStr}
+        onTimeChange={onTimeChange}
+        timeError={timeError}
+        onClearTimeError={onClearTimeError}
+      />
     </s-stack>
   );
 }
@@ -153,7 +150,7 @@ function SchedulePickAndTimeRow({
 }) {
   const { t } = useI18n();
   return (
-    <s-grid gridTemplateColumns="1fr 1fr" gap="base" alignItems="end">
+    <s-stack direction="block" gap="base">
       <s-select
         key={pickKey}
         label={pickLabel}
@@ -171,22 +168,14 @@ function SchedulePickAndTimeRow({
       >
         {pickOptions}
       </s-select>
-      <s-text-field
-        label={t("schedule.time")}
-        value={timeStr}
-        disabled={readOnly}
-        error={translateError(t, timeError)}
-        onInput={
-          readOnly
-            ? undefined
-            : (e) => {
-                onClearTimeError?.();
-                onTimeChange(e.target.value);
-              }
-        }
-        details={t("schedule.timeExample")}
+      <ScheduleTimeField
+        readOnly={readOnly}
+        timeStr={timeStr}
+        onTimeChange={onTimeChange}
+        timeError={timeError}
+        onClearTimeError={onClearTimeError}
       />
-    </s-grid>
+    </s-stack>
   );
 }
 

@@ -21,10 +21,9 @@ import { useI18n } from "../i18n/I18nProvider";
 import AppPage from "../components/AppPage";
 import HomeSidebar from "../components/HomeSidebar";
 import ConfirmModal from "../components/ConfirmModal";
-import { clearActiveTaskId, readActiveTaskId } from "../utils/active-task-storage";
-import { toTaskProgressSnapshot, unwrapTaskProgressPayload } from "../utils/task-progress";
-
-const EXECUTING_TASK_STATUSES = ["running"];
+import { clearActiveTaskId, readActiveTaskId, writeActiveTaskId } from "../utils/active-task-storage";
+import { unwrapTaskProgressPayload } from "../utils/task-progress";
+import { loadTaskProgressForShop } from "../utils/task-progress.server";
 
 const TaskConfigurationForm = lazy(() => import("../components/new-task/TaskConfigurationForm"));
 
@@ -38,47 +37,13 @@ function parseActionDetails(task) {
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
-function orderRunningTasks(runningTasks, taskId) {
-  if (!taskId) return runningTasks;
-  return [
-    ...runningTasks.filter((task) => task.id === taskId),
-    ...runningTasks.filter((task) => task.id !== taskId),
-  ];
-}
-
-async function loadRunningTaskProgress(shop, taskId) {
-  const [runningTasks, lastCompletedTask] = await Promise.all([
-    prisma.task.findMany({
-      where: {
-        shop,
-        status: { in: EXECUTING_TASK_STATUSES },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.task.findFirst({
-      where: {
-        shop,
-        status: "completed",
-      },
-      orderBy: { updatedAt: "desc" },
-    }),
-  ]);
-
-  return {
-    runningTasks: orderRunningTasks(runningTasks, taskId).map(toTaskProgressSnapshot),
-    lastCompletedTask: toTaskProgressSnapshot(lastCompletedTask),
-  };
-}
-
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const taskId = url.searchParams.get("taskId");
 
-  const [settings, progress] = await Promise.all([
-    getShopSettings(session.shop),
-    loadRunningTaskProgress(session.shop, taskId),
-  ]);
+  const settings = await getShopSettings(session.shop);
+  const progress = await loadTaskProgressForShop(session.shop, taskId);
 
   const savedTimezone = normalizeShopTimezone(settings?.timezone);
 
@@ -110,7 +75,7 @@ export const action = async ({ request }) => {
 
   if (intent === "task_lookups") {
     try {
-      const lookups = await fetchCollectionsAndLocations(admin);
+      const lookups = await fetchCollectionsAndLocations(admin, session.shop);
       return Response.json({ success: true, skipRevalidate: true, ...lookups });
     } catch (error) {
       console.error("Error fetching task lookups:", error);
@@ -180,6 +145,12 @@ export default function CurrentTasks() {
   useEffect(() => {
     setEmailEnabled(taskFinishedEmailEnabled);
   }, [taskFinishedEmailEnabled]);
+
+  useEffect(() => {
+    if (taskId) {
+      writeActiveTaskId(taskId);
+    }
+  }, [taskId]);
 
   useEffect(() => {
     const storedTaskId = readActiveTaskId();

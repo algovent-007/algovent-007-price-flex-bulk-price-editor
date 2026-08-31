@@ -572,7 +572,12 @@
     "chooseDate": "Elegir fecha",
     "pickDay": "Elegir día",
     "dateFormat": "M/D/YYYY",
-    "revertMinGapHint": "La reversión recurrente debe ser al menos 3 horas después del cambio de precio."
+    "revertMinGapHint": "La reversión recurrente debe ser al menos 3 horas después del cambio de precio.",
+    "hour": "Hora",
+    "minute": "Minuto",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Acción desconocida.",

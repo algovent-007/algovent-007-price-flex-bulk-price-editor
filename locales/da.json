@@ -572,7 +572,12 @@
     "chooseDate": "Vælg dato",
     "pickDay": "Vælg dag",
     "dateFormat": "D.M.YYYY",
-    "revertMinGapHint": "Tilbagevendende tilbageførsel skal være mindst 3 timer efter prisændringen."
+    "revertMinGapHint": "Tilbagevendende tilbageførsel skal være mindst 3 timer efter prisændringen.",
+    "hour": "Time",
+    "minute": "Minut",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Ukendt handling.",

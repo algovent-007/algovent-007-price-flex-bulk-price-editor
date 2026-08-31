@@ -572,7 +572,12 @@
     "chooseDate": "Datum wählen",
     "pickDay": "Tag wählen",
     "dateFormat": "M/D/YYYY",
-    "revertMinGapHint": "Die wiederkehrende Rücksetzung muss mindestens 3 Stunden nach der Preisänderung liegen."
+    "revertMinGapHint": "Die wiederkehrende Rücksetzung muss mindestens 3 Stunden nach der Preisänderung liegen.",
+    "hour": "Stunde",
+    "minute": "Minute",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Unbekannte Aktion.",

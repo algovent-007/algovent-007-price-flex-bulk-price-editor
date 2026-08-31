@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useFetcher, useLoaderData, useLocation, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
@@ -43,7 +43,6 @@ import {
 } from "../utils/task-record";
 import { createDefaultTaskName, nextTaskSequenceNumber } from "../utils/task-name";
 import { generatePricingPresets } from "../utils/pricing-rules-presets";
-import TaskConfigurationForm from "../components/new-task/TaskConfigurationForm";
 import {
   getDefaultOperatorForField,
   getDefaultValueForField,
@@ -75,13 +74,32 @@ import {
   formatCurrentTimeInTimezone,
 } from "../utils/schedule";
 
+const TaskConfigurationForm = lazy(() => import("../components/new-task/TaskConfigurationForm"));
+
+async function nextDefaultTaskNumber(shop) {
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT COALESCE(
+        MAX(CAST(substring(name from '^[Tt]ask ([0-9]+) -') AS INTEGER)),
+        0
+      ) AS max
+      FROM "Task"
+      WHERE shop = ${shop}
+    `;
+    return Number(rows[0]?.max || 0) + 1;
+  } catch (error) {
+    console.error("nextDefaultTaskNumber:", error);
+    const existingTasks = await prisma.task.findMany({
+      where: { shop, name: { startsWith: "Task " } },
+      select: { name: true },
+    });
+    return nextTaskSequenceNumber(existingTasks.map((task) => task.name));
+  }
+}
+
 async function resolveDefaultTaskName({ shop, timeZone }) {
-  const existingTasks = await prisma.task.findMany({
-    where: { shop },
-    select: { name: true },
-  });
   return createDefaultTaskName({
-    number: nextTaskSequenceNumber(existingTasks.map((task) => task.name)),
+    number: await nextDefaultTaskNumber(shop),
     timeZone,
   });
 }
@@ -89,17 +107,14 @@ async function resolveDefaultTaskName({ shop, timeZone }) {
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
 
-  const [runningTaskCount, lookups, timezoneContext, existingTasks] = await Promise.all([
+  const [runningTaskCount, lookups, timezoneContext, taskNumber] = await Promise.all([
     countRunningTasksForShop(prisma, session.shop),
-    fetchCollectionsAndLocations(admin).catch((err) => {
+    fetchCollectionsAndLocations(admin, session.shop).catch((err) => {
       console.error("Error fetching collections:", err);
       return { collections: [], locations: [] };
     }),
     getShopTimezoneContext({ shop: session.shop, admin }),
-    prisma.task.findMany({
-      where: { shop: session.shop },
-      select: { name: true },
-    }),
+    nextDefaultTaskNumber(session.shop),
   ]);
 
   return {
@@ -109,12 +124,18 @@ export const loader = async ({ request }) => {
     runningTaskCount,
     maxConcurrentTasks: MAX_CONCURRENT_RUNNING_TASKS,
     defaultTaskName: createDefaultTaskName({
-      number: nextTaskSequenceNumber(existingTasks.map((task) => task.name)),
+      number: taskNumber,
       timeZone: timezoneContext.timezone,
     }),
     ...timezoneContext,
   };
 };
+
+export function shouldRevalidate({ formMethod, actionResult }) {
+  if (actionResult?.skipRevalidate) return false;
+  if (formMethod && formMethod !== "GET") return false;
+  return false;
+}
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -1559,6 +1580,7 @@ function NewTaskForm() {
           })}
         </s-banner>
       )}
+      <Suspense fallback={<s-paragraph>{t("common.loading")}</s-paragraph>}>
       <TaskConfigurationForm
         collections={collections}
         locations={locations}
@@ -1693,6 +1715,7 @@ function NewTaskForm() {
         hasSavedTimezone={hasSavedTimezone}
         currentTimeStr={currentTimeStr}
       />
+      </Suspense>
     </AppPage>
   );
 }

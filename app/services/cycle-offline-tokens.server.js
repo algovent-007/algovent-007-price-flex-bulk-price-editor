@@ -4,6 +4,7 @@ import { needsOfflineTokenCycle } from "../utils/offline-token-cycle";
 export { needsOfflineTokenCycle };
 
 const cyclingByShop = new Map();
+const checkedShops = new Set();
 
 function expiryDate(seconds) {
   const parsed = Number(seconds);
@@ -101,13 +102,19 @@ async function cycleShopOfflineTokenUncached(shop) {
 
 export async function cycleShopOfflineTokenIfNeeded(shop) {
   if (!shop) return { shop, cycled: false };
+  if (checkedShops.has(shop)) return { shop, cycled: false };
 
   const pending = cyclingByShop.get(shop);
   if (pending) return pending;
 
-  const promise = cycleShopOfflineTokenUncached(shop).finally(() => {
-    cyclingByShop.delete(shop);
-  });
+  const promise = cycleShopOfflineTokenUncached(shop)
+    .then((result) => {
+      if (!result.error) checkedShops.add(shop);
+      return result;
+    })
+    .finally(() => {
+      cyclingByShop.delete(shop);
+    });
   cyclingByShop.set(shop, promise);
   return promise;
 }

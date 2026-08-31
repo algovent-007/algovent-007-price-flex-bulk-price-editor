@@ -1,5 +1,11 @@
 import { lazy, Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { useFetcher, useLoaderData, useNavigate, useRevalidator, useSearchParams } from "react-router";
+import {
+  useFetcher,
+  useLoaderData,
+  useNavigate,
+  useRevalidator,
+  useSearchParams,
+} from "react-router";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -11,7 +17,7 @@ import { getTaskTagChanges } from "../utils/task-log-display";
 import { getShopSettings } from "../models/shop-settings.server";
 import { DEFAULT_TIMEZONE, normalizeShopTimezone } from "../utils/shop-timezone.server";
 import { fetchCollectionsAndLocations } from "../utils/shop-lookups.server";
-import { formatCurrentTimeInTimezone, parseIsoDate, wallClockToDate } from "../utils/schedule";
+import { formatCurrentTimeInTimezone, parseIsoDate, slimTaskActionDetails, wallClockToDate } from "../utils/schedule";
 import { getFieldValue } from "../utils/numeric-input";
 import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
@@ -19,20 +25,12 @@ import AppPage from "../components/AppPage";
 import HistoryDateRangeFilter from "../components/HistoryDateRangeFilter";
 import ConfirmModal from "../components/ConfirmModal";
 import { writeActiveTaskId } from "../utils/active-task-storage";
+import { findSlimTasks } from "../utils/task-list.server";
 
 const TaskConfigurationForm = lazy(() => import("../components/new-task/TaskConfigurationForm"));
 
 const HISTORY_PAGE_SIZE = 10;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const HISTORY_TASK_SELECT = {
-  id: true,
-  name: true,
-  status: true,
-  createdAt: true,
-  processedItems: true,
-  totalItems: true,
-  actionDetails: true,
-};
 
 function parseHistoryPage(value) {
   const page = Number.parseInt(String(value || "1"), 10);
@@ -85,17 +83,12 @@ function toHistoryListTask(task) {
     return task;
   }
 
-  const { logs, ...rest } = actionData;
-  const logList = Array.isArray(logs) ? logs : [];
-  if (rest.runPayload && Array.isArray(rest.runPayload.searchResults)) {
-    rest.runPayload = { ...rest.runPayload, searchResults: undefined };
-  }
+  const logList = Array.isArray(actionData.logs) ? actionData.logs : [];
   return {
     ...task,
-    actionDetails: JSON.stringify({
-      ...rest,
-      logCount: logList.length,
-      canRollback: Boolean(logList[0]?.variantId),
+    actionDetails: slimTaskActionDetails(task.actionDetails, {
+      logCount: actionData.logCount ?? logList.length,
+      canRollback: actionData.canRollback ?? Boolean(logList[0]?.variantId),
     }),
   };
 }
@@ -135,12 +128,13 @@ export const loader = async ({ request }) => {
   const [settings, total, tasks] = await Promise.all([
     from || to ? Promise.resolve(null) : settingsPromise,
     prisma.task.count({ where }),
-    prisma.task.findMany({
-      where,
+    findSlimTasks({
+      shop: session.shop,
+      query,
+      createdAt: where.createdAt,
       orderBy: { createdAt: "desc" },
       skip,
       take: HISTORY_PAGE_SIZE,
-      select: HISTORY_TASK_SELECT,
     }),
   ]);
   if (settings) {
@@ -152,12 +146,13 @@ export const loader = async ({ request }) => {
   const pageTasks =
     page === requestedPage || total === 0
       ? tasks
-      : await prisma.task.findMany({
-          where,
+      : await findSlimTasks({
+          shop: session.shop,
+          query,
+          createdAt: where.createdAt,
           orderBy: { createdAt: "desc" },
           skip: (page - 1) * HISTORY_PAGE_SIZE,
           take: HISTORY_PAGE_SIZE,
-          select: HISTORY_TASK_SELECT,
         });
 
   const rolledBackSourceIds = [];
@@ -197,7 +192,7 @@ export const action = async ({ request }) => {
 
   if (intent === "task_lookups") {
     try {
-      const lookups = await fetchCollectionsAndLocations(admin);
+      const lookups = await fetchCollectionsAndLocations(admin, session.shop);
       return Response.json({ success: true, skipRevalidate: true, ...lookups });
     } catch (error) {
       console.error("Error fetching task lookups:", error);
@@ -250,13 +245,20 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: "This task has already been rolled back" });
   }
 
+  let result;
   try {
-    const result = await startRollbackForTask({ admin, task });
-    return Response.json(result);
+    result = await startRollbackForTask({ admin, task });
   } catch (err) {
     console.error("Error rolling back task:", err);
     return Response.json({ success: false, error: err.message });
   }
+
+  return Response.json({
+    ...result,
+    skipRevalidate: Boolean(
+      result.success && result.rollbackTaskId && (result.taskStarted || result.alreadyRunning),
+    ),
+  });
 };
 
 export default function TasksHistory() {
@@ -273,9 +275,9 @@ export default function TasksHistory() {
     to,
   } = useLoaderData();
   const { t, formatDateTime } = useI18n();
-  const fetcher = useFetcher();
   const lookupsFetcher = useFetcher();
   const taskFetcher = useFetcher();
+  const rollbackFetcher = useFetcher();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -295,8 +297,8 @@ export default function TasksHistory() {
   const [rollbackSuccess, setRollbackSuccess] = useState("");
 
   const rollingBackTaskId =
-    fetcher.state !== "idle" && fetcher.formData?.get("intent") === "rollback"
-      ? fetcher.formData.get("taskId")
+    rollbackFetcher.state !== "idle" && rollbackFetcher.formData?.get("intent") === "rollback"
+      ? rollbackFetcher.formData.get("taskId")
       : null;
 
   useEffect(() => {
@@ -323,30 +325,31 @@ export default function TasksHistory() {
   }, [nameQuery, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (fetcher.state !== "idle" || !fetcher.data) return;
+    if (rollbackFetcher.state !== "idle" || !rollbackFetcher.data) return;
 
-    if (fetcher.data.success) {
-      if (
-        fetcher.data.rollbackTaskId &&
-        (fetcher.data.taskStarted || fetcher.data.alreadyRunning)
-      ) {
-        writeActiveTaskId(fetcher.data.rollbackTaskId);
-        navigate(`/app/current?taskId=${encodeURIComponent(fetcher.data.rollbackTaskId)}`);
-        return;
-      }
+    const result = rollbackFetcher.data;
+    if (result.success && result.rollbackTaskId && (result.taskStarted || result.alreadyRunning)) {
+      writeActiveTaskId(result.rollbackTaskId);
+      navigate(`/app/current?taskId=${encodeURIComponent(result.rollbackTaskId)}`);
+      return;
+    }
 
+    if (result.success) {
       setRollbackSuccess(
-        fetcher.data.alreadyRolledBack
+        result.alreadyRolledBack
           ? t("history.rollbackAlreadyExists")
-          : t("history.rollbackSuccess")
+          : t("history.rollbackSuccess"),
       );
       setRollbackError("");
       revalidator.revalidate();
-    } else if (fetcher.data.error) {
-      setRollbackError(translateError(t, fetcher.data.error));
+      return;
+    }
+
+    if (result.error) {
+      setRollbackError(translateError(t, result.error));
       setRollbackSuccess("");
     }
-  }, [fetcher.state, fetcher.data, navigate, revalidator, t]);
+  }, [navigate, revalidator, rollbackFetcher.data, rollbackFetcher.state, t]);
 
   useEffect(() => {
     if (taskFetcher.state !== "idle" || !taskFetcher.data?.task) return;
@@ -425,7 +428,7 @@ export default function TasksHistory() {
     if (!rollbackTask) return;
     setRollbackError("");
     setRollbackSuccess("");
-    fetcher.submit({ intent: "rollback", taskId: rollbackTask.id }, { method: "POST" });
+    rollbackFetcher.submit({ intent: "rollback", taskId: rollbackTask.id }, { method: "POST" });
   };
 
   const formatDate = (dateStr) => formatDateTime(dateStr);

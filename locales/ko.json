@@ -572,7 +572,12 @@
     "chooseDate": "날짜 선택",
     "pickDay": "요일 선택",
     "dateFormat": "M/D/YYYY",
-    "revertMinGapHint": "반복 되돌리기는 가격 변경 후 최소 3시간 뒤여야 합니다."
+    "revertMinGapHint": "반복 되돌리기는 가격 변경 후 최소 3시간 뒤여야 합니다.",
+    "hour": "시",
+    "minute": "분",
+    "amPm": "오전/오후",
+    "am": "오전",
+    "pm": "오후"
   },
   "errors": {
     "unknownAction": "알 수 없는 작업입니다.",

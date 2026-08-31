@@ -572,7 +572,12 @@
     "chooseDate": "Valitse päivämäärä",
     "pickDay": "Valitse päivä",
     "dateFormat": "D.M.YYYY",
-    "revertMinGapHint": "Toistuvan palautuksen on oltava vähintään 3 tuntia hintamuutoksen jälkeen."
+    "revertMinGapHint": "Toistuvan palautuksen on oltava vähintään 3 tuntia hintamuutoksen jälkeen.",
+    "hour": "Tunti",
+    "minute": "Minuutti",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Tuntematon toiminto.",

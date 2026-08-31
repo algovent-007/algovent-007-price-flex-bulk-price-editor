@@ -572,7 +572,12 @@
     "chooseDate": "Datum kiezen",
     "pickDay": "Dag kiezen",
     "dateFormat": "D-M-YYYY",
-    "revertMinGapHint": "Terugkerend terugdraaien moet minstens 3 uur na de prijswijziging plaatsvinden."
+    "revertMinGapHint": "Terugkerend terugdraaien moet minstens 3 uur na de prijswijziging plaatsvinden.",
+    "hour": "Uur",
+    "minute": "Minuut",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Onbekende actie.",

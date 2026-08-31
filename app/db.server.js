@@ -27,8 +27,10 @@ function resolveDatabaseUrl() {
   if (!parsed.searchParams.has("pgbouncer")) {
     parsed.searchParams.set("pgbouncer", "true");
   }
-  if (!parsed.searchParams.has("connection_limit")) {
-    parsed.searchParams.set("connection_limit", "1");
+
+  const currentLimit = Number(parsed.searchParams.get("connection_limit"));
+  if (!Number.isFinite(currentLimit) || currentLimit < 5) {
+    parsed.searchParams.set("connection_limit", "5");
   }
   if (!parsed.searchParams.has("pool_timeout")) {
     parsed.searchParams.set("pool_timeout", "20");
@@ -45,8 +47,16 @@ function createPrismaClient() {
   return new PrismaClient(url ? { datasources: { db: { url } } } : undefined);
 }
 
-const prisma = global.prismaGlobal ?? createPrismaClient();
-global.prismaGlobal = prisma;
+const databaseUrl = resolveDatabaseUrl();
+if (!global.prismaGlobal || global.prismaDatabaseUrl !== databaseUrl) {
+  if (global.prismaGlobal) {
+    void global.prismaGlobal.$disconnect().catch(() => {});
+  }
+  global.prismaGlobal = createPrismaClient();
+  global.prismaDatabaseUrl = databaseUrl;
+}
+
+const prisma = global.prismaGlobal;
 
 export async function ensurePrismaConnected() {
   let lastError;
@@ -60,6 +70,24 @@ export async function ensurePrismaConnected() {
       console.error(`Database connection attempt ${attempt} failed:`, error?.message || error);
       await prisma.$disconnect().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+    }
+  }
+
+  throw lastError;
+}
+
+export async function withPrismaRetry(work, { attempts = 3 } = {}) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await work();
+    } catch (error) {
+      lastError = error;
+      if (error?.code !== "P2024" || attempt === attempts) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
     }
   }
 

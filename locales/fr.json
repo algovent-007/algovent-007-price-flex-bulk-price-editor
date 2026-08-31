@@ -572,7 +572,12 @@
     "chooseDate": "Choisir une date",
     "pickDay": "Choisir un jour",
     "dateFormat": "M/D/YYYY",
-    "revertMinGapHint": "Le rétablissement récurrent doit avoir lieu au moins 3 heures après le changement de prix."
+    "revertMinGapHint": "Le rétablissement récurrent doit avoir lieu au moins 3 heures après le changement de prix.",
+    "hour": "Heure",
+    "minute": "Minute",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Action inconnue.",

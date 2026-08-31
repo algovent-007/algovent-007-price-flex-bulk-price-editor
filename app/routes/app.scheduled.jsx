@@ -18,6 +18,7 @@ import {
   updateTaskForShop,
 } from "../utils/task-record";
 import { serializeScheduledTasks } from "../utils/schedule";
+import { findSlimTasks } from "../utils/task-list.server";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { canCopyTask, canEditScheduledTask, storeTaskCopy, storeTaskEdit } from "../utils/copy-task";
 import { translateError } from "../i18n/errors";
@@ -28,17 +29,22 @@ import styles from "../components/ScheduledTasks.module.css";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
-  await processDueTasksForShop({ admin, shop: session.shop });
-
-  const tasks = await prisma.task.findMany({
-    where: {
-      shop: session.shop,
-      status: { in: SCHEDULED_LIST_STATUSES },
-    },
-    orderBy: { scheduledAt: "asc" },
+  await processDueTasksForShop({
+    admin,
+    shop: session.shop,
+    waitForExecution: false,
+  }).catch((error) => {
+    console.error("processDueTasksForShop:", error);
   });
 
-  const timezone = await getShopTimezone({ shop: session.shop, admin });
+  const [tasks, timezone] = await Promise.all([
+    findSlimTasks({
+      shop: session.shop,
+      statuses: SCHEDULED_LIST_STATUSES,
+      orderBy: { scheduledAt: "asc" },
+    }),
+    getShopTimezone({ shop: session.shop, admin }),
+  ]);
 
   return Response.json({
     tasks: serializeScheduledTasks(tasks, timezone),

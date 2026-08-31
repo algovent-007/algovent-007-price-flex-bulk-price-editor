@@ -572,7 +572,12 @@
     "chooseDate": "日付を選択",
     "pickDay": "曜日を選ぶ",
     "dateFormat": "M/D/YYYY",
-    "revertMinGapHint": "定期的な復元は、価格変更の少なくとも3時間後に設定してください。"
+    "revertMinGapHint": "定期的な復元は、価格変更の少なくとも3時間後に設定してください。",
+    "hour": "時",
+    "minute": "分",
+    "amPm": "午前/午後",
+    "am": "午前",
+    "pm": "午後"
   },
   "errors": {
     "unknownAction": "不明な操作です。",

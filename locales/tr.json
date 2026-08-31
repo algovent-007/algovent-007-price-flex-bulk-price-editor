@@ -572,7 +572,12 @@
     "chooseDate": "Tarih seç",
     "pickDay": "Gün seç",
     "dateFormat": "D.MM.YYYY",
-    "revertMinGapHint": "Yinelenen geri alma, fiyat değişikliğinden en az 3 saat sonra olmalıdır."
+    "revertMinGapHint": "Yinelenen geri alma, fiyat değişikliğinden en az 3 saat sonra olmalıdır.",
+    "hour": "Saat",
+    "minute": "Dakika",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Bilinmeyen işlem.",

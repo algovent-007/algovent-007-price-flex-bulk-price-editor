@@ -10,6 +10,7 @@ import { getValidSupportContext } from "../services/admin-support-session.server
 import { useI18n } from "../i18n/I18nProvider";
 import AdminSupportBanner from "../components/admin/AdminSupportBanner";
 import AdminSupportAppBridge from "../components/admin/AdminSupportAppBridge";
+import AppNavLink from "../components/AppNavLink";
 
 const BILLING_EXEMPT_PATHS = ["/app/plans", "/app/billing"];
 
@@ -70,13 +71,13 @@ export default function App() {
   const appChrome = (
     <>
       <s-app-nav>
-        <s-link href="/app/current">{t("nav.currentTasks")}</s-link>
-        <s-link href="/app/new">{t("nav.newTask")}</s-link>
-        <s-link href="/app/scheduled">{t("nav.scheduledTasks")}</s-link>
-        <s-link href="/app/history">{t("nav.tasksHistory")}</s-link>
-        <s-link href="/app/account">{t("nav.account")}</s-link>
-        <s-link href="/app/plans">{t("nav.plans")}</s-link>
-        <s-link href="/app/support">{t("nav.support")}</s-link>
+        <AppNavLink href="/app/current">{t("nav.currentTasks")}</AppNavLink>
+        <AppNavLink href="/app/new">{t("nav.newTask")}</AppNavLink>
+        <AppNavLink href="/app/scheduled">{t("nav.scheduledTasks")}</AppNavLink>
+        <AppNavLink href="/app/history">{t("nav.tasksHistory")}</AppNavLink>
+        <AppNavLink href="/app/account">{t("nav.account")}</AppNavLink>
+        <AppNavLink href="/app/plans">{t("nav.plans")}</AppNavLink>
+        <AppNavLink href="/app/support">{t("nav.support")}</AppNavLink>
       </s-app-nav>
       <Outlet />
     </>
@@ -97,7 +98,12 @@ export function shouldRevalidate({ formMethod, currentUrl, nextUrl, defaultShoul
   if (formMethod && formMethod !== "GET") {
     return true;
   }
-  if (currentUrl.pathname === nextUrl.pathname) {
+  const currentPath = currentUrl.pathname;
+  const nextPath = nextUrl.pathname;
+  if (currentPath.includes("/billing") || nextPath.includes("/billing")) {
+    return true;
+  }
+  if (currentPath.startsWith("/app") && nextPath.startsWith("/app")) {
     return false;
   }
   return defaultShouldRevalidate;

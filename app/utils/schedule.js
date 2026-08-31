@@ -66,6 +66,37 @@ export function parseTimeString(timeStr) {
   return { hours, minutes };
 }
 
+export const HOUR_12_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1));
+export const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+export const MERIDIEM_OPTIONS = ["AM", "PM"];
+
+export function splitTime12Hour(timeStr) {
+  const parsed = parseTimeString(timeStr);
+  if (!parsed) {
+    return { hour: "12", minute: "00", meridiem: "PM" };
+  }
+
+  let hour = parsed.hours % 12;
+  if (hour === 0) hour = 12;
+
+  return {
+    hour: String(hour),
+    minute: String(parsed.minutes).padStart(2, "0"),
+    meridiem: parsed.hours >= 12 ? "PM" : "AM",
+  };
+}
+
+export function joinTime12Hour({ hour, minute, meridiem } = {}) {
+  const parsedHour = Number.parseInt(String(hour), 10);
+  const parsedMinute = Number.parseInt(String(minute), 10);
+  const period = String(meridiem || "AM").toUpperCase() === "PM" ? "PM" : "AM";
+
+  if (!Number.isFinite(parsedHour) || parsedHour < 1 || parsedHour > 12) return "";
+  if (!Number.isFinite(parsedMinute) || parsedMinute < 0 || parsedMinute > 59) return "";
+
+  return `${parsedHour}:${String(parsedMinute).padStart(2, "0")} ${period}`;
+}
+
 export function getZonedDateTimeParts(date, timeZone) {
   if (!timeZone) {
     return {
@@ -681,6 +712,29 @@ export function formatScheduleDateTime(date, timeZone) {
   }
 }
 
+export function slimTaskActionDetails(actionDetails, extra = {}) {
+  let actionData = {};
+  try {
+    actionData = JSON.parse(actionDetails || "{}");
+  } catch {
+    return JSON.stringify(extra);
+  }
+
+  const rest = { ...actionData };
+  delete rest.logs;
+  delete rest.searchResults;
+  delete rest.csvRows;
+  delete rest.productIds;
+  if (rest.runPayload && typeof rest.runPayload === "object") {
+    const payload = { ...rest.runPayload };
+    delete payload.searchResults;
+    delete payload.products;
+    rest.runPayload = payload;
+  }
+
+  return JSON.stringify({ ...rest, ...extra });
+}
+
 export function serializeScheduledTasks(tasks, shopTimezone) {
   return tasks.map((task) => {
     let actionData = {};
@@ -697,6 +751,7 @@ export function serializeScheduledTasks(tasks, shopTimezone) {
 
     return {
       ...task,
+      actionDetails: slimTaskActionDetails(task.actionDetails),
       scheduledAt: scheduledAt?.toISOString() ?? null,
       revertAt: revertAt?.toISOString() ?? null,
       runsAtLabel: formatScheduledTaskLabel({

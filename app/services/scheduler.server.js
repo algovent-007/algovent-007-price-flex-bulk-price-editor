@@ -528,7 +528,7 @@ async function processScheduledRollbackTask({ admin, task, actionData }) {
   return result;
 }
 
-export async function processDueTasksForShop({ admin, shop }) {
+export async function processDueTasksForShop({ admin, shop, waitForExecution = true }) {
   await recoverStaleRunningTasks(shop);
 
   const now = new Date();
@@ -582,7 +582,7 @@ export async function processDueTasksForShop({ admin, shop }) {
     }
   }
 
-  const started = await Promise.all(
+  const runClaimedJobs = Promise.all(
     claimedJobs.map(async ({ task, actionData }) => {
       try {
         if (actionData.taskType === "scheduled_rollback") {
@@ -599,6 +599,14 @@ export async function processDueTasksForShop({ admin, shop }) {
     }),
   );
 
+  if (!waitForExecution) {
+    void runClaimedJobs.catch((error) => {
+      console.error("processDueTasksForShop execution:", error);
+    });
+    return processed;
+  }
+
+  const started = await runClaimedJobs;
   return [...processed, ...started];
 }
 

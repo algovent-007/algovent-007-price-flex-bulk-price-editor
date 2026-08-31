@@ -5,6 +5,7 @@ import {
   createTaskId,
   getConcurrentTaskLimitError,
   getStaleRunningRecovery,
+  findTaskStatusForShop,
   hasFreshRelatedRollback,
   MAX_CONCURRENT_RUNNING_TASKS,
   persistCancelledTaskProgress,
@@ -294,6 +295,24 @@ test("persistCancelledTaskProgress ignores non-cancelled tasks", async () => {
     }),
     false,
   );
+});
+
+test("findTaskStatusForShop selects only status", async () => {
+  const db = {
+    task: {
+      findFirst: async (args) => {
+        assert.deepEqual(args.where, { id: "task-1", shop: "shop.myshopify.com" });
+        assert.deepEqual(args.select, { status: true });
+        return { status: "running" };
+      },
+    },
+  };
+
+  assert.deepEqual(
+    await findTaskStatusForShop(db, { id: "task-1", shop: "shop.myshopify.com" }),
+    { status: "running" },
+  );
+  assert.equal(await findTaskStatusForShop(db, { id: "", shop: "shop.myshopify.com" }), null);
 });
 
 console.log("All task-record tests passed.");

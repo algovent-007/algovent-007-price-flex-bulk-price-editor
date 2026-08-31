@@ -12,6 +12,20 @@ export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
 
   try {
+    const settings = await getShopSettings(session.shop);
+    const savedName = settings?.name || "";
+    const savedEmail = settings?.email || "";
+    const savedTimezone = settings?.timezone || "";
+
+    if (savedName && savedEmail && savedTimezone) {
+      return {
+        shopName: savedName,
+        shopEmail: savedEmail,
+        shopDomain: session.shop,
+        timezone: savedTimezone,
+      };
+    }
+
     const response = await admin.graphql(
       `#graphql
       query getShopDetails {
@@ -26,13 +40,11 @@ export const loader = async ({ request }) => {
     const responseJson = await response.json();
     const shopData = responseJson.data.shop;
 
-    const settings = await getShopSettings(session.shop);
-
     return {
-      shopName: settings?.name || shopData?.name || "",
-      shopEmail: settings?.email || shopData?.email || "",
+      shopName: savedName || shopData?.name || "",
+      shopEmail: savedEmail || shopData?.email || "",
       shopDomain: session.shop,
-      timezone: settings?.timezone || shopData?.ianaTimezone || "Asia/Kolkata",
+      timezone: savedTimezone || shopData?.ianaTimezone || "Asia/Kolkata",
     };
   } catch (error) {
     console.error("Failed to query shop details:", error);
@@ -337,6 +349,12 @@ export default function Account() {
       </s-section>
     </AppPage>
   );
+}
+
+export function shouldRevalidate({ formMethod, actionResult }) {
+  if (actionResult?.skipRevalidate) return false;
+  if (formMethod && formMethod !== "GET") return true;
+  return false;
 }
 
 export const headers = (headersArgs) => {

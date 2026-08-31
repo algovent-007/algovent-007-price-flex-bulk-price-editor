@@ -572,7 +572,12 @@
     "chooseDate": "Wybierz datę",
     "pickDay": "Wybierz dzień",
     "dateFormat": "D.MM.YYYY",
-    "revertMinGapHint": "Cykliczne cofnięcie musi nastąpić co najmniej 3 godziny po zmianie cen."
+    "revertMinGapHint": "Cykliczne cofnięcie musi nastąpić co najmniej 3 godziny po zmianie cen.",
+    "hour": "Godzina",
+    "minute": "Minuta",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Nieznane działanie.",

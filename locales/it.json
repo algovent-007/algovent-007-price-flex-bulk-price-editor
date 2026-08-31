@@ -572,7 +572,12 @@
     "chooseDate": "Scegli data",
     "pickDay": "Scegli giorno",
     "dateFormat": "D/M/YYYY",
-    "revertMinGapHint": "Il ripristino ricorrente deve essere almeno 3 ore dopo la modifica dei prezzi."
+    "revertMinGapHint": "Il ripristino ricorrente deve essere almeno 3 ore dopo la modifica dei prezzi.",
+    "hour": "Ora",
+    "minute": "Minuto",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Azione sconosciuta.",

@@ -96,6 +96,14 @@ export async function findTaskForShop(db, { id, shop }) {
   return db.task.findFirst({ where: { id, shop } });
 }
 
+export async function findTaskStatusForShop(db, { id, shop }) {
+  if (!id || !shop) return null;
+  return db.task.findFirst({
+    where: { id, shop },
+    select: { status: true },
+  });
+}
+
 export async function updateTaskForShop(db, { id, shop, data }) {
   if (!id || !shop || !data) return false;
   const result = await db.task.updateMany({

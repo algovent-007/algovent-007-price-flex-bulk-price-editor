@@ -572,7 +572,12 @@
     "chooseDate": "Välj datum",
     "pickDay": "Välj dag",
     "dateFormat": "YYYY-MM-DD",
-    "revertMinGapHint": "Återkommande återställning måste vara minst 3 timmar efter prisändringen."
+    "revertMinGapHint": "Återkommande återställning måste vara minst 3 timmar efter prisändringen.",
+    "hour": "Timme",
+    "minute": "Minut",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Okänd åtgärd.",

@@ -572,7 +572,12 @@
     "chooseDate": "選擇日期",
     "pickDay": "選擇星期",
     "dateFormat": "YYYY/M/D",
-    "revertMinGapHint": "定期還原必須至少晚於改價時間 3 小時。"
+    "revertMinGapHint": "定期還原必須至少晚於改價時間 3 小時。",
+    "hour": "小時",
+    "minute": "分鐘",
+    "amPm": "上午/下午",
+    "am": "上午",
+    "pm": "下午"
   },
   "errors": {
     "unknownAction": "未知操作。",

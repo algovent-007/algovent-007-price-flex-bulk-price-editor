@@ -572,7 +572,12 @@
     "chooseDate": "Velg dato",
     "pickDay": "Velg dag",
     "dateFormat": "D.M.YYYY",
-    "revertMinGapHint": "Gjentakende tilbakestilling må være minst 3 timer etter prisendringen."
+    "revertMinGapHint": "Gjentakende tilbakestilling må være minst 3 timer etter prisendringen.",
+    "hour": "Time",
+    "minute": "Minutt",
+    "amPm": "AM/PM",
+    "am": "AM",
+    "pm": "PM"
   },
   "errors": {
     "unknownAction": "Ukjent handling.",
