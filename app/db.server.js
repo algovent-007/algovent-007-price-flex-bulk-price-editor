@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ override: true });
 
 import { PrismaClient } from "@prisma/client";
 
@@ -28,7 +28,7 @@ function resolveDatabaseUrl() {
     parsed.searchParams.set("pgbouncer", "true");
   }
   if (!parsed.searchParams.has("connection_limit")) {
-    parsed.searchParams.set("connection_limit", "5");
+    parsed.searchParams.set("connection_limit", "1");
   }
   if (!parsed.searchParams.has("pool_timeout")) {
     parsed.searchParams.set("pool_timeout", "20");
@@ -46,10 +46,7 @@ function createPrismaClient() {
 }
 
 const prisma = global.prismaGlobal ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  global.prismaGlobal = prisma;
-}
+global.prismaGlobal = prisma;
 
 export async function ensurePrismaConnected() {
   let lastError;
@@ -61,6 +58,7 @@ export async function ensurePrismaConnected() {
     } catch (error) {
       lastError = error;
       console.error(`Database connection attempt ${attempt} failed:`, error?.message || error);
+      await prisma.$disconnect().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
     }
   }

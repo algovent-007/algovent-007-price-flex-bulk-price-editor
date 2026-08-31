@@ -16,14 +16,45 @@ import {
 
 function createDeferredSessionStorage() {
   let storage;
-  const ready = ensurePrismaConnected().then(() => {
-    storage = new PrismaSessionStorage(prisma);
-    return storage;
-  });
+  let ready;
+
+  const connect = () => {
+    if (storage) return Promise.resolve(storage);
+    if (!ready) {
+      ready = ensurePrismaConnected()
+        .then(() => {
+          storage = new PrismaSessionStorage(prisma);
+          return storage;
+        })
+        .catch((error) => {
+          ready = undefined;
+          throw error;
+        });
+    }
+    return ready;
+  };
+
+  const isClosedConnection = (error) => {
+    const message = String(error?.message || error);
+    return (
+      message.includes("Server has closed the connection") ||
+      message.includes("Connection terminated") ||
+      message.includes("Can't reach database server")
+    );
+  };
 
   const call = (method) => async (...args) => {
-    const impl = storage || (await ready);
-    return impl[method](...args);
+    const impl = await connect();
+    try {
+      return await impl[method](...args);
+    } catch (error) {
+      if (!isClosedConnection(error)) throw error;
+      storage = undefined;
+      ready = undefined;
+      await prisma.$disconnect().catch(() => {});
+      const retry = await connect();
+      return retry[method](...args);
+    }
   };
 
   return {
