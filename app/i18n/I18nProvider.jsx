@@ -6,7 +6,7 @@ import {
   isSupportedLocale,
   matchSupportedLocale,
 } from "./locales";
-import { getFallbackMessages, getMessages } from "./messages";
+import { getFallbackMessages, loadMessages } from "./messages";
 import { resolveLocale } from "./resolve-locale";
 import { readStoredLocale, writeStoredLocale } from "./storage";
 import { formatCurrency, formatDateTime, formatNumber, translate } from "./translate";
@@ -19,9 +19,30 @@ function applyDocumentLocale(locale) {
   document.documentElement.dir = getLocaleDirection(locale);
 }
 
-export function I18nProvider({ children, savedLocale = null, shopifyLocale = null }) {
-  const [locale, setLocaleState] = useState(() =>
-    resolveLocale({ savedLocale, shopifyLocale }),
+function buildMessageMap({ locale, messages, fallbackMessages }) {
+  const fallback = fallbackMessages || messages || getFallbackMessages();
+  const map = { [DEFAULT_LOCALE]: fallback };
+  if (locale && messages) {
+    map[locale] = messages;
+  }
+  return map;
+}
+
+export function I18nProvider({
+  children,
+  savedLocale = null,
+  shopifyLocale = null,
+  initialMessages = null,
+  initialFallbackMessages = null,
+}) {
+  const initialLocale = resolveLocale({ savedLocale, shopifyLocale });
+  const [locale, setLocaleState] = useState(initialLocale);
+  const [messagesByLocale, setMessagesByLocale] = useState(() =>
+    buildMessageMap({
+      locale: initialLocale,
+      messages: initialMessages,
+      fallbackMessages: initialFallbackMessages,
+    }),
   );
 
   useEffect(() => {
@@ -29,18 +50,57 @@ export function I18nProvider({ children, savedLocale = null, shopifyLocale = nul
   }, [locale]);
 
   useEffect(() => {
+    if (savedLocale) {
+      if (readStoredLocale() !== savedLocale) {
+        writeStoredLocale(savedLocale);
+      }
+      return;
+    }
+
     const stored = readStoredLocale();
     if (stored) {
       setLocaleState((current) => (current === stored ? current : stored));
     }
-  }, []);
+  }, []); // hydrate from cookie/localStorage once; ignore later loader stale cookie
+
+  useEffect(() => {
+    if (messagesByLocale[locale]) return undefined;
+
+    let cancelled = false;
+    loadMessages(locale)
+      .then((next) => {
+        if (cancelled) return;
+        setMessagesByLocale((current) => ({ ...current, [locale]: next }));
+      })
+      .catch((error) => {
+        console.error(`Failed to load locale "${locale}"`, error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, messagesByLocale]);
 
   const setLocale = useCallback((nextLocale) => {
     if (!isSupportedLocale(nextLocale)) return;
-    setLocaleState(nextLocale);
     writeStoredLocale(nextLocale);
     applyDocumentLocale(nextLocale);
-  }, []);
+
+    if (messagesByLocale[nextLocale]) {
+      setLocaleState(nextLocale);
+      return;
+    }
+
+    loadMessages(nextLocale)
+      .then((next) => {
+        setMessagesByLocale((current) => ({ ...current, [nextLocale]: next }));
+        setLocaleState(nextLocale);
+      })
+      .catch((error) => {
+        console.error(`Failed to load locale "${nextLocale}"`, error);
+        setLocaleState(nextLocale);
+      });
+  }, [messagesByLocale]);
 
   const applyShopifyLocale = useCallback(
     (nextShopifyLocale) => {
@@ -57,8 +117,8 @@ export function I18nProvider({ children, savedLocale = null, shopifyLocale = nul
   );
 
   const value = useMemo(() => {
-    const messages = getMessages(locale);
-    const fallbackMessages = getFallbackMessages();
+    const fallbackMessages = messagesByLocale[DEFAULT_LOCALE] || getFallbackMessages();
+    const messages = messagesByLocale[locale] || fallbackMessages;
     const t = (key, vars) => translate(messages, fallbackMessages, key, vars, locale);
     return {
       locale,
@@ -70,7 +130,7 @@ export function I18nProvider({ children, savedLocale = null, shopifyLocale = nul
       formatNumber: (value, options) => formatNumber(value, locale, options),
       formatCurrency: (value, currency) => formatCurrency(value, locale, currency),
     };
-  }, [applyShopifyLocale, locale, setLocale]);
+  }, [applyShopifyLocale, locale, messagesByLocale, setLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

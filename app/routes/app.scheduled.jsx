@@ -1,15 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher, useLoaderData, useNavigate, useRevalidator } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { cancelScheduledRevertTask, processDueTasksForShop } from "../services/scheduler.server";
-import { findTaskForShop, updateTaskForShop } from "../utils/task-record";
+import {
+  activateScheduledTaskForShop,
+  cancelScheduledRevertTask,
+  pauseScheduledTaskForShop,
+  processDueTasksForShop,
+} from "../services/scheduler.server";
+import {
+  findTaskForShop,
+  SCHEDULED_LIST_STATUSES,
+  TASK_NOT_PAUSED_ACTIVATE_ERROR,
+  TASK_NOT_SCHEDULED_PAUSE_ERROR,
+  updateTaskForShop,
+} from "../utils/task-record";
 import { serializeScheduledTasks } from "../utils/schedule";
 import { getShopTimezone } from "../utils/shop-timezone.server";
 import { canCopyTask, canEditScheduledTask, storeTaskCopy, storeTaskEdit } from "../utils/copy-task";
+import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
 import AppPage from "../components/AppPage";
+import ConfirmModal from "../components/ConfirmModal";
 import styles from "../components/ScheduledTasks.module.css";
 
 export const loader = async ({ request }) => {
@@ -19,7 +33,7 @@ export const loader = async ({ request }) => {
   const tasks = await prisma.task.findMany({
     where: {
       shop: session.shop,
-      status: "scheduled",
+      status: { in: SCHEDULED_LIST_STATUSES },
     },
     orderBy: { scheduledAt: "asc" },
   });
@@ -38,7 +52,7 @@ export const action = async ({ request }) => {
   const intent = formData.get("intent");
   const taskId = formData.get("taskId");
 
-  if (intent !== "delete" && intent !== "cancel") {
+  if (intent !== "delete" && intent !== "cancel" && intent !== "pause" && intent !== "activate") {
     return Response.json({ success: false, error: "Unknown intent" });
   }
 
@@ -51,7 +65,23 @@ export const action = async ({ request }) => {
     return Response.json({ success: false, error: "Task not found" });
   }
 
-  if (task.status !== "scheduled") {
+  if (intent === "pause") {
+    const paused = await pauseScheduledTaskForShop({ id: taskId, shop: session.shop });
+    if (!paused) {
+      return Response.json({ success: false, error: TASK_NOT_SCHEDULED_PAUSE_ERROR });
+    }
+    return Response.json({ success: true, paused: true, taskId });
+  }
+
+  if (intent === "activate") {
+    const activated = await activateScheduledTaskForShop({ id: taskId, shop: session.shop });
+    if (!activated) {
+      return Response.json({ success: false, error: TASK_NOT_PAUSED_ACTIVATE_ERROR });
+    }
+    return Response.json({ success: true, activated: true, taskId });
+  }
+
+  if (task.status !== "scheduled" && task.status !== "paused") {
     return Response.json({ success: false, error: "Only scheduled tasks can be cancelled" });
   }
 
@@ -97,18 +127,27 @@ export default function ScheduledTasks() {
   const fetcher = useFetcher();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const appBridge = useAppBridge();
+  const confirmModalRef = useRef(null);
+  const [pendingConfirm, setPendingConfirm] = useState(null);
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
     if (fetcher.data.success) {
       revalidator.revalidate();
+      return;
     }
-  }, [fetcher.state, fetcher.data, revalidator]);
+    if (fetcher.data.error) {
+      appBridge.toast.show(translateError(t, fetcher.data.error), { isError: true });
+    }
+  }, [appBridge, fetcher.data, fetcher.state, revalidator, t]);
 
-  const deletingTaskId =
+  const pendingTaskId =
     fetcher.state !== "idle" && fetcher.formData?.get("taskId")
       ? fetcher.formData.get("taskId")
       : "";
+  const pendingIntent =
+    fetcher.state !== "idle" ? String(fetcher.formData?.get("intent") || "") : "";
 
   const handleEdit = (task, actionData) => {
     if (!canEditScheduledTask(actionData)) return;
@@ -127,10 +166,51 @@ export default function ScheduledTasks() {
     navigate("/app/new");
   };
 
-  const handleDelete = (task) => {
-    if (!window.confirm(t("scheduled.confirmDelete", { name: task.name }))) return;
-    fetcher.submit({ intent: "delete", taskId: task.id }, { method: "POST" });
+  const requestConfirm = (type, task) => {
+    setPendingConfirm({ type, task });
+    confirmModalRef.current?.showOverlay?.();
   };
+
+  const handlePause = (task) => requestConfirm("pause", task);
+  const handleActivate = (task) => requestConfirm("activate", task);
+  const handleDelete = (task) => requestConfirm("delete", task);
+
+  const confirmPendingAction = () => {
+    if (!pendingConfirm) return;
+    fetcher.submit(
+      { intent: pendingConfirm.type, taskId: pendingConfirm.task.id },
+      { method: "POST" },
+    );
+  };
+
+  const confirmDetails = (() => {
+    if (!pendingConfirm) {
+      return { heading: "", message: "", confirmLabel: t("common.yes"), confirmTone: undefined };
+    }
+    const name = pendingConfirm.task.name;
+    if (pendingConfirm.type === "pause") {
+      return {
+        heading: t("scheduled.pause"),
+        message: t("scheduled.confirmPause", { name }),
+        confirmLabel: t("scheduled.pause"),
+        confirmTone: undefined,
+      };
+    }
+    if (pendingConfirm.type === "activate") {
+      return {
+        heading: t("scheduled.activate"),
+        message: t("scheduled.confirmActivate", { name }),
+        confirmLabel: t("scheduled.activate"),
+        confirmTone: undefined,
+      };
+    }
+    return {
+      heading: t("common.delete"),
+      message: t("scheduled.confirmDelete", { name }),
+      confirmLabel: t("common.delete"),
+      confirmTone: "critical",
+    };
+  })();
 
   return (
     <AppPage heading={t("scheduled.heading")}>
@@ -157,7 +237,8 @@ export default function ScheduledTasks() {
               <s-table-body>
                 {tasks.map((task) => {
                   const actionData = getTaskMeta(task);
-                  const isDeleting = deletingTaskId === task.id;
+                  const isPaused = task.status === "paused";
+                  const isBusy = pendingTaskId === task.id;
 
                   return (
                     <s-table-row key={task.id}>
@@ -165,7 +246,12 @@ export default function ScheduledTasks() {
                         <s-text type="strong">{task.name}</s-text>
                       </s-table-cell>
                       <s-table-cell>
-                        <s-badge tone="info">{getTaskTypeLabel(actionData, t)}</s-badge>
+                        <s-stack direction="inline" gap="small-100" alignItems="center">
+                          <s-badge tone="info">{getTaskTypeLabel(actionData, t)}</s-badge>
+                          {isPaused ? (
+                            <s-badge tone="warning">{t("status.paused")}</s-badge>
+                          ) : null}
+                        </s-stack>
                       </s-table-cell>
                       <s-table-cell>
                         <s-text color="subdued">
@@ -193,12 +279,31 @@ export default function ScheduledTasks() {
                           >
                             {t("common.copy")}
                           </s-button>
+                          {isPaused ? (
+                            <s-button
+                              variant="secondary"
+                              onClick={() => handleActivate(task)}
+                              disabled={fetcher.state !== "idle"}
+                              loading={isBusy && pendingIntent === "activate"}
+                            >
+                              {t("scheduled.activate")}
+                            </s-button>
+                          ) : (
+                            <s-button
+                              variant="secondary"
+                              onClick={() => handlePause(task)}
+                              disabled={fetcher.state !== "idle"}
+                              loading={isBusy && pendingIntent === "pause"}
+                            >
+                              {t("scheduled.pause")}
+                            </s-button>
+                          )}
                           <s-button
                             tone="critical"
                             variant="secondary"
                             onClick={() => handleDelete(task)}
                             disabled={fetcher.state !== "idle"}
-                            loading={isDeleting}
+                            loading={isBusy && pendingIntent === "delete"}
                           >
                             {t("common.delete")}
                           </s-button>
@@ -212,6 +317,17 @@ export default function ScheduledTasks() {
           </div>
         )}
       </s-section>
+
+      <ConfirmModal
+        id="scheduled-confirm-modal"
+        heading={confirmDetails.heading}
+        message={confirmDetails.message}
+        confirmLabel={confirmDetails.confirmLabel}
+        confirmTone={confirmDetails.confirmTone}
+        modalRef={confirmModalRef}
+        onConfirm={confirmPendingAction}
+        onHide={() => setPendingConfirm(null)}
+      />
     </AppPage>
   );
 }

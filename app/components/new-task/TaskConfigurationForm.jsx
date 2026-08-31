@@ -15,7 +15,6 @@ export default function TaskConfigurationForm({
   readOnly = false,
   collections = [],
   locations = [],
-  csvFileInputRef,
   values,
   handlers,
   isSearching = false,
@@ -257,13 +256,9 @@ export default function TaskConfigurationForm({
               <CsvUploadCard
                 readOnly={readOnly}
                 editType={editType}
-                csvFileInputRef={csvFileInputRef}
                 csvFileName={csvFileName}
                 csvRowCount={csvRowCount}
                 onFileChange={readOnly ? undefined : handleCsvFileChange}
-                onUploadClick={
-                  readOnly ? undefined : () => csvFileInputRef.current?.click()
-                }
                 error={fieldError("csvFile")}
               />
             </>

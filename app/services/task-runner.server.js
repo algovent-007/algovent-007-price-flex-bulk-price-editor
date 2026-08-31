@@ -19,7 +19,8 @@ import {
 } from "../utils/shopify-variants";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
 import {
-  requireTaskUpdateForShop,
+  findTaskForShop,
+  writeRunningTaskProgress,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
 } from "../utils/task-record";
 
@@ -149,7 +150,7 @@ export async function fetchProductsByQuery(
   shopifyQuery,
   queryStr,
   fieldsFragment,
-  { maxProducts, pageSize = PRODUCTS_PAGE_SIZE } = {}
+  { maxProducts, pageSize = PRODUCTS_PAGE_SIZE, onPage } = {}
 ) {
   const products = [];
   let cursor = null;
@@ -186,6 +187,9 @@ export async function fetchProductsByQuery(
     products.push(...(data.products?.nodes || []));
     hasNextPage = data.products?.pageInfo?.hasNextPage ?? false;
     cursor = data.products?.pageInfo?.endCursor ?? null;
+    if (onPage) {
+      await onPage(products.length);
+    }
 
     if (maxProducts != null && products.length >= maxProducts) {
       break;
@@ -278,35 +282,54 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
     if (logs) {
       updateData.actionDetails = buildActionDetails(logs, extra);
     }
-    await requireTaskUpdateForShop(prisma, { id: taskId, shop, data: updateData });
+    const stopped = await writeRunningTaskProgress(prisma, {
+      id: taskId,
+      shop,
+      data: updateData,
+    });
+    if (stopped) return true;
 
     if (status === "completed" || status === "failed") {
       void notifyTaskFinishedIfEnabled(taskId, shop).catch((error) => {
         console.error(`Failed to send task finished email for ${taskId}:`, error);
       });
     }
+    return false;
   };
 
-  try {
-    await requireTaskUpdateForShop(prisma, {
-      id: taskId,
-      shop,
-      data: { status: "running" },
-    });
-  } catch (error) {
-    return { success: false, error: error.message };
+  const stopped = await updateTaskStatus("running");
+  if (stopped) {
+    return { success: false, stopped: true };
   }
 
   const queryStr = buildProductQuery(editType, matchType, conditionsStr, collectionId);
   const { fields, pageSize } = getTaskProductQueryConfig(editType);
 
   try {
+    let fetchStopped = false;
     const fetchedProducts = await fetchProductsByQuery(
       shopifyQuery,
       queryStr,
       fields,
-      { pageSize }
+      {
+        pageSize,
+        onPage: async (foundCount) => {
+          fetchStopped = await updateTaskStatus(
+            "running",
+            0,
+            foundCount,
+            [],
+            variantProgressFields([], {
+              processedProductsCount: 0,
+              updatedProductsCount: 0,
+            }),
+          );
+        },
+      }
     );
+    if (fetchStopped) {
+      return { success: false, stopped: true };
+    }
 
     const productsWithVariants = await hydrateProductsWithAllVariants(
       shopifyQuery,
@@ -340,18 +363,36 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
         ...(error ? { error } : {}),
       });
 
-    await updateTaskStatus(
-      "running",
-      0,
-      totalProductsCount,
-      [],
-      variantProgressFields([], {
-        processedProductsCount: 0,
-        updatedProductsCount: 0,
-      }),
-    );
+    if (
+      await updateTaskStatus(
+        "running",
+        0,
+        totalProductsCount,
+        [],
+        variantProgressFields([], {
+          processedProductsCount: 0,
+          updatedProductsCount: 0,
+        }),
+      )
+    ) {
+      return { success: false, stopped: true };
+    }
 
     for (const prod of products) {
+      const currentTask = await findTaskForShop(prisma, { id: taskId, shop });
+      if (!currentTask || currentTask.status !== "running") {
+        await updateTaskStatus(
+          "cancelled",
+          updatedVariantsCount,
+          totalProductsCount,
+          logsList,
+          variantProgressFields(logsList, {
+            processedProductsCount: productIdsList.length,
+            updatedProductsCount,
+          }),
+        );
+        return { success: false, stopped: true };
+      }
       let productUpdated = false;
       productIdsList.push(prod.id);
 
@@ -553,7 +594,9 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
       updatedVariantsCount = progress.updatedVariantsCount;
       failureCount = progress.failureCount;
 
-      await updateTaskStatus("running", updatedVariantsCount, totalProductsCount, logsList, progress);
+      if (await updateTaskStatus("running", updatedVariantsCount, totalProductsCount, logsList, progress)) {
+        return { success: false, stopped: true };
+      }
     }
 
     const completedProgress = variantProgressFields(logsList, {
@@ -564,7 +607,9 @@ export async function executePriceEditTask({ admin, taskId, shop, runPayload }) 
     failureCount = completedProgress.failureCount;
     const completionStatus = resolveTaskCompletionStatus(completedProgress);
 
-    await updateTaskStatus(completionStatus, updatedVariantsCount, totalProductsCount, logsList, completedProgress);
+    if (await updateTaskStatus(completionStatus, updatedVariantsCount, totalProductsCount, logsList, completedProgress)) {
+      return { success: false, stopped: true };
+    }
 
     return {
       success: completionStatus === "completed",

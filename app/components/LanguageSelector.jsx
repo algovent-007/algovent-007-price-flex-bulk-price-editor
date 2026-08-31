@@ -5,7 +5,10 @@ export default function LanguageSelector() {
   const { locale, setLocale, t } = useI18n();
 
   const handleChange = (event) => {
-    const next = event.currentTarget?.value ?? event.target?.value;
+    const next =
+      event.currentTarget?.value ??
+      event.target?.value ??
+      event.detail?.value;
     if (next) setLocale(next);
   };
 
@@ -16,7 +19,6 @@ export default function LanguageSelector() {
       accessibilityLabel={t("language.selectorAria")}
       value={locale}
       onInput={handleChange}
-      onChange={handleChange}
     >
       {SUPPORTED_LOCALES.map((option) => (
         <s-option key={option.code} value={option.code}>

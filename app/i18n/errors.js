@@ -6,6 +6,13 @@ export const ERROR_MESSAGE_KEYS = {
   "Task not found": "scheduled.errors.taskNotFound",
   "Task was not found for this shop.": "scheduled.errors.taskNotFound",
   "Only scheduled tasks can be cancelled": "scheduled.errors.onlyScheduled",
+  "Only scheduled tasks can be paused.": "scheduled.errors.onlyScheduledPause",
+  "Only paused tasks can be activated.": "scheduled.errors.onlyPausedActivate",
+  "Only running tasks can be stopped.": "progress.errors.onlyRunning",
+  "Task stopped because it was interrupted.": "errors.interrupted",
+  "Failed to create task.": "errors.createFailed",
+  "You can run up to 3 tasks at the same time. Wait for one to finish before starting another.":
+    "errors.concurrentLimit",
   "Only scheduled tasks can be edited": "scheduled.errors.onlyScheduledEdit",
   "Scheduled rollback tasks cannot be edited": "scheduled.errors.cannotEditRollback",
   "Only completed tasks can be rolled back": "history.errors.onlyCompleted",

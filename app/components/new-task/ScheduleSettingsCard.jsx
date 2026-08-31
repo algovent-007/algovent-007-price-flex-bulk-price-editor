@@ -11,7 +11,6 @@ import {
   getRevertRecurrenceAllowedValues,
   resolveRevertRecurrenceType,
 } from "../../utils/schedule";
-import styles from "./ScheduleSettingsCard.module.css";
 import { translateError } from "../../i18n/errors";
 import { useI18n } from "../../i18n/I18nProvider";
 
@@ -81,7 +80,7 @@ function ScheduleDateTimeFields({
 
   return (
     <s-stack direction="block" gap="base">
-      <div className={styles.pickTimeRow}>
+      <s-grid gridTemplateColumns="1fr 1fr" gap="base" alignItems="end">
         <s-text-field
           label={resolvedDateLabel}
           value={dateStr}
@@ -104,7 +103,7 @@ function ScheduleDateTimeFields({
           timeError={timeError}
           onClearTimeError={onClearTimeError}
         />
-      </div>
+      </s-grid>
       {!readOnly && (
         <s-box>
           <s-button variant="secondary" onClick={openDatePicker}>
@@ -138,81 +137,6 @@ function ScheduleDateTimeFields({
   );
 }
 
-function ScheduleScrollableSelect({
-  label,
-  value,
-  options,
-  disabled = false,
-  error = "",
-  onChange,
-  onClearError,
-}) {
-  const listId = useId();
-  const containerRef = useRef(null);
-  const [open, setOpen] = useState(false);
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label ?? value ?? "";
-
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const handlePointerDown = (event) => {
-      if (!containerRef.current?.contains(event.target)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
-
-  const handleSelect = (nextValue) => {
-    onClearError?.();
-    onChange?.(nextValue);
-    setOpen(false);
-  };
-
-  return (
-    <div className={styles.scrollableSelect} ref={containerRef}>
-      <label className={styles.scrollableSelectLabel} htmlFor={listId}>
-        {label}
-      </label>
-      <button
-        id={listId}
-        type="button"
-        className={`${styles.scrollableSelectTrigger}${error ? ` ${styles.scrollableSelectTriggerError}` : ""}`}
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => {
-          if (!disabled) setOpen((current) => !current);
-        }}
-      >
-        {selectedLabel}
-      </button>
-      {open && !disabled && (
-        <div className={styles.scrollableSelectList} role="listbox" aria-label={label}>
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              className={`${styles.scrollableSelectOption}${
-                option.value === value ? ` ${styles.scrollableSelectOptionSelected}` : ""
-              }`}
-              onClick={() => handleSelect(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {error ? <span className={styles.scrollableSelectError}>{error}</span> : null}
-    </div>
-  );
-}
-
 function SchedulePickAndTimeRow({
   readOnly = false,
   pickKey,
@@ -222,8 +146,6 @@ function SchedulePickAndTimeRow({
   pickError = "",
   onClearPickError,
   pickOptions,
-  pickOptionsData,
-  scrollablePick = false,
   timeStr,
   onTimeChange,
   timeError = "",
@@ -231,37 +153,24 @@ function SchedulePickAndTimeRow({
 }) {
   const { t } = useI18n();
   return (
-    <div className={styles.pickTimeRow}>
-      {scrollablePick ? (
-        <ScheduleScrollableSelect
-          key={pickKey}
-          label={pickLabel}
-          value={pickValue}
-          options={pickOptionsData}
-          disabled={readOnly}
-          error={translateError(t, pickError)}
-          onChange={onPickChange}
-          onClearError={onClearPickError}
-        />
-      ) : (
-        <s-select
-          key={pickKey}
-          label={pickLabel}
-          value={pickValue}
-          disabled={readOnly}
-          error={translateError(t, pickError)}
-          onInput={
-            readOnly
-              ? undefined
-              : (e) => {
-                  onClearPickError?.();
-                  onPickChange(e.target.value);
-                }
-          }
-        >
-          {pickOptions}
-        </s-select>
-      )}
+    <s-grid gridTemplateColumns="1fr 1fr" gap="base" alignItems="end">
+      <s-select
+        key={pickKey}
+        label={pickLabel}
+        value={pickValue}
+        disabled={readOnly}
+        error={translateError(t, pickError)}
+        onInput={
+          readOnly
+            ? undefined
+            : (e) => {
+                onClearPickError?.();
+                onPickChange(e.target.value);
+              }
+        }
+      >
+        {pickOptions}
+      </s-select>
       <s-text-field
         label={t("schedule.time")}
         value={timeStr}
@@ -277,7 +186,7 @@ function SchedulePickAndTimeRow({
         }
         details={t("schedule.timeExample")}
       />
-    </div>
+    </s-grid>
   );
 }
 
@@ -381,8 +290,6 @@ function ScheduleRecurringFields({
         onPickChange={(value) => onDayOfMonthChange?.(value)}
         pickError={fieldErrors?.[monthErrorKey]}
         onClearPickError={() => clearFieldError?.(monthErrorKey)}
-        scrollablePick
-        pickOptionsData={monthOptions}
         pickOptions={monthOptions.map((option) => (
           <s-option key={option.value} value={option.value}>
             {option.label}

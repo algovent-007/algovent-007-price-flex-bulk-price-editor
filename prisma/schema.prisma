@@ -36,7 +36,7 @@ model Session {
 model Task {
   id             String    @id
   name           String
-  status         String // scheduled, running, completed, failed, rolled_back, cancelled
+  status         String // scheduled, paused, running, completed, failed, rolled_back, cancelled
   processedItems Int       @default(0)
   totalItems     Int       @default(0)
   createdAt      DateTime  @default(now())
@@ -47,6 +47,7 @@ model Task {
   updatedAt      DateTime  @updatedAt @default(now())
 
   @@index([shop, status, scheduledAt])
+  @@index([shop, createdAt])
 }
 
 model ShopSettings {

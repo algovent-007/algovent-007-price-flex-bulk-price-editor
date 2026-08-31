@@ -2,20 +2,31 @@ import { downloadCsvTemplate } from "../../utils/csv-bulk-edit";
 import { translateError } from "../../i18n/errors";
 import { useI18n } from "../../i18n/I18nProvider";
 
+function firstFile(files) {
+  if (!files) return null;
+  if (Array.isArray(files)) return files[0] || null;
+  return files[0] || null;
+}
+
 export default function CsvUploadCard({
   readOnly = false,
   editType,
-  csvFileInputRef,
   csvFileName,
   csvRowCount = 0,
   onFileChange,
-  onUploadClick,
   onDownloadTemplate,
   error = "",
 }) {
   const { t } = useI18n();
   const modeLabel =
     editType === "csv-direct" ? t("csv.directHelp") : t("csv.allHelp");
+  const dropError = translateError(t, error);
+
+  const handleDropZoneChange = (event) => {
+    const file = firstFile(event.currentTarget?.files || event.target?.files);
+    if (!file) return;
+    onFileChange?.({ target: { files: [file] } });
+  };
 
   return (
     <s-box padding="base" borderWidth="base" borderRadius="base" background="base">
@@ -31,28 +42,23 @@ export default function CsvUploadCard({
         {!readOnly && <s-link href="/app/support">{t("csv.knowMore")}</s-link>}
 
         {!readOnly && (
-          <input
-            ref={csvFileInputRef}
-            type="file"
+          <s-drop-zone
+            label={t("csv.uploadFile")}
+            accessibilityLabel={t("csv.uploadFile")}
             accept=".csv,text/csv"
-            onChange={onFileChange}
-            style={{ display: "none" }}
+            error={error ? dropError : undefined}
+            onChange={handleDropZoneChange}
           />
         )}
 
         <s-stack direction="block" gap="small">
           {!readOnly && (
-            <s-stack direction="inline" gap="small">
-              <s-button variant="primary" onClick={onUploadClick}>
-                {t("csv.uploadFile")}
-              </s-button>
-              <s-button
-                variant="secondary"
-                onClick={() => (onDownloadTemplate ? onDownloadTemplate() : downloadCsvTemplate(editType))}
-              >
-                {t("csv.downloadTemplate")}
-              </s-button>
-            </s-stack>
+            <s-button
+              variant="secondary"
+              onClick={() => (onDownloadTemplate ? onDownloadTemplate() : downloadCsvTemplate(editType))}
+            >
+              {t("csv.downloadTemplate")}
+            </s-button>
           )}
           {csvFileName ? (
             <s-text color="subdued">
@@ -63,7 +69,6 @@ export default function CsvUploadCard({
           ) : readOnly ? (
             <s-text color="subdued">{t("csv.noFile")}</s-text>
           ) : null}
-          {!readOnly && error && <s-banner tone="critical">{translateError(t, error)}</s-banner>}
         </s-stack>
       </s-stack>
     </s-box>

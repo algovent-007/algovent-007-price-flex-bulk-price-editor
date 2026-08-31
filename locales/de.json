@@ -42,10 +42,11 @@
     "completed": "abgeschlossen",
     "failed": "fehlgeschlagen",
     "cancelled": "abgebrochen",
+    "paused": "pausiert",
     "rolled_back": "zurückgesetzt"
   },
   "home": {
-    "heading": "Aktuell",
+    "heading": "Startseite",
     "getStartedTitle": "Erste Schritte mit {{appName}}",
     "dismissBanner": "Erste-Schritte-Banner schließen",
     "createBulkPriceUpdate": "Massenpreis-Update erstellen",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "Seite gesendet.",
     "notes": "Hinweise",
     "fairUsagePolicy": "Fair-Use-Richtlinie",
-    "concurrentTasks": "Gleichzeitige Aufgaben"
+    "concurrentTasks": "Gleichzeitige Aufgaben",
+    "totalCompletedTasks": "Abgeschlossene Aufgaben insgesamt",
+    "plan": "Plan",
+    "noTaskRunning": "Keine Aufgabe läuft",
+    "howToTitle": "Preise in großen Mengen aktualisieren",
+    "howToBody": "Mit {{appName}} können Sie Preise in großen Mengen aktualisieren, Preisänderungen planen und jederzeit zurücksetzen. Ändern Sie mehrere Produkte mit wenigen Klicks.",
+    "readMore": "Mehr erfahren",
+    "createTaskTitle": "Neue Aufgabe erstellen",
+    "createTaskBody": "Aktualisieren Sie die Preise Ihrer Produkte in großen Mengen.",
+    "newTaskButton": "Neue Aufgabe"
   },
   "progress": {
     "title": "Fortschrittskarte",
     "runningWithCounts": "{{processed}} von {{total}} {{unit}} · {{percent}} %",
     "running": "Aufgabe läuft…",
+    "runningSlots": "{{count}} von {{max}} Aufgaben laufen",
     "percentComplete": "{{percent}} % abgeschlossen",
     "ariaLabel": "Aufgabenfortschritt für {{name}}",
     "productsProcessed": "Verarbeitete Produkte",
@@ -80,6 +91,13 @@
     "moreWarnings": "(+{{count}} weitere)",
     "viewHistory": "Verlauf anzeigen",
     "createAnotherTask": "Weitere Aufgabe erstellen",
+    "details": "Details",
+    "stop": "Stoppen",
+    "confirmStop": "„{{name}}“ stoppen? Bereits aktualisierte Produkte behalten ihre neuen Preise.",
+    "stopped": "Aufgabe gestoppt",
+    "errors": {
+      "onlyRunning": "Nur laufende Aufgaben können gestoppt werden."
+    },
     "unit": {
       "products": {
         "one": "Produkt",
@@ -141,9 +159,15 @@
       "taskNotFound": "Aufgabe nicht gefunden",
       "onlyScheduled": "Nur geplante Aufgaben können abgebrochen werden",
       "onlyScheduledEdit": "Nur geplante Aufgaben können bearbeitet werden",
-      "cannotEditRollback": "Geplante Rollback-Aufgaben können nicht bearbeitet werden"
+      "cannotEditRollback": "Geplante Rollback-Aufgaben können nicht bearbeitet werden",
+      "onlyScheduledPause": "Nur geplante Aufgaben können pausiert werden.",
+      "onlyPausedActivate": "Nur pausierte Aufgaben können aktiviert werden."
     },
     "confirmDelete": "„{{name}}“ löschen? Diese geplante Aufgabe wird abgebrochen und nicht ausgeführt.",
+    "pause": "Pausieren",
+    "activate": "Aktivieren",
+    "confirmPause": "„{{name}}“ pausieren? Sie wird nicht ausgeführt, bis Sie sie wieder aktivieren.",
+    "confirmActivate": "„{{name}}“ aktivieren? Sie wird zur geplanten Zeit ausgeführt.",
     "copyName": "Kopie von {{name}}"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "Aufgabendetails",
     "searchLogs": "Protokolle durchsuchen",
     "searchPlaceholder": "Produkte oder Varianten suchen…",
+    "searchTasks": "Aufgaben suchen",
+    "searchTasksPlaceholder": "Nach Aufgabenname suchen…",
+    "noMatchingTasks": "Keine Aufgaben passen zu „{{query}}“.",
+    "dateFrom": "Startdatum",
+    "dateTo": "Enddatum",
+    "dateRange": "Zeitraum",
+    "selectDateRange": "Daten auswählen",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "Löschen",
+    "applyDateRange": "Übernehmen",
+    "noMatchingFilters": "Keine Aufgaben entsprechen der aktuellen Suche oder dem Zeitraum.",
     "variantCount": {
       "one": "{{count}} Variante",
       "other": "{{count}} Varianten"
@@ -257,6 +292,7 @@
     "runTask": "Aufgabe ausführen",
     "scheduleTask": "Aufgabe planen",
     "runningTask": "Aufgabe wird ausgeführt…",
+    "concurrentLimitBanner": "Es laufen bereits {{max}} Aufgaben. Warten Sie, bis eine fertig ist, oder planen Sie diese Aufgabe für später.",
     "schedulingTask": "Aufgabe wird geplant…",
     "savePricingRules": "Preisregeln speichern",
     "pricingRulesSaved": "Preisregeln gespeichert",
@@ -568,7 +604,10 @@
     "pickValidDate": "Wählen Sie ein gültiges Datum.",
     "validAfterDays": "Wählen Sie eine gültige Anzahl von Tagen.",
     "uploadCsv": "Bitte laden Sie eine CSV-Datei hoch.",
-    "revertMinGap": "Die Rücksetzzeit muss mindestens 3 Stunden nach der Preisänderung liegen."
+    "revertMinGap": "Die Rücksetzzeit muss mindestens 3 Stunden nach der Preisänderung liegen.",
+    "concurrentLimit": "Sie können bis zu 3 Aufgaben gleichzeitig ausführen. Warten Sie, bis eine fertig ist, bevor Sie eine weitere starten.",
+    "interrupted": "Aufgabe gestoppt, weil sie unterbrochen wurde.",
+    "createFailed": "Aufgabe konnte nicht erstellt werden."
   },
   "billing": {
     "redirectTitle": "Weiterleitung zur Shopify-Abrechnung",

@@ -1,6 +1,6 @@
 import { getShopSettings, saveShopSettings } from "../models/shop-settings.server";
 
-const DEFAULT_TIMEZONE = "Asia/Kolkata";
+export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
 const TIMEZONE_ALIASES = {
   "Asia/Calcutta": "Asia/Kolkata",

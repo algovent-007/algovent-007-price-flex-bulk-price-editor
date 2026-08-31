@@ -42,10 +42,11 @@
     "completed": "완료됨",
     "failed": "실패",
     "cancelled": "취소됨",
+    "paused": "일시중지됨",
     "rolled_back": "롤백됨"
   },
   "home": {
-    "heading": "현재",
+    "heading": "홈",
     "getStartedTitle": "{{appName}} 시작하기",
     "dismissBanner": "시작 배너 닫기",
     "createBulkPriceUpdate": "대량 가격 업데이트 만들기",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "페이지.",
     "notes": "참고",
     "fairUsagePolicy": "공정 사용 정책",
-    "concurrentTasks": "동시 작업"
+    "concurrentTasks": "동시 작업",
+    "totalCompletedTasks": "완료된 작업 합계",
+    "plan": "플랜",
+    "noTaskRunning": "실행 중인 작업이 없습니다",
+    "howToTitle": "가격을 대량으로 업데이트하는 방법",
+    "howToBody": "{{appName}}으로 가격을 대량 업데이트하고, 변경을 예약하고, 언제든지 롤백할 수 있습니다. 클릭 몇 번으로 여러 제품을 한 번에 변경하세요.",
+    "readMore": "더 보기",
+    "createTaskTitle": "새 작업 만들기",
+    "createTaskBody": "제품 가격을 대량으로 업데이트하세요.",
+    "newTaskButton": "새 작업"
   },
   "progress": {
     "title": "진행 카드",
     "runningWithCounts": "{{processed}} / {{total}} {{unit}} · {{percent}}%",
     "running": "작업이 실행 중입니다…",
+    "runningSlots": "{{count}} / {{max}}개 작업 실행 중",
     "percentComplete": "{{percent}}% 완료",
     "ariaLabel": "{{name}} 작업 진행률",
     "productsProcessed": "처리된 제품",
@@ -80,6 +91,13 @@
     "moreWarnings": "(+{{count}}개 더)",
     "viewHistory": "기록 보기",
     "createAnotherTask": "다른 작업 만들기",
+    "details": "세부정보",
+    "stop": "중지",
+    "confirmStop": "\"{{name}}\"을(를) 중지할까요? 이미 업데이트된 제품은 새 가격이 유지됩니다.",
+    "stopped": "작업을 중지했습니다",
+    "errors": {
+      "onlyRunning": "실행 중인 작업만 중지할 수 있습니다."
+    },
     "unit": {
       "products": {
         "one": "제품",
@@ -141,9 +159,15 @@
       "taskNotFound": "작업을 찾을 수 없습니다",
       "onlyScheduled": "예약된 작업만 취소할 수 있습니다",
       "onlyScheduledEdit": "예약된 작업만 편집할 수 있습니다",
-      "cannotEditRollback": "예약된 롤백 작업은 편집할 수 없습니다"
+      "cannotEditRollback": "예약된 롤백 작업은 편집할 수 없습니다",
+      "onlyScheduledPause": "예약된 작업만 일시중지할 수 있습니다.",
+      "onlyPausedActivate": "일시중지된 작업만 활성화할 수 있습니다."
     },
     "confirmDelete": "\"{{name}}\"을(를) 삭제할까요? 이 예약 작업은 취소되며 실행되지 않습니다.",
+    "pause": "일시중지",
+    "activate": "활성화",
+    "confirmPause": "\"{{name}}\"을(를) 일시중지할까요? 다시 활성화할 때까지 실행되지 않습니다.",
+    "confirmActivate": "\"{{name}}\"을(를) 활성화할까요? 예약된 시간에 실행됩니다.",
     "copyName": "{{name}} 복사본"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "작업 세부정보",
     "searchLogs": "로그 검색",
     "searchPlaceholder": "제품 또는 옵션 검색...",
+    "searchTasks": "작업 검색",
+    "searchTasksPlaceholder": "작업 이름으로 검색...",
+    "noMatchingTasks": "\"{{query}}\"와(과) 일치하는 작업이 없습니다.",
+    "dateFrom": "시작일",
+    "dateTo": "종료일",
+    "dateRange": "날짜 범위",
+    "selectDateRange": "날짜 선택",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "지우기",
+    "applyDateRange": "적용",
+    "noMatchingFilters": "현재 검색 또는 날짜 범위와 일치하는 작업이 없습니다.",
     "variantCount": {
       "one": "{{count}}개 옵션",
       "other": "{{count}}개 옵션"
@@ -257,6 +292,7 @@
     "runTask": "작업 실행",
     "scheduleTask": "작업 예약",
     "runningTask": "작업 실행 중...",
+    "concurrentLimitBanner": "이미 {{max}}개 작업이 실행 중입니다. 하나가 끝날 때까지 기다리거나 이 작업을 나중에 예약하세요.",
     "schedulingTask": "작업 예약 중...",
     "savePricingRules": "가격 규칙 저장",
     "pricingRulesSaved": "가격 규칙이 저장되었습니다",
@@ -568,7 +604,10 @@
     "pickValidDate": "유효한 날짜를 선택하세요.",
     "validAfterDays": "유효한 일수를 선택하세요.",
     "uploadCsv": "CSV 파일을 업로드하세요.",
-    "revertMinGap": "되돌리기 시간은 가격 변경 후 최소 3시간 뒤여야 합니다."
+    "revertMinGap": "되돌리기 시간은 가격 변경 후 최소 3시간 뒤여야 합니다.",
+    "concurrentLimit": "동시에 실행할 수 있는 작업은 최대 3개입니다. 하나가 끝난 뒤에 다른 작업을 시작하세요.",
+    "interrupted": "작업이 중단되어 중지되었습니다.",
+    "createFailed": "작업을 만들지 못했습니다."
   },
   "billing": {
     "redirectTitle": "Shopify 청구로 이동 중",

@@ -42,10 +42,11 @@
     "completed": "concluída",
     "failed": "falhou",
     "cancelled": "cancelada",
+    "paused": "pausada",
     "rolled_back": "revertida"
   },
   "home": {
-    "heading": "Atual",
+    "heading": "Início",
     "getStartedTitle": "Comece com {{appName}}",
     "dismissBanner": "Dispensar o banner de introdução",
     "createBulkPriceUpdate": "Criar atualização em massa de preços",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "página.",
     "notes": "Notas",
     "fairUsagePolicy": "Política de uso justo",
-    "concurrentTasks": "Tarefas simultâneas"
+    "concurrentTasks": "Tarefas simultâneas",
+    "totalCompletedTasks": "Total de tarefas concluídas",
+    "plan": "Plano",
+    "noTaskRunning": "Nenhuma tarefa em andamento",
+    "howToTitle": "Como atualizar preços em massa",
+    "howToBody": "Com o {{appName}}, você pode atualizar preços em massa, agendar alterações e revertê-las a qualquer momento. Altere vários produtos de uma vez com poucos cliques.",
+    "readMore": "Leia mais",
+    "createTaskTitle": "Criar uma nova tarefa",
+    "createTaskBody": "Atualize os preços dos seus produtos em massa.",
+    "newTaskButton": "Nova tarefa"
   },
   "progress": {
     "title": "Cartão de progresso",
     "runningWithCounts": "{{processed}} de {{total}} {{unit}} · {{percent}}%",
     "running": "A tarefa está em execução…",
+    "runningSlots": "{{count}} de {{max}} tarefas em execução",
     "percentComplete": "{{percent}}% concluído",
     "ariaLabel": "Progresso da tarefa {{name}}",
     "productsProcessed": "Produtos processados",
@@ -80,6 +91,13 @@
     "moreWarnings": "(+{{count}} a mais)",
     "viewHistory": "Ver histórico",
     "createAnotherTask": "Criar outra tarefa",
+    "details": "Detalhes",
+    "stop": "Parar",
+    "confirmStop": "Parar \"{{name}}\"? Os produtos já atualizados manterão os novos preços.",
+    "stopped": "Tarefa interrompida",
+    "errors": {
+      "onlyRunning": "Somente tarefas em execução podem ser interrompidas."
+    },
     "unit": {
       "products": {
         "one": "produto",
@@ -141,9 +159,15 @@
       "taskNotFound": "Tarefa não encontrada",
       "onlyScheduled": "Somente tarefas agendadas podem ser canceladas",
       "onlyScheduledEdit": "Somente tarefas agendadas podem ser editadas",
-      "cannotEditRollback": "Tarefas de reversão agendadas não podem ser editadas"
+      "cannotEditRollback": "Tarefas de reversão agendadas não podem ser editadas",
+      "onlyScheduledPause": "Somente tarefas agendadas podem ser pausadas.",
+      "onlyPausedActivate": "Somente tarefas pausadas podem ser ativadas."
     },
     "confirmDelete": "Excluir \"{{name}}\"? Esta tarefa agendada será cancelada e não será executada.",
+    "pause": "Pausar",
+    "activate": "Ativar",
+    "confirmPause": "Pausar \"{{name}}\"? Ela não será executada até que você a ative novamente.",
+    "confirmActivate": "Ativar \"{{name}}\"? Ela será executada no horário agendado.",
     "copyName": "Cópia de {{name}}"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "Detalhes da tarefa",
     "searchLogs": "Pesquisar logs",
     "searchPlaceholder": "Pesquisar produtos ou variantes…",
+    "searchTasks": "Pesquisar tarefas",
+    "searchTasksPlaceholder": "Pesquisar pelo nome da tarefa…",
+    "noMatchingTasks": "Nenhuma tarefa corresponde a \"{{query}}\".",
+    "dateFrom": "Data inicial",
+    "dateTo": "Data final",
+    "dateRange": "Intervalo de datas",
+    "selectDateRange": "Selecionar datas",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "Limpar",
+    "applyDateRange": "Aplicar",
+    "noMatchingFilters": "Nenhuma tarefa corresponde à pesquisa ou ao intervalo de datas.",
     "variantCount": {
       "one": "{{count}} variante",
       "other": "{{count}} variantes"
@@ -257,6 +292,7 @@
     "runTask": "Executar tarefa",
     "scheduleTask": "Agendar tarefa",
     "runningTask": "Executando tarefa…",
+    "concurrentLimitBanner": "Já há {{max}} tarefas em execução. Espere uma terminar ou agende esta tarefa para mais tarde.",
     "schedulingTask": "Agendando tarefa…",
     "savePricingRules": "Salvar regras de preço",
     "pricingRulesSaved": "Regras de preço salvas",
@@ -568,7 +604,10 @@
     "pickValidDate": "Escolha uma data válida.",
     "validAfterDays": "Escolha um número de dias válido.",
     "uploadCsv": "Envie um arquivo CSV.",
-    "revertMinGap": "O horário de reversão deve ser pelo menos 3 horas após a alteração de preço."
+    "revertMinGap": "O horário de reversão deve ser pelo menos 3 horas após a alteração de preço.",
+    "concurrentLimit": "Você pode executar até 3 tarefas ao mesmo tempo. Espere uma terminar antes de iniciar outra.",
+    "interrupted": "A tarefa foi interrompida porque foi pausada.",
+    "createFailed": "Não foi possível criar a tarefa."
   },
   "billing": {
     "redirectTitle": "Redirecionando para o faturamento da Shopify",

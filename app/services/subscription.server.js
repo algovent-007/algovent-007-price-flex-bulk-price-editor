@@ -19,6 +19,7 @@ import {
 import { logBilling, logBillingError } from "../utils/billing-logger.server";
 
 const SUBSCRIPTION_CACHE_FALLBACK_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const SUBSCRIPTION_CACHE_FRESH_MS = 2 * 60 * 1000;
 
 function isRecentSubscriptionRecord(record) {
   if (!record?.updatedAt) {
@@ -44,8 +45,19 @@ export async function getSubscriptionRecord(shop) {
   return getSubscriptionByShop(shop);
 }
 
-export async function requireSubscription(admin, session) {
+export async function requireSubscription(admin, session, { allowCache = true } = {}) {
   const shop = session.shop;
+
+  const recent = await getSubscriptionByShop(shop);
+  if (
+    allowCache &&
+    recent &&
+    recent.status === SUBSCRIPTION_STATUS.ACTIVE &&
+    isValidPlanName(recent.planName) &&
+    Date.now() - new Date(recent.updatedAt).getTime() < SUBSCRIPTION_CACHE_FRESH_MS
+  ) {
+    return recent;
+  }
 
   try {
     const activeShopifySubscription = await fetchActiveShopifySubscription(admin);

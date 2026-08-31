@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ override: true });
+dotenv.config();
 import "@shopify/shopify-app-react-router/adapters/node";
 import { redirect } from "react-router";
 import {
@@ -52,7 +52,18 @@ const shopify = shopifyApp({
     : {}),
 });
 
+const adminAuthByRequest = new WeakMap();
+
 async function authenticateAdmin(request, options) {
+  const cached = adminAuthByRequest.get(request);
+  if (cached) return cached;
+
+  const pending = authenticateAdminUncached(request, options);
+  adminAuthByRequest.set(request, pending);
+  return pending;
+}
+
+async function authenticateAdminUncached(request, options) {
   const pathname = new URL(request.url).pathname;
 
   if (isSupportEligiblePath(pathname)) {

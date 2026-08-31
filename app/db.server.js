@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config({ override: true });
+dotenv.config();
 
 import { PrismaClient } from "@prisma/client";
 
@@ -7,16 +7,37 @@ function resolveDatabaseUrl() {
   const url = String(process.env.DATABASE_URL || "").trim();
   if (!url) return url;
 
-  const isPooler = url.includes("-pooler.") || url.includes("pgbouncer=true");
-  if (!isPooler) return url;
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
 
-  const params = [];
-  if (!url.includes("pgbouncer=")) params.push("pgbouncer=true");
-  if (!url.includes("connection_limit=")) params.push("connection_limit=1");
-  if (!url.includes("connect_timeout=")) params.push("connect_timeout=15");
-  if (params.length === 0) return url;
+  const isPooler =
+    parsed.hostname.includes("-pooler.") ||
+    parsed.searchParams.get("pgbouncer") === "true";
 
-  return `${url}${url.includes("?") ? "&" : "?"}${params.join("&")}`;
+  parsed.searchParams.delete("channel_binding");
+
+  if (!isPooler) {
+    return parsed.toString();
+  }
+
+  if (!parsed.searchParams.has("pgbouncer")) {
+    parsed.searchParams.set("pgbouncer", "true");
+  }
+  if (!parsed.searchParams.has("connection_limit")) {
+    parsed.searchParams.set("connection_limit", "5");
+  }
+  if (!parsed.searchParams.has("pool_timeout")) {
+    parsed.searchParams.set("pool_timeout", "20");
+  }
+  if (!parsed.searchParams.has("connect_timeout")) {
+    parsed.searchParams.set("connect_timeout", "15");
+  }
+
+  return parsed.toString();
 }
 
 function createPrismaClient() {
@@ -24,13 +45,11 @@ function createPrismaClient() {
   return new PrismaClient(url ? { datasources: { db: { url } } } : undefined);
 }
 
-if (process.env.NODE_ENV !== "production" && global.prismaGlobal) {
-  void global.prismaGlobal.$disconnect();
-  global.prismaGlobal = undefined;
-}
-
 const prisma = global.prismaGlobal ?? createPrismaClient();
-global.prismaGlobal = prisma;
+
+if (process.env.NODE_ENV !== "production") {
+  global.prismaGlobal = prisma;
+}
 
 export async function ensurePrismaConnected() {
   let lastError;
@@ -42,7 +61,6 @@ export async function ensurePrismaConnected() {
     } catch (error) {
       lastError = error;
       console.error(`Database connection attempt ${attempt} failed:`, error?.message || error);
-      await prisma.$disconnect().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
     }
   }

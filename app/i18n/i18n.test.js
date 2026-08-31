@@ -7,7 +7,6 @@ import { resolveLocale } from "./resolve-locale.js";
 import { formatCurrency, formatNumber, translate } from "./translate.js";
 import { ERROR_MESSAGE_KEYS, translateError } from "./errors.js";
 
-const REQUIRED_TEST_LOCALES = ["en", "fr", "de", "es", "pt-BR", "zh-CN", "ja", "th", "ko"];
 const localesDir = join(dirname(fileURLToPath(import.meta.url)), "../../locales");
 
 function loadMessages(locale) {
@@ -128,6 +127,21 @@ function flattenKeys(source, prefix = "") {
   const t = (key) => translate(getMessages("fr"), getFallbackMessages(), key, {}, "fr");
   assert.equal(translateError(t, "Enter a task name."), t("errors.taskName"));
   assert.equal(
+    translateError(
+      t,
+      "You can run up to 3 tasks at the same time. Wait for one to finish before starting another.",
+    ),
+    t("errors.concurrentLimit"),
+  );
+  assert.equal(
+    translateError(t, "Task stopped because it was interrupted."),
+    t("errors.interrupted"),
+  );
+  assert.equal(
+    translateError(t, "Failed to create task."),
+    t("errors.createFailed"),
+  );
+  assert.equal(
     translateError(t, "No changes to roll back"),
     t("history.errors.noChanges"),
   );
@@ -137,7 +151,7 @@ function flattenKeys(source, prefix = "") {
 
 {
   const englishKeys = flattenKeys(getFallbackMessages());
-  for (const locale of REQUIRED_TEST_LOCALES) {
+  for (const locale of SUPPORTED_LOCALES.map((item) => item.code)) {
     const keys = flattenKeys(getMessages(locale));
     for (const key of englishKeys) {
       assert.ok(keys.includes(key), `${locale} is missing key ${key}`);
@@ -147,10 +161,45 @@ function flattenKeys(source, prefix = "") {
 
 {
   const en = getFallbackMessages();
-  for (const locale of ["fr", "de", "es", "pt-BR", "zh-CN", "ja", "th", "ko"]) {
+  for (const key of Object.values(ERROR_MESSAGE_KEYS)) {
+    assert.ok(flattenKeys(en).includes(key), `ERROR_MESSAGE_KEYS points to missing ${key}`);
+  }
+}
+
+{
+  const en = getFallbackMessages();
+  const translatedLocales = SUPPORTED_LOCALES.map((item) => item.code).filter((code) => code !== DEFAULT_LOCALE);
+  const requiredTranslatedKeys = [
+    "nav.currentTasks",
+    "nav.newTask",
+    "nav.scheduledTasks",
+    "nav.tasksHistory",
+    "language.label",
+    "language.selectorAria",
+    "home.heading",
+    "home.howToTitle",
+    "home.lastCompletedTask",
+    "common.cancel",
+    "common.close",
+    "common.loading",
+    "progress.title",
+    "errors.taskName",
+    "errors.interrupted",
+    "errors.createFailed",
+  ];
+
+  function valueAt(source, path) {
+    return path.split(".").reduce((current, segment) => current?.[segment], source);
+  }
+
+  for (const locale of translatedLocales) {
     const messages = getMessages(locale);
-    assert.notEqual(messages.nav.newTask, en.nav.newTask, `${locale} nav.newTask should be translated`);
-    assert.notEqual(messages.language.label, en.language.label, `${locale} language.label should be translated`);
+    for (const key of requiredTranslatedKeys) {
+      const translated = valueAt(messages, key);
+      const english = valueAt(en, key);
+      assert.ok(translated, `${locale} is missing ${key}`);
+      assert.notEqual(translated, english, `${locale} ${key} should be translated`);
+    }
   }
 }
 

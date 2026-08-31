@@ -42,10 +42,11 @@
     "completed": "completed",
     "failed": "failed",
     "cancelled": "cancelled",
+    "paused": "paused",
     "rolled_back": "rolled back"
   },
   "home": {
-    "heading": "Current",
+    "heading": "Home",
     "getStartedTitle": "Get started with {{appName}}",
     "dismissBanner": "Dismiss get started banner",
     "createBulkPriceUpdate": "Create Bulk Price Update",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "page.",
     "notes": "Notes",
     "fairUsagePolicy": "Fair Usage Policy",
-    "concurrentTasks": "Concurrent Tasks"
+    "concurrentTasks": "Concurrent Tasks",
+    "totalCompletedTasks": "Total Completed Tasks",
+    "plan": "Plan",
+    "noTaskRunning": "No task running",
+    "howToTitle": "How to Update Prices in Bulk",
+    "howToBody": "With {{appName}}, you can update prices in bulk, schedule price changes, and rollback anytime. Make changes to multiple products at once with just a few clicks.",
+    "readMore": "Read More",
+    "createTaskTitle": "Create a new task",
+    "createTaskBody": "Update prices for your products in bulk.",
+    "newTaskButton": "New task"
   },
   "progress": {
     "title": "Progress Card",
     "runningWithCounts": "{{processed}} of {{total}} {{unit}} · {{percent}}%",
     "running": "Task is running…",
+    "runningSlots": "{{count}} of {{max}} tasks running",
     "percentComplete": "{{percent}}% complete",
     "ariaLabel": "Task progress for {{name}}",
     "productsProcessed": "Products processed",
@@ -84,6 +95,13 @@
     "moreWarnings": "(+{{count}} more)",
     "viewHistory": "View History",
     "createAnotherTask": "Create another task",
+    "details": "Details",
+    "stop": "Stop",
+    "confirmStop": "Stop \"{{name}}\"? Products already updated will keep their new prices.",
+    "stopped": "Task stopped",
+    "errors": {
+      "onlyRunning": "Only running tasks can be stopped."
+    },
     "unit": {
       "products": {
         "one": "product",
@@ -136,6 +154,10 @@
     "rollback": "Scheduled rollback",
     "confirmCancel": "Cancel this scheduled task?",
     "confirmDelete": "Delete \"{{name}}\"? This scheduled task will be cancelled and will not run.",
+    "pause": "Pause",
+    "activate": "Activate",
+    "confirmPause": "Pause \"{{name}}\"? It will not run until you activate it again.",
+    "confirmActivate": "Activate \"{{name}}\"? It will run at the scheduled time.",
     "copyName": "Copy of {{name}}",
     "errors": {
       "unknownIntent": "Unknown intent",
@@ -143,7 +165,9 @@
       "taskNotFound": "Task not found",
       "onlyScheduled": "Only scheduled tasks can be cancelled",
       "onlyScheduledEdit": "Only scheduled tasks can be edited",
-      "cannotEditRollback": "Scheduled rollback tasks cannot be edited"
+      "cannotEditRollback": "Scheduled rollback tasks cannot be edited",
+      "onlyScheduledPause": "Only scheduled tasks can be paused.",
+      "onlyPausedActivate": "Only paused tasks can be activated."
     }
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "Task Details",
     "searchLogs": "Search logs",
     "searchPlaceholder": "Search products or variants...",
+    "searchTasks": "Search tasks",
+    "searchTasksPlaceholder": "Search by task name...",
+    "noMatchingTasks": "No tasks matching \"{{query}}\".",
+    "dateFrom": "Start date",
+    "dateTo": "End date",
+    "dateRange": "Date range",
+    "selectDateRange": "Select dates",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "Clear",
+    "applyDateRange": "Apply",
+    "noMatchingFilters": "No tasks match the current search or date range.",
     "variantCount": {
       "one": "{{count}} variant",
       "other": "{{count}} variants"
@@ -258,6 +293,7 @@
     "runTask": "Run Task",
     "scheduleTask": "Schedule Task",
     "runningTask": "Running Task...",
+    "concurrentLimitBanner": "{{max}} tasks are already running. Wait for one to finish, or schedule this task for later.",
     "schedulingTask": "Scheduling Task...",
     "savePricingRules": "Save pricing rules",
     "pricingRulesSaved": "Pricing rules saved",
@@ -568,7 +604,10 @@
     "pickValidDate": "Pick a valid date.",
     "validAfterDays": "Pick a valid after days value.",
     "uploadCsv": "Please upload a CSV file.",
-    "revertMinGap": "Revert time must be at least 3 hours after the price change time."
+    "revertMinGap": "Revert time must be at least 3 hours after the price change time.",
+    "concurrentLimit": "You can run up to 3 tasks at the same time. Wait for one to finish before starting another.",
+    "interrupted": "Task stopped because it was interrupted.",
+    "createFailed": "Failed to create task."
   },
   "billing": {
     "redirectTitle": "Redirecting to Shopify billing",

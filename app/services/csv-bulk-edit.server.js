@@ -13,7 +13,9 @@ import {
 } from "../utils/shopify-variants";
 import { notifyTaskFinishedIfEnabled } from "./task-finished-email.server";
 import {
-  requireTaskUpdateForShop,
+  findTaskForShop,
+  persistCancelledTaskProgress,
+  writeRunningTaskProgress,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
 } from "../utils/task-record";
 
@@ -297,7 +299,13 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
   let updatedVariantsCount = 0;
   let updatedProductsCount = 0;
 
-  const buildActionDetails = (logs, extra = {}, { includeRunPayload = false } = {}) =>
+  const slimRunPayload = {
+    ...runPayload,
+    csvRowCount: csvRows.length,
+  };
+  delete slimRunPayload.csvRows;
+
+  const buildActionDetails = (logs, extra = {}, { includeCsvRows = false } = {}) =>
     JSON.stringify({
       taskType: "price_edit",
       editType: runPayload.editType,
@@ -306,7 +314,9 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
       changePrice: runPayload.changePrice,
       priceFormula: runPayload.priceFormula,
       comparePriceFormula: runPayload.comparePriceFormula,
-      ...(includeRunPayload ? { runPayload } : {}),
+      runPayload: includeCsvRows
+        ? { ...runPayload, csvRowCount: csvRows.length }
+        : slimRunPayload,
       tagsToAdd: runPayload.tagsToAddList || [],
       tagsToRemove: runPayload.tagsToRemoveList || [],
       productIds: productIdsList,
@@ -323,32 +333,61 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
     extra = {},
     options = {},
   ) => {
+    const includeCsvRows =
+      options.includeCsvRows ||
+      status === "completed" ||
+      status === "failed" ||
+      status === "cancelled";
     const updateData = { status, processedItems: processed, totalItems: total };
     if (logs !== null) {
-      updateData.actionDetails = buildActionDetails(logs, extra, options);
+      updateData.actionDetails = buildActionDetails(logs, extra, { includeCsvRows });
     }
-    await requireTaskUpdateForShop(prisma, { id: taskId, shop, data: updateData });
+    const stopped = await writeRunningTaskProgress(prisma, {
+      id: taskId,
+      shop,
+      data: updateData,
+    });
+    if (stopped) {
+      if (logs !== null && !includeCsvRows) {
+        await persistCancelledTaskProgress(prisma, {
+          id: taskId,
+          shop,
+          data: {
+            processedItems: processed,
+            totalItems: total,
+            actionDetails: buildActionDetails(logs, extra, { includeCsvRows: true }),
+          },
+        });
+      }
+      return true;
+    }
 
     if (status === "completed" || status === "failed") {
       void notifyTaskFinishedIfEnabled(taskId, shop).catch((error) => {
         console.error(`Failed to send task finished email for ${taskId}:`, error);
       });
     }
+    return false;
   };
 
-  try {
-    await requireTaskUpdateForShop(prisma, {
-      id: taskId,
-      shop,
-      data: { status: "running" },
-    });
-  } catch (error) {
-    return { success: false, error: error.message };
+  if (await updateTaskStatus("running")) {
+    return { success: false, stopped: true };
   }
 
   if (csvRows.length === 0) {
-    await updateTaskStatus("failed", 0, 0, [], { error: "No CSV rows were provided." });
+    await updateTaskStatus(
+      "failed",
+      0,
+      0,
+      [],
+      { error: "No CSV rows were provided." },
+      { includeCsvRows: true },
+    );
     return { success: false, error: "No CSV rows were provided." };
+  }
+
+  if (await updateTaskStatus("running", 0, csvRows.length, [], { processedProductsCount: 0, updatedProductsCount: 0 })) {
+    return { success: false, stopped: true };
   }
 
   try {
@@ -359,9 +398,14 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
     warningsList.push(...warnings);
 
     if (resolvedVariantCount === 0) {
-      await updateTaskStatus("failed", 0, csvRows.length, logsList, {
-        error: "No matching variants were found in Shopify for the uploaded CSV.",
-      });
+      await updateTaskStatus(
+        "failed",
+        0,
+        csvRows.length,
+        logsList,
+        { error: "No matching variants were found in Shopify for the uploaded CSV." },
+        { includeCsvRows: true },
+      );
       return { success: false, error: "No matching variants were found in Shopify for the uploaded CSV." };
     }
 
@@ -370,15 +414,34 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
       if (row.variantId) rowByVariantId.set(row.variantId, row);
     }
 
-    await updateTaskStatus("running", 0, resolvedVariantCount, [], {
-      processedProductsCount: 0,
-      updatedProductsCount: 0,
-      updatedVariantsCount: 0,
-      successCount: 0,
-      failureCount: 0,
-    });
+    if (
+      await updateTaskStatus("running", 0, resolvedVariantCount, [], {
+        processedProductsCount: 0,
+        updatedProductsCount: 0,
+        updatedVariantsCount: 0,
+        successCount: 0,
+        failureCount: 0,
+      })
+    ) {
+      return { success: false, stopped: true };
+    }
 
     for (const prod of products) {
+      const currentTask = await findTaskForShop(prisma, { id: taskId, shop });
+      if (!currentTask || currentTask.status !== "running") {
+        await updateTaskStatus(
+          "cancelled",
+          updatedVariantsCount,
+          resolvedVariantCount,
+          logsList,
+          variantProgressFields(logsList, {
+            processedProductsCount: productIdsList.length,
+            updatedProductsCount,
+          }),
+        );
+        return { success: false, stopped: true };
+      }
+
       let productUpdated = false;
       productIdsList.push(prod.id);
       const variants = prod.variants?.nodes || [];
@@ -631,7 +694,9 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
       });
       updatedVariantsCount = progress.updatedVariantsCount;
 
-      await updateTaskStatus("running", updatedVariantsCount, resolvedVariantCount, logsList, progress);
+      if (await updateTaskStatus("running", updatedVariantsCount, resolvedVariantCount, logsList, progress)) {
+        return { success: false, stopped: true };
+      }
     }
 
     const completedProgress = variantProgressFields(logsList, {
@@ -641,14 +706,18 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
     updatedVariantsCount = completedProgress.updatedVariantsCount;
     const completionStatus = resolveTaskCompletionStatus(completedProgress);
 
-    await updateTaskStatus(
-      completionStatus,
-      updatedVariantsCount,
-      resolvedVariantCount,
-      logsList,
-      completedProgress,
-      { includeRunPayload: true },
-    );
+    if (
+      await updateTaskStatus(
+        completionStatus,
+        updatedVariantsCount,
+        resolvedVariantCount,
+        logsList,
+        completedProgress,
+        { includeCsvRows: true },
+      )
+    ) {
+      return { success: false, stopped: true };
+    }
 
     return {
       success: completionStatus === "completed",
@@ -675,7 +744,7 @@ export async function executeCsvPriceEditTask({ admin, taskId, shop, runPayload 
         ...failedProgress,
         failureCount: failedProgress.failureCount || 1,
       },
-      { includeRunPayload: true },
+      { includeCsvRows: true },
     ).catch((updateErr) => {
       console.error(`Failed to mark CSV task ${taskId} as failed:`, updateErr);
     });

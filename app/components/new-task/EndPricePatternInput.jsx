@@ -1,9 +1,7 @@
-import styles from "./EndPricePatternInput.module.css";
 import {
   DEFAULT_END_PATTERN,
   addWholeDigit,
   formatEndingSummary,
-  normalizeEndingPattern,
   removeWholeDigit,
   serializeEndingPattern,
 } from "../../utils/ending-price-pattern";
@@ -95,73 +93,66 @@ export default function EndPricePatternInput({
 
   return (
     <s-stack direction="block" gap="small">
-      <div className={styles.patternSection}>
-        <div className={styles.patternControls}>
-          <div className={styles.patternRow}>
+      <s-stack direction="inline" gap="base" alignItems="start">
+        <s-stack direction="block" gap="small">
+          <s-stack direction="inline" gap="small-100" alignItems="end">
             {draft.whole.map((digit, index) => (
-              <input
-                key={`whole-${index}`}
-                className={styles.digitBox}
-                value={digit}
-                maxLength={1}
-                type="text"
-                autoComplete="off"
-                disabled={readOnly}
-                aria-label={t("rounding.wholeDigitAria", { index: index + 1 })}
-                onChange={(event) => handleWholeDigitInput(index, event.target.value)}
-                onInput={(event) => handleWholeDigitInput(index, event.currentTarget.value)}
-                onKeyDown={(event) => handleDigitKeyDown("whole", index, event)}
-              />
+              <s-box key={`whole-${index}`} maxInlineSize="52px">
+                <s-text-field
+                  label={t("rounding.wholeDigitAria", { index: index + 1 })}
+                  labelAccessibilityVisibility="exclusive"
+                  value={digit}
+                  maxLength={1}
+                  autocomplete="off"
+                  disabled={readOnly}
+                  onInput={(event) => handleWholeDigitInput(index, event.currentTarget.value)}
+                  onKeyDown={(event) => handleDigitKeyDown("whole", index, event)}
+                />
+              </s-box>
             ))}
-            <span className={styles.decimalPoint} aria-hidden="true">
-              .
-            </span>
+            <s-text aria-hidden="true">.</s-text>
             {draft.cents.map((digit, index) => (
-              <input
-                key={`cent-${index}`}
-                className={styles.digitBox}
-                value={digit}
-                maxLength={1}
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                disabled={readOnly}
-                aria-label={t("rounding.centsDigitAria", { index: index + 1 })}
-                onChange={(event) => handleCentDigitInput(index, event.target.value)}
-                onInput={(event) => handleCentDigitInput(index, event.currentTarget.value)}
-                onKeyDown={(event) => handleDigitKeyDown("cent", index, event)}
-              />
+              <s-box key={`cent-${index}`} maxInlineSize="52px">
+                <s-text-field
+                  label={t("rounding.centsDigitAria", { index: index + 1 })}
+                  labelAccessibilityVisibility="exclusive"
+                  value={digit}
+                  maxLength={1}
+                  autocomplete="off"
+                  disabled={readOnly}
+                  onInput={(event) => handleCentDigitInput(index, event.currentTarget.value)}
+                  onKeyDown={(event) => handleDigitKeyDown("cent", index, event)}
+                />
+              </s-box>
             ))}
-          </div>
+          </s-stack>
 
-          <p className={styles.summaryText}>
+          <s-text>
             {t("rounding.endIn", { pattern: endingLabel })}
-          </p>
+          </s-text>
 
           {error && <s-banner tone="critical">{error}</s-banner>}
-        </div>
+        </s-stack>
 
         {!readOnly && (
-          <div className={styles.patternActions}>
-            <button
-              type="button"
-              className={styles.patternActionButton}
+          <s-stack direction="block" gap="small-100">
+            <s-button
+              variant="tertiary"
               disabled={!canAddDigit}
               onClick={handleAddDigit}
             >
               {t("rounding.addDigit")}
-            </button>
-            <button
-              type="button"
-              className={styles.patternActionButton}
+            </s-button>
+            <s-button
+              variant="tertiary"
               disabled={!canRemoveDigit}
               onClick={handleRemoveDigit}
             >
               {t("rounding.removeDigit")}
-            </button>
-          </div>
+            </s-button>
+          </s-stack>
         )}
-      </div>
+      </s-stack>
     </s-stack>
   );
 }

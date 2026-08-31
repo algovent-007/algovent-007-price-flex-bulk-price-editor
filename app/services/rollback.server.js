@@ -7,9 +7,43 @@ import {
 } from "../utils/shopify-variants";
 import {
   findTaskForShop,
+  getConcurrentTaskLimitError,
   requireTaskUpdateForShop,
+  updateTaskForShop,
+  withShopRunningSlotLock,
+  writeRunningTaskProgress,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
 } from "../utils/task-record";
+
+const RETRYABLE_ROLLBACK_STATUSES = new Set(["cancelled", "failed"]);
+
+function buildInitialRollbackDetails(task) {
+  return JSON.stringify({
+    taskType: "rollback",
+    sourceTaskId: task.id,
+    sourceTaskName: task.name,
+    processedProductsCount: 0,
+    updatedProductsCount: 0,
+    updatedVariantsCount: 0,
+    successCount: 0,
+    failureCount: 0,
+    logs: [],
+  });
+}
+
+async function resetRollbackTaskForRetry({ db = prisma, rollbackTaskId, shop, task, productCount }) {
+  return updateTaskForShop(db, {
+    id: rollbackTaskId,
+    shop,
+    data: {
+      name: `Rollback: ${task.name}`,
+      status: "running",
+      processedItems: 0,
+      totalItems: productCount,
+      actionDetails: buildInitialRollbackDetails(task),
+    },
+  });
+}
 
 function parseActionData(task) {
   try {
@@ -42,8 +76,8 @@ function validateRollbackTask(task) {
   return { valid: true, actionData, logs };
 }
 
-async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, { preserveStatus = false } = {}) {
-  await requireTaskUpdateForShop(prisma, {
+async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, { preserveStatus = false, db = prisma } = {}) {
+  await requireTaskUpdateForShop(db, {
     id: task.id,
     shop: task.shop,
     data: {
@@ -56,7 +90,7 @@ async function syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, { pr
   });
 }
 
-async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
+async function prepareRollbackTask(task, { rollbackTaskId, db = prisma } = {}) {
   if (!task?.shop) {
     return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
   }
@@ -71,7 +105,7 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
   const productIds = actionData.productIds || [...new Set(logs.map((log) => log.productId))];
   const productCount = productIds.length;
 
-  const existingRollbackTask = await prisma.task.findUnique({
+  const existingRollbackTask = await db.task.findUnique({
     where: { id: resolvedRollbackTaskId },
   });
 
@@ -88,7 +122,29 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId);
+    if (RETRYABLE_ROLLBACK_STATUSES.has(existingRollbackTask.status)) {
+      const reset = await resetRollbackTaskForRetry({
+        db,
+        rollbackTaskId: resolvedRollbackTaskId,
+        shop: task.shop,
+        task,
+        productCount,
+      });
+      if (!reset) {
+        return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+      }
+
+      return {
+        success: true,
+        rollbackTaskId: resolvedRollbackTaskId,
+        actionData,
+        logs,
+        productIds,
+        productCount,
+      };
+    }
+
+    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId, { db });
 
     return {
       success: true,
@@ -98,7 +154,7 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
   }
 
   try {
-    await prisma.task.create({
+    await db.task.create({
       data: {
         id: resolvedRollbackTaskId,
         name: `Rollback: ${task.name}`,
@@ -106,17 +162,7 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
         shop: task.shop,
         processedItems: 0,
         totalItems: productCount,
-        actionDetails: JSON.stringify({
-          taskType: "rollback",
-          sourceTaskId: task.id,
-          sourceTaskName: task.name,
-          processedProductsCount: 0,
-          updatedProductsCount: 0,
-          updatedVariantsCount: 0,
-          successCount: 0,
-          failureCount: 0,
-          logs: [],
-        }),
+        actionDetails: buildInitialRollbackDetails(task),
       },
     });
   } catch (error) {
@@ -124,7 +170,7 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
       throw error;
     }
 
-    const concurrentTask = await findTaskForShop(prisma, {
+    const concurrentTask = await findTaskForShop(db, {
       id: resolvedRollbackTaskId,
       shop: task.shop,
     });
@@ -141,7 +187,29 @@ async function prepareRollbackTask(task, { rollbackTaskId } = {}) {
       };
     }
 
-    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId);
+    if (RETRYABLE_ROLLBACK_STATUSES.has(concurrentTask.status)) {
+      const reset = await resetRollbackTaskForRetry({
+        db,
+        rollbackTaskId: resolvedRollbackTaskId,
+        shop: task.shop,
+        task,
+        productCount,
+      });
+      if (!reset) {
+        return { success: false, error: TASK_NOT_FOUND_FOR_SHOP_ERROR };
+      }
+
+      return {
+        success: true,
+        rollbackTaskId: resolvedRollbackTaskId,
+        actionData,
+        logs,
+        productIds,
+        productCount,
+      };
+    }
+
+    await syncSourceTaskAsRolledBack(task, actionData, resolvedRollbackTaskId, { db });
 
     return {
       success: true,
@@ -213,7 +281,7 @@ async function executeRollbackWork({
     });
 
   const updateRollbackTask = async (status, extra = {}) => {
-    await requireTaskUpdateForShop(prisma, {
+    return writeRunningTaskProgress(prisma, {
       id: rollbackTaskId,
       shop: task.shop,
       data: {
@@ -227,6 +295,14 @@ async function executeRollbackWork({
 
   try {
     for (const productId of productIds) {
+      const currentTask = await findTaskForShop(prisma, {
+        id: rollbackTaskId,
+        shop: task.shop,
+      });
+      if (!currentTask || currentTask.status !== "running") {
+        await updateRollbackTask("cancelled");
+        return { success: false, stopped: true };
+      }
       const productLogs = logsByProduct[productId] || [];
       let productUpdated = false;
 
@@ -343,16 +419,23 @@ async function executeRollbackWork({
       }
 
       processedProductsCount++;
-      await updateRollbackTask("running");
+      if (await updateRollbackTask("running")) {
+        return { success: false, stopped: true };
+      }
+    }
+
+    processedProductsCount = productCount;
+    if (
+      await updateRollbackTask("completed", {
+        processedProductsCount: productCount,
+        failureCount: 0,
+      })
+    ) {
+      return { success: false, stopped: true };
     }
 
     await syncSourceTaskAsRolledBack(task, actionData, rollbackTaskId, {
       preserveStatus: preserveSourceSchedule,
-    });
-    processedProductsCount = productCount;
-    await updateRollbackTask("completed", {
-      processedProductsCount: productCount,
-      failureCount: 0,
     });
 
     return {
@@ -370,7 +453,23 @@ async function executeRollbackWork({
 }
 
 export async function startRollbackForTask({ admin, task }) {
-  const prepared = await prepareRollbackTask(task);
+  const prepared = await withShopRunningSlotLock(prisma, task?.shop, async (tx) => {
+    const rollbackTaskId = `rollback-${task.id}`;
+    const existingRollbackTask = task?.shop
+      ? await findTaskForShop(tx, { id: rollbackTaskId, shop: task.shop })
+      : null;
+
+    const needsRunningSlot =
+      !existingRollbackTask || RETRYABLE_ROLLBACK_STATUSES.has(existingRollbackTask.status);
+    if (needsRunningSlot) {
+      const concurrentLimitError = await getConcurrentTaskLimitError(tx, task?.shop);
+      if (concurrentLimitError) {
+        return { success: false, error: concurrentLimitError };
+      }
+    }
+
+    return prepareRollbackTask(task, { db: tx });
+  });
 
   if (!prepared.success) {
     return prepared;
@@ -419,10 +518,26 @@ export async function executeRollbackForTask({
   task,
   preserveSourceSchedule = false,
 }) {
-  const prepared = await prepareRollbackTask(task, {
-    rollbackTaskId: preserveSourceSchedule
+  const prepared = await withShopRunningSlotLock(prisma, task?.shop, async (tx) => {
+    const rollbackTaskId = preserveSourceSchedule
       ? `rollback-${task.id}-${Date.now()}`
-      : undefined,
+      : undefined;
+    const existingRollbackTask =
+      task?.shop && !preserveSourceSchedule
+        ? await findTaskForShop(tx, { id: `rollback-${task.id}`, shop: task.shop })
+        : null;
+    const needsRunningSlot =
+      preserveSourceSchedule ||
+      !existingRollbackTask ||
+      RETRYABLE_ROLLBACK_STATUSES.has(existingRollbackTask.status);
+    if (needsRunningSlot) {
+      const concurrentLimitError = await getConcurrentTaskLimitError(tx, task?.shop);
+      if (concurrentLimitError) {
+        return { success: false, error: concurrentLimitError };
+      }
+    }
+
+    return prepareRollbackTask(task, { rollbackTaskId, db: tx });
   });
 
   if (!prepared.success) {

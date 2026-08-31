@@ -33,9 +33,13 @@ import {
 import { cancelScheduledRevertTask, createScheduledRevertTask } from "../services/scheduler.server";
 import {
   createTaskId,
+  countRunningTasksForShop,
   findTaskForShop,
+  getConcurrentTaskLimitError,
+  MAX_CONCURRENT_RUNNING_TASKS,
   TASK_CREATE_FAILED_ERROR,
   updateTaskForShop,
+  withShopRunningSlotLock,
 } from "../utils/task-record";
 import { createDefaultTaskName, nextTaskSequenceNumber } from "../utils/task-name";
 import { generatePricingPresets } from "../utils/pricing-rules-presets";
@@ -65,6 +69,8 @@ import { resolveClientScheduleTimezone, getBrowserTimezone } from "../utils/shop
 import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
 import AppPage from "../components/AppPage";
+import { writeActiveTaskId } from "../utils/active-task-storage";
+import { fetchCollectionsAndLocations } from "../utils/shop-lookups.server";
 import {
   formatScheduleDateTime,
   formatCurrentTimeInTimezone,
@@ -84,53 +90,31 @@ async function resolveDefaultTaskName({ shop, timeZone }) {
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
 
-  try {
-    const response = await admin.graphql(
-      `#graphql
-      query getCollectionsAndLocations {
-        collections(first: 250, sortKey: TITLE) {
-          nodes {
-            id
-            title
-          }
-        }
-        locations(first: 250) {
-          nodes {
-            id
-            name
-          }
-        }
-      }`
-    );
-    const json = await response.json();
-    if (json.errors) {
-      throw new Error(json.errors[0].message);
-    }
-    const timezoneContext = await getShopTimezoneContext({ shop: session.shop, admin });
-    return {
-      collections: json.data?.collections?.nodes || [],
-      locations: json.data?.locations?.nodes || [],
-      shop: session.shop,
-      defaultTaskName: await resolveDefaultTaskName({
-        shop: session.shop,
-        timeZone: timezoneContext.timezone,
-      }),
-      ...timezoneContext,
-    };
-  } catch (err) {
-    console.error("Error fetching collections:", err);
-    const timezoneContext = await getShopTimezoneContext({ shop: session.shop, admin });
-    return {
-      collections: [],
-      locations: [],
-      shop: session.shop,
-      defaultTaskName: await resolveDefaultTaskName({
-        shop: session.shop,
-        timeZone: timezoneContext.timezone,
-      }),
-      ...timezoneContext,
-    };
-  }
+  const [runningTaskCount, lookups, timezoneContext, existingTasks] = await Promise.all([
+    countRunningTasksForShop(prisma, session.shop),
+    fetchCollectionsAndLocations(admin).catch((err) => {
+      console.error("Error fetching collections:", err);
+      return { collections: [], locations: [] };
+    }),
+    getShopTimezoneContext({ shop: session.shop, admin }),
+    prisma.task.findMany({
+      where: { shop: session.shop },
+      select: { name: true },
+    }),
+  ]);
+
+  return {
+    collections: lookups.collections,
+    locations: lookups.locations,
+    shop: session.shop,
+    runningTaskCount,
+    maxConcurrentTasks: MAX_CONCURRENT_RUNNING_TASKS,
+    defaultTaskName: createDefaultTaskName({
+      number: nextTaskSequenceNumber(existingTasks.map((task) => task.name)),
+      timeZone: timezoneContext.timezone,
+    }),
+    ...timezoneContext,
+  };
 };
 
 export const action = async ({ request }) => {
@@ -434,7 +418,7 @@ export const action = async ({ request }) => {
       if (!existing) {
         return Response.json({ success: false, error: "Task not found" });
       }
-      if (existing.status !== "scheduled") {
+      if (existing.status !== "scheduled" && existing.status !== "paused") {
         return Response.json({ success: false, error: "Only scheduled tasks can be edited" });
       }
       let existingAction = {};
@@ -536,44 +520,59 @@ export const action = async ({ request }) => {
     }
 
     try {
-      const runningTaskData = {
-        name: taskName,
-        status: "running",
-        shop,
-        scheduledAt,
-        revertAt: revertPrices ? revertAt : null,
-        processedItems: 0,
-        totalItems: 0,
-        actionDetails: JSON.stringify({
-          taskType: "price_edit",
-          runPayload,
-          revertEnabled: revertPrices,
-          revertRecurrenceType,
-          revertRecurrenceDayOfWeek,
-          revertRecurrenceDayOfMonth,
-          revertPricesAtDate,
-          revertPricesAtTime,
-          scheduledAt: scheduledAt.toISOString(),
-          revertAt: revertAt?.toISOString() || null,
-        }),
-      };
-
-      if (editingTaskId) {
-        const updated = await updateTaskForShop(prisma, {
-          id: taskId,
-          shop,
-          data: runningTaskData,
+      const slotResult = await withShopRunningSlotLock(prisma, shop, async (tx) => {
+        const concurrentLimitError = await getConcurrentTaskLimitError(tx, shop, {
+          excludeTaskId: editingTaskId || undefined,
         });
-        if (!updated) {
-          return Response.json({ success: false, error: "Task not found" });
+        if (concurrentLimitError) {
+          return { error: concurrentLimitError };
         }
-      } else {
-        await prisma.task.create({
-          data: {
+
+        const runningTaskData = {
+          name: taskName,
+          status: "running",
+          shop,
+          scheduledAt,
+          revertAt: revertPrices ? revertAt : null,
+          processedItems: 0,
+          totalItems: 0,
+          actionDetails: JSON.stringify({
+            taskType: "price_edit",
+            runPayload,
+            revertEnabled: revertPrices,
+            revertRecurrenceType,
+            revertRecurrenceDayOfWeek,
+            revertRecurrenceDayOfMonth,
+            revertPricesAtDate,
+            revertPricesAtTime,
+            scheduledAt: scheduledAt.toISOString(),
+            revertAt: revertAt?.toISOString() || null,
+          }),
+        };
+
+        if (editingTaskId) {
+          const updated = await updateTaskForShop(tx, {
             id: taskId,
-            ...runningTaskData,
-          },
-        });
+            shop,
+            data: runningTaskData,
+          });
+          if (!updated) {
+            return { error: "Task not found" };
+          }
+        } else {
+          await tx.task.create({
+            data: {
+              id: taskId,
+              ...runningTaskData,
+            },
+          });
+        }
+
+        return { ok: true };
+      });
+
+      if (slotResult?.error) {
+        return Response.json({ success: false, error: slotResult.error });
       }
     } catch (e) {
       console.error("Failed to create task log in database:", e);
@@ -641,7 +640,7 @@ export default function NewTask() {
   fetcherRef.current = fetcher;
   const navigate = useNavigate();
   const appBridge = useAppBridge();
-  const { collections, locations, shop, timezone, hasSavedTimezone, defaultTaskName } = useLoaderData();
+  const { collections, locations, shop, timezone, hasSavedTimezone, defaultTaskName, runningTaskCount = 0, maxConcurrentTasks } = useLoaderData();
   const scheduleTimezone = useMemo(
     () => resolveClientScheduleTimezone({ loaderTimezone: timezone, hasSavedTimezone }),
     [timezone, hasSavedTimezone]
@@ -661,7 +660,6 @@ export default function NewTask() {
   const [csvFileName, setCsvFileName] = useState(null);
   const [csvRows, setCsvRows] = useState([]);
   const [productSearchError, setProductSearchError] = useState("");
-  const csvFileInputRef = useRef(null);
 
   // Section 2 States
   const [pricingPresets] = useState(() => generatePricingPresets());
@@ -671,8 +669,8 @@ export default function NewTask() {
   const [percentValue, setPercentValue] = useState(pricingPresets.percentValue);
   const [fixedType, setFixedType] = useState("3");
   const [fixedValue, setFixedValue] = useState(pricingPresets.fixedValue);
-  const [roundCents, setRoundCents] = useState("2");
-  const [roundCentsDigit, setRoundCentsDigit] = useState("2");
+  const [roundCents, setRoundCents] = useState("1");
+  const [roundCentsDigit, setRoundCentsDigit] = useState("");
   const [comparePriceType, setComparePriceType] = useState("6");
   const [costPriceType, setCostPriceType] = useState("6");
   const [fixedPriceAmount, setFixedPriceAmount] = useState(pricingPresets.fixedPriceAmount);
@@ -686,16 +684,16 @@ export default function NewTask() {
   const [compareFixedPriceAmount, setCompareFixedPriceAmount] = useState(
     pricingPresets.compareFixedPriceAmount
   );
-  const [compareRoundCents, setCompareRoundCents] = useState("2");
-  const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("2");
+  const [compareRoundCents, setCompareRoundCents] = useState("1");
+  const [compareRoundCentsDigit, setCompareRoundCentsDigit] = useState("");
 
   const [costPercentType, setCostPercentType] = useState("1");
   const [costPercentValue, setCostPercentValue] = useState(pricingPresets.costPercentValue);
   const [costFixedType, setCostFixedType] = useState("3");
   const [costFixedValue, setCostFixedValue] = useState(pricingPresets.costFixedValue);
   const [costFixedPriceAmount, setCostFixedPriceAmount] = useState(pricingPresets.costFixedPriceAmount);
-  const [costRoundCents, setCostRoundCents] = useState("2");
-  const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("2");
+  const [costRoundCents, setCostRoundCents] = useState("1");
+  const [costRoundCentsDigit, setCostRoundCentsDigit] = useState("");
 
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -996,8 +994,8 @@ export default function NewTask() {
     if (!runFetcher.data?.success || !runFetcher.data.taskId) return;
 
     if (runFetcher.data.taskStarted) {
-      localStorage.setItem("price_flex_active_task_id", runFetcher.data.taskId);
-      navigate(`/app?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
+      writeActiveTaskId(runFetcher.data.taskId);
+      navigate(`/app/current?taskId=${encodeURIComponent(runFetcher.data.taskId)}`);
       return;
     }
 
@@ -1550,6 +1548,11 @@ export default function NewTask() {
 
   return (
     <AppPage heading={editingTaskId ? t("newTask.editHeading") : t("newTask.heading")}>
+      {runningTaskCount >= maxConcurrentTasks ? (
+        <s-banner tone="warning">
+          {t("newTask.concurrentLimitBanner", { max: maxConcurrentTasks })}
+        </s-banner>
+      ) : null}
       {runFetcher.data && runFetcher.data.success && runFetcher.data.scheduled && (
         <s-banner tone="success">
           {runFetcher.data.revertAt
@@ -1583,7 +1586,6 @@ export default function NewTask() {
       <TaskConfigurationForm
         collections={collections}
         locations={locations}
-        csvFileInputRef={csvFileInputRef}
         values={{
           editType,
           matchType,

@@ -27,7 +27,7 @@ async function resolveConfirmationUrl({ admin, session, request }) {
     return existingConfirmationUrl;
   }
 
-  const subscription = await requireSubscription(admin, session);
+  const subscription = await requireSubscription(admin, session, { allowCache: false });
   if (subscription) {
     throw redirect(appendEmbeddedAppParams(request, "/app"));
   }

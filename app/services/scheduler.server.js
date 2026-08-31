@@ -13,12 +13,15 @@ import {
   isOneTimeScheduleRecurrence,
 } from "../utils/schedule";
 import {
+  countRunningTasksForShop,
   findTaskForShop,
   getStaleRunningRecovery,
   hasFreshRelatedRollback,
+  MAX_CONCURRENT_RUNNING_TASKS,
   parseTaskActionDetails,
   TASK_NOT_FOUND_FOR_SHOP_ERROR,
   updateTaskForShop,
+  withShopRunningSlotLock,
 } from "../utils/task-record";
 
 export async function createScheduledRevertTask({
@@ -64,6 +67,7 @@ export async function createScheduledRevertTask({
       existing.status === "cancelled" ||
       existing.status === "failed" ||
       existing.status === "scheduled" ||
+      existing.status === "paused" ||
       (isRecurring && existing.status === "completed")
     ) {
       await prisma.task.updateMany({
@@ -102,10 +106,28 @@ export async function cancelScheduledRevertTask(sourceTaskId, shop) {
     where: {
       id: `scheduled-rollback-${sourceTaskId}`,
       shop,
-      status: "scheduled",
+      status: { in: ["scheduled", "paused"] },
     },
     data: { status: "cancelled" },
   });
+}
+
+export async function pauseScheduledTaskForShop({ id, shop }) {
+  if (!id || !shop) return false;
+  const result = await prisma.task.updateMany({
+    where: { id, shop, status: "scheduled" },
+    data: { status: "paused" },
+  });
+  return result.count > 0;
+}
+
+export async function activateScheduledTaskForShop({ id, shop }) {
+  if (!id || !shop) return false;
+  const result = await prisma.task.updateMany({
+    where: { id, shop, status: "paused" },
+    data: { status: "scheduled" },
+  });
+  return result.count > 0;
 }
 
 async function shopCanUseRecurringTasks(shop) {
@@ -361,8 +383,8 @@ async function markScheduledTaskFailed(taskId, shop, err) {
   }
 }
 
-async function claimScheduledTask(taskId, shop) {
-  const claim = await prisma.task.updateMany({
+async function claimScheduledTask(taskId, shop, db = prisma) {
+  const claim = await db.task.updateMany({
     where: {
       id: taskId,
       shop,
@@ -520,6 +542,7 @@ export async function processDueTasksForShop({ admin, shop }) {
   });
 
   const processed = [];
+  const claimedJobs = [];
 
   for (const task of dueTasks) {
     let actionData = {};
@@ -536,31 +559,47 @@ export async function processDueTasksForShop({ admin, shop }) {
     }
 
     try {
-      if (actionData.taskType === "scheduled_rollback") {
-        const claimed = await claimScheduledTask(task.id, shop);
-        if (!claimed) {
-          continue;
+      const slot = await withShopRunningSlotLock(prisma, shop, async (tx) => {
+        const runningCount = await countRunningTasksForShop(tx, shop);
+        if (runningCount >= MAX_CONCURRENT_RUNNING_TASKS) {
+          return { atLimit: true };
         }
+        const claimed = await claimScheduledTask(task.id, shop, tx);
+        return { claimed };
+      });
 
-        const result = await processScheduledRollbackTask({ admin, task, actionData });
-        processed.push({ taskId: task.id, ...result });
+      if (slot.atLimit) {
+        break;
+      }
+      if (!slot.claimed) {
         continue;
       }
 
-      const claimed = await claimScheduledTask(task.id, shop);
-      if (!claimed) {
-        continue;
-      }
-
-      const result = await processScheduledEditTask({ admin, shop, task, actionData });
-      processed.push({ taskId: task.id, ...result });
+      claimedJobs.push({ task, actionData });
     } catch (err) {
       await markScheduledTaskFailed(task.id, shop, err);
       processed.push({ taskId: task.id, success: false, error: err.message });
     }
   }
 
-  return processed;
+  const started = await Promise.all(
+    claimedJobs.map(async ({ task, actionData }) => {
+      try {
+        if (actionData.taskType === "scheduled_rollback") {
+          const result = await processScheduledRollbackTask({ admin, task, actionData });
+          return { taskId: task.id, ...result };
+        }
+
+        const result = await processScheduledEditTask({ admin, shop, task, actionData });
+        return { taskId: task.id, ...result };
+      } catch (err) {
+        await markScheduledTaskFailed(task.id, shop, err);
+        return { taskId: task.id, success: false, error: err.message };
+      }
+    }),
+  );
+
+  return [...processed, ...started];
 }
 
 export async function findShopsWithDueTasks() {

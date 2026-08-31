@@ -42,10 +42,11 @@
     "completed": "完了",
     "failed": "失敗",
     "cancelled": "キャンセル済み",
+    "paused": "一時停止中",
     "rolled_back": "ロールバック済み"
   },
   "home": {
-    "heading": "現在",
+    "heading": "ホーム",
     "getStartedTitle": "{{appName}} を始める",
     "dismissBanner": "はじめにバナーを閉じる",
     "createBulkPriceUpdate": "一括価格更新を作成",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "。",
     "notes": "メモ",
     "fairUsagePolicy": "フェアユースポリシー",
-    "concurrentTasks": "同時実行タスク"
+    "concurrentTasks": "同時実行タスク",
+    "totalCompletedTasks": "完了したタスクの合計",
+    "plan": "プラン",
+    "noTaskRunning": "実行中のタスクはありません",
+    "howToTitle": "価格を一括更新する方法",
+    "howToBody": "{{appName}} では、価格の一括更新、スケジュール変更、いつでもロールバックが可能です。数回のクリックで複数の商品をまとめて変更できます。",
+    "readMore": "詳細を見る",
+    "createTaskTitle": "新しいタスクを作成",
+    "createTaskBody": "商品の価格を一括で更新します。",
+    "newTaskButton": "新しいタスク"
   },
   "progress": {
     "title": "進捗カード",
     "runningWithCounts": "{{processed}} / {{total}} {{unit}} · {{percent}}%",
     "running": "タスクを実行中…",
+    "runningSlots": "{{count}} / {{max}} 件のタスクが実行中",
     "percentComplete": "{{percent}}% 完了",
     "ariaLabel": "{{name}} のタスク進捗",
     "productsProcessed": "処理済み商品",
@@ -80,6 +91,13 @@
     "moreWarnings": "（他 {{count}} 件）",
     "viewHistory": "履歴を表示",
     "createAnotherTask": "別のタスクを作成",
+    "details": "詳細",
+    "stop": "停止",
+    "confirmStop": "「{{name}}」を停止しますか？すでに更新された商品は新しい価格のままになります。",
+    "stopped": "タスクを停止しました",
+    "errors": {
+      "onlyRunning": "実行中のタスクのみ停止できます。"
+    },
     "unit": {
       "products": {
         "one": "商品",
@@ -141,9 +159,15 @@
       "taskNotFound": "タスクが見つかりません",
       "onlyScheduled": "キャンセルできるのはスケジュール済みタスクのみです",
       "onlyScheduledEdit": "予約済みのタスクのみ編集できます",
-      "cannotEditRollback": "予約ロールバックタスクは編集できません"
+      "cannotEditRollback": "予約ロールバックタスクは編集できません",
+      "onlyScheduledPause": "一時停止できるのはスケジュール済みタスクのみです。",
+      "onlyPausedActivate": "有効化できるのは一時停止中のタスクのみです。"
     },
     "confirmDelete": "「{{name}}」を削除しますか？この予約タスクはキャンセルされ、実行されません。",
+    "pause": "一時停止",
+    "activate": "有効化",
+    "confirmPause": "「{{name}}」を一時停止しますか？再度有効化するまで実行されません。",
+    "confirmActivate": "「{{name}}」を有効化しますか？予定の時刻に実行されます。",
     "copyName": "{{name}}のコピー"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "タスクの詳細",
     "searchLogs": "ログを検索",
     "searchPlaceholder": "商品またはバリエーションを検索...",
+    "searchTasks": "タスクを検索",
+    "searchTasksPlaceholder": "タスク名で検索...",
+    "noMatchingTasks": "「{{query}}」に一致するタスクはありません。",
+    "dateFrom": "開始日",
+    "dateTo": "終了日",
+    "dateRange": "期間",
+    "selectDateRange": "日付を選択",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "クリア",
+    "applyDateRange": "適用",
+    "noMatchingFilters": "現在の検索または期間に一致するタスクはありません。",
     "variantCount": {
       "one": "{{count}} 件のバリエーション",
       "other": "{{count}} 件のバリエーション"
@@ -257,6 +292,7 @@
     "runTask": "タスクを実行",
     "scheduleTask": "タスクをスケジュール",
     "runningTask": "タスクを実行中...",
+    "concurrentLimitBanner": "すでに {{max}} 件のタスクが実行中です。1 件が完了するまで待つか、このタスクを後で実行するようスケジュールしてください。",
     "schedulingTask": "タスクをスケジュール中...",
     "savePricingRules": "価格ルールを保存",
     "pricingRulesSaved": "価格ルールを保存しました",
@@ -568,7 +604,10 @@
     "pickValidDate": "有効な日付を選んでください。",
     "validAfterDays": "有効な日数を選んでください。",
     "uploadCsv": "CSV ファイルをアップロードしてください。",
-    "revertMinGap": "元に戻す時刻は、価格変更の少なくとも3時間後にしてください。"
+    "revertMinGap": "元に戻す時刻は、価格変更の少なくとも3時間後にしてください。",
+    "concurrentLimit": "同時に実行できるタスクは 3 件までです。1 件が完了してから次を開始してください。",
+    "interrupted": "タスクは中断されたため停止しました。",
+    "createFailed": "タスクを作成できませんでした。"
   },
   "billing": {
     "redirectTitle": "Shopify の請求にリダイレクトしています",

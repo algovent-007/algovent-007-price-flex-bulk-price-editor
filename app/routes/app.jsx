@@ -3,7 +3,6 @@ import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
-import { processDueTasksForShop } from "../services/scheduler.server";
 import { requireSubscription } from "../services/subscription.server";
 import { appendEmbeddedAppParams } from "../utils/embedded-app-params.server";
 import { getValidSupportContext } from "../services/admin-support-session.server";
@@ -23,22 +22,15 @@ export const loader = async ({ request }) => {
   try {
     const { admin, session, redirect } = await authenticate.admin(request);
 
-    console.log("Authenticated:", session.shop);
-
     const url = new URL(request.url);
     const billingExempt = isBillingExemptPath(url.pathname);
-    const support = await getValidSupportContext(request);
-    const subscription = await requireSubscription(admin, session);
+    const [support, subscription] = await Promise.all([
+      getValidSupportContext(request),
+      requireSubscription(admin, session),
+    ]);
 
     if (!billingExempt && !subscription && !support) {
       throw redirect(appendEmbeddedAppParams(request, "/billing/confirm"));
-    }
-
-    if (subscription) {
-      await processDueTasksForShop({
-        admin,
-        shop: session.shop,
-      });
     }
 
     const shopifyLocale = session.locale || url.searchParams.get("locale") || "";
@@ -72,7 +64,7 @@ export default function App() {
   const appChrome = (
     <>
       <s-app-nav>
-        <s-link href="/app">{t("nav.currentTasks")}</s-link>
+        <s-link href="/app/current">{t("nav.currentTasks")}</s-link>
         <s-link href="/app/new">{t("nav.newTask")}</s-link>
         <s-link href="/app/scheduled">{t("nav.scheduledTasks")}</s-link>
         <s-link href="/app/history">{t("nav.tasksHistory")}</s-link>
@@ -90,6 +82,19 @@ export default function App() {
       {supportMode ? <AdminSupportAppBridge>{appChrome}</AdminSupportAppBridge> : appChrome}
     </AppProvider>
   );
+}
+
+export function shouldRevalidate({ formMethod, currentUrl, nextUrl, defaultShouldRevalidate, actionResult }) {
+  if (actionResult?.skipRevalidate || actionResult?.task || Array.isArray(actionResult?.collections)) {
+    return false;
+  }
+  if (formMethod && formMethod !== "GET") {
+    return true;
+  }
+  if (currentUrl.pathname === nextUrl.pathname) {
+    return false;
+  }
+  return defaultShouldRevalidate;
 }
 
 export function ErrorBoundary() {

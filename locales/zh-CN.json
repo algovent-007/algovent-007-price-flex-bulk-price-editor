@@ -42,10 +42,11 @@
     "completed": "已完成",
     "failed": "失败",
     "cancelled": "已取消",
+    "paused": "已暂停",
     "rolled_back": "已回滚"
   },
   "home": {
-    "heading": "当前",
+    "heading": "首页",
     "getStartedTitle": "开始使用 {{appName}}",
     "dismissBanner": "关闭入门横幅",
     "createBulkPriceUpdate": "创建批量价格更新",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "页面上的地址。",
     "notes": "说明",
     "fairUsagePolicy": "合理使用政策",
-    "concurrentTasks": "并发任务"
+    "concurrentTasks": "并发任务",
+    "totalCompletedTasks": "已完成任务总数",
+    "plan": "套餐",
+    "noTaskRunning": "当前没有正在运行的任务",
+    "howToTitle": "如何批量更新价格",
+    "howToBody": "使用 {{appName}}，您可以批量更新价格、安排改价并随时回滚。只需点击几下即可同时更改多个产品。",
+    "readMore": "阅读更多",
+    "createTaskTitle": "创建新任务",
+    "createTaskBody": "批量更新商品价格。",
+    "newTaskButton": "新建任务"
   },
   "progress": {
     "title": "进度卡片",
     "runningWithCounts": "{{processed}} / {{total}} {{unit}} · {{percent}}%",
     "running": "任务正在运行…",
+    "runningSlots": "正在运行 {{count}} / {{max}} 个任务",
     "percentComplete": "已完成 {{percent}}%",
     "ariaLabel": "{{name}} 的任务进度",
     "productsProcessed": "已处理的产品",
@@ -80,6 +91,13 @@
     "moreWarnings": "（还有 {{count}} 条）",
     "viewHistory": "查看历史",
     "createAnotherTask": "创建另一个任务",
+    "details": "详情",
+    "stop": "停止",
+    "confirmStop": "停止“{{name}}”？已更新的产品将保留新价格。",
+    "stopped": "任务已停止",
+    "errors": {
+      "onlyRunning": "只能停止正在运行的任务。"
+    },
     "unit": {
       "products": {
         "one": "个产品",
@@ -141,9 +159,15 @@
       "taskNotFound": "未找到任务",
       "onlyScheduled": "只能取消已计划的任务",
       "onlyScheduledEdit": "只能编辑已计划的任务",
-      "cannotEditRollback": "无法编辑计划回滚任务"
+      "cannotEditRollback": "无法编辑计划回滚任务",
+      "onlyScheduledPause": "只能暂停已计划的任务。",
+      "onlyPausedActivate": "只能启用已暂停的任务。"
     },
     "confirmDelete": "删除“{{name}}”？此计划任务将被取消且不会运行。",
+    "pause": "暂停",
+    "activate": "启用",
+    "confirmPause": "暂停“{{name}}”？在重新启用之前，它不会运行。",
+    "confirmActivate": "启用“{{name}}”？它将按计划时间运行。",
     "copyName": "{{name}} 的副本"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "任务详情",
     "searchLogs": "搜索日志",
     "searchPlaceholder": "搜索产品或多属性…",
+    "searchTasks": "搜索任务",
+    "searchTasksPlaceholder": "按任务名称搜索…",
+    "noMatchingTasks": "没有与“{{query}}”匹配的任务。",
+    "dateFrom": "开始日期",
+    "dateTo": "结束日期",
+    "dateRange": "日期范围",
+    "selectDateRange": "选择日期",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "清除",
+    "applyDateRange": "应用",
+    "noMatchingFilters": "没有任务匹配当前搜索或日期范围。",
     "variantCount": {
       "one": "{{count}} 个多属性",
       "other": "{{count}} 个多属性"
@@ -257,6 +292,7 @@
     "runTask": "运行任务",
     "scheduleTask": "计划任务",
     "runningTask": "正在运行任务…",
+    "concurrentLimitBanner": "已有 {{max}} 个任务正在运行。请等待其中一个完成，或将此任务安排到稍后。",
     "schedulingTask": "正在计划任务…",
     "savePricingRules": "保存定价规则",
     "pricingRulesSaved": "定价规则已保存",
@@ -568,7 +604,10 @@
     "pickValidDate": "请选择有效日期。",
     "validAfterDays": "请选择有效的天数。",
     "uploadCsv": "请上传 CSV 文件。",
-    "revertMinGap": "恢复时间必须至少晚于改价时间 3 小时。"
+    "revertMinGap": "恢复时间必须至少晚于改价时间 3 小时。",
+    "concurrentLimit": "最多可同时运行 3 个任务。请等待其中一个完成后再开始新的任务。",
+    "interrupted": "任务因中断而停止。",
+    "createFailed": "创建任务失败。"
   },
   "billing": {
     "redirectTitle": "正在转到 Shopify 账单",

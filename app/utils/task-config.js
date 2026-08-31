@@ -18,8 +18,8 @@ export function getDefaultTaskConfigState(taskName = "") {
     percentValue: "",
     fixedType: "3",
     fixedValue: "",
-    roundCents: "2",
-    roundCentsDigit: "2",
+    roundCents: "1",
+    roundCentsDigit: "",
     comparePriceType: "6",
     costPriceType: "6",
     fixedPriceAmount: "",
@@ -30,15 +30,15 @@ export function getDefaultTaskConfigState(taskName = "") {
     compareFixedType: "3",
     compareFixedValue: "",
     compareFixedPriceAmount: "",
-    compareRoundCents: "2",
-    compareRoundCentsDigit: "2",
+    compareRoundCents: "1",
+    compareRoundCentsDigit: "",
     costPercentType: "1",
     costPercentValue: "",
     costFixedType: "3",
     costFixedValue: "",
     costFixedPriceAmount: "",
-    costRoundCents: "2",
-    costRoundCentsDigit: "2",
+    costRoundCents: "1",
+    costRoundCentsDigit: "",
     examplePrice: "22.99",
     exampleCompare: "24.99",
     exampleCost: "12.50",
@@ -78,7 +78,11 @@ export function buildTaskConfigState(task, actionData, timeZone) {
 
   if (payload.editType) config.editType = payload.editType;
   if (payload.csvFileName) config.csvFileName = payload.csvFileName;
-  if (Array.isArray(payload.csvRows)) config.csvRowCount = payload.csvRows.length;
+  if (Array.isArray(payload.csvRows)) {
+    config.csvRowCount = payload.csvRows.length;
+  } else if (payload.csvRowCount != null) {
+    config.csvRowCount = Number(payload.csvRowCount) || 0;
+  }
   if (payload.matchType) config.matchType = payload.matchType;
   if (payload.conditionsStr) {
     try {

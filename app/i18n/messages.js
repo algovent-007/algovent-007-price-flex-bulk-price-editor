@@ -1,52 +1,45 @@
 import en from "../../locales/en.json";
-import cs from "../../locales/cs.json";
-import da from "../../locales/da.json";
-import nl from "../../locales/nl.json";
-import fi from "../../locales/fi.json";
-import fr from "../../locales/fr.json";
-import de from "../../locales/de.json";
-import it from "../../locales/it.json";
-import ko from "../../locales/ko.json";
-import nb from "../../locales/nb.json";
-import pl from "../../locales/pl.json";
-import ptBR from "../../locales/pt-BR.json";
-import ptPT from "../../locales/pt-PT.json";
-import es from "../../locales/es.json";
-import sv from "../../locales/sv.json";
-import tr from "../../locales/tr.json";
-import zhCN from "../../locales/zh-CN.json";
-import zhTW from "../../locales/zh-TW.json";
-import ja from "../../locales/ja.json";
-import th from "../../locales/th.json";
-import { DEFAULT_LOCALE } from "./locales.js";
+import { DEFAULT_LOCALE, isSupportedLocale } from "./locales.js";
 
-export const MESSAGE_CATALOG = {
-  en,
-  cs,
-  da,
-  nl,
-  fi,
-  fr,
-  de,
-  it,
-  ko,
-  nb,
-  pl,
-  "pt-BR": ptBR,
-  "pt-PT": ptPT,
-  es,
-  sv,
-  tr,
-  "zh-CN": zhCN,
-  "zh-TW": zhTW,
-  ja,
-  th,
-};
+// Eager so catalogs are bundled with the app instead of fetched via /@fs/,
+// which Vite blocks for files outside server.fs.allow during Shopify dev.
+const localeModules = import.meta.glob("../../locales/*.json", { eager: true });
+const loadedMessages = new Map([[DEFAULT_LOCALE, en]]);
 
-export function getMessages(locale) {
-  return MESSAGE_CATALOG[locale] || MESSAGE_CATALOG[DEFAULT_LOCALE];
+function localeModulePath(locale) {
+  return `../../locales/${locale}.json`;
+}
+
+function readLocaleModule(locale) {
+  const relativePath = localeModulePath(locale);
+  const direct = localeModules[relativePath];
+  if (direct) return direct;
+
+  const suffix = `/locales/${locale}.json`;
+  const match = Object.entries(localeModules).find(
+    ([path]) => path === relativePath || path.endsWith(suffix),
+  );
+  return match?.[1] || null;
 }
 
 export function getFallbackMessages() {
-  return MESSAGE_CATALOG[DEFAULT_LOCALE];
+  return en;
+}
+
+export function getMessages(locale) {
+  return loadedMessages.get(locale) || loadedMessages.get(DEFAULT_LOCALE) || en;
+}
+
+export async function loadMessages(locale) {
+  const resolved = isSupportedLocale(locale) ? locale : DEFAULT_LOCALE;
+  const cached = loadedMessages.get(resolved);
+  if (cached) return cached;
+
+  const entry = readLocaleModule(resolved);
+  if (!entry) return en;
+
+  const mod = typeof entry === "function" ? await entry() : entry;
+  const messages = mod.default || mod;
+  loadedMessages.set(resolved, messages);
+  return messages;
 }

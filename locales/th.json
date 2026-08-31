@@ -42,10 +42,11 @@
     "completed": "เสร็จสิ้น",
     "failed": "ล้มเหลว",
     "cancelled": "ยกเลิกแล้ว",
+    "paused": "หยุดชั่วคราว",
     "rolled_back": "ย้อนกลับแล้ว"
   },
   "home": {
-    "heading": "ปัจจุบัน",
+    "heading": "หน้าแรก",
     "getStartedTitle": "เริ่มต้นใช้งาน {{appName}}",
     "dismissBanner": "ปิดแบนเนอร์เริ่มต้น",
     "createBulkPriceUpdate": "สร้างการอัปเดตราคาแบบกลุ่ม",
@@ -64,12 +65,22 @@
     "accountPageSuffix": "หน้า",
     "notes": "หมายเหตุ",
     "fairUsagePolicy": "นโยบายการใช้งานอย่างเป็นธรรม",
-    "concurrentTasks": "งานที่ทำงานพร้อมกัน"
+    "concurrentTasks": "งานที่ทำงานพร้อมกัน",
+    "totalCompletedTasks": "งานที่เสร็จสมบูรณ์ทั้งหมด",
+    "plan": "แผน",
+    "noTaskRunning": "ไม่มีงานที่กำลังทำงาน",
+    "howToTitle": "วิธีอัปเดตราคาแบบกลุ่ม",
+    "howToBody": "ด้วย {{appName}} คุณสามารถอัปเดตราคาแบบกลุ่ม ตั้งเวลาการเปลี่ยนแปลง และย้อนกลับได้ทุกเมื่อ แก้ไขสินค้าหลายรายการพร้อมกันได้ในไม่กี่คลิก",
+    "readMore": "อ่านเพิ่มเติม",
+    "createTaskTitle": "สร้างงานใหม่",
+    "createTaskBody": "อัปเดตราคาสินค้าของคุณแบบกลุ่ม",
+    "newTaskButton": "งานใหม่"
   },
   "progress": {
     "title": "การ์ดความคืบหน้า",
     "runningWithCounts": "{{processed}} จาก {{total}} {{unit}} · {{percent}}%",
     "running": "งานกำลังทำงาน…",
+    "runningSlots": "กำลังรัน {{count}} จาก {{max}} งาน",
     "percentComplete": "เสร็จแล้ว {{percent}}%",
     "ariaLabel": "ความคืบหน้าของงาน {{name}}",
     "productsProcessed": "สินค้าที่ประมวลผลแล้ว",
@@ -80,6 +91,13 @@
     "moreWarnings": "(+ อีก {{count}})",
     "viewHistory": "ดูประวัติ",
     "createAnotherTask": "สร้างงานอื่น",
+    "details": "รายละเอียด",
+    "stop": "หยุด",
+    "confirmStop": "หยุด \"{{name}}\"? สินค้าที่อัปเดตแล้วจะยังคงราคาใหม่ไว้",
+    "stopped": "หยุดงานแล้ว",
+    "errors": {
+      "onlyRunning": "สามารถหยุดได้เฉพาะงานที่กำลังทำงานอยู่เท่านั้น"
+    },
     "unit": {
       "products": {
         "one": "สินค้า",
@@ -141,9 +159,15 @@
       "taskNotFound": "ไม่พบงาน",
       "onlyScheduled": "ยกเลิกได้เฉพาะงานที่ตั้งเวลาไว้",
       "onlyScheduledEdit": "แก้ไขได้เฉพาะงานที่ตั้งเวลาไว้",
-      "cannotEditRollback": "ไม่สามารถแก้ไขงานย้อนกลับที่ตั้งเวลาไว้ได้"
+      "cannotEditRollback": "ไม่สามารถแก้ไขงานย้อนกลับที่ตั้งเวลาไว้ได้",
+      "onlyScheduledPause": "หยุดชั่วคราวได้เฉพาะงานที่ตั้งเวลาไว้",
+      "onlyPausedActivate": "เปิดใช้งานได้เฉพาะงานที่หยุดชั่วคราว"
     },
     "confirmDelete": "ลบ \"{{name}}\" หรือไม่ งานที่ตั้งเวลาไว้จะถูกยกเลิกและจะไม่ทำงาน",
+    "pause": "หยุดชั่วคราว",
+    "activate": "เปิดใช้งาน",
+    "confirmPause": "หยุดชั่วคราว \"{{name}}\" หรือไม่ งานจะไม่ทำงานจนกว่าคุณจะเปิดใช้งานอีกครั้ง",
+    "confirmActivate": "เปิดใช้งาน \"{{name}}\" หรือไม่ งานจะทำงานตามเวลาที่ตั้งไว้",
     "copyName": "สำเนาของ {{name}}"
   },
   "history": {
@@ -167,6 +191,17 @@
     "taskDetails": "รายละเอียดงาน",
     "searchLogs": "ค้นหาบันทึก",
     "searchPlaceholder": "ค้นหาสินค้าหรือตัวเลือกสินค้า...",
+    "searchTasks": "ค้นหางาน",
+    "searchTasksPlaceholder": "ค้นหาด้วยชื่องาน...",
+    "noMatchingTasks": "ไม่พบงานที่ตรงกับ \"{{query}}\"",
+    "dateFrom": "วันที่เริ่มต้น",
+    "dateTo": "วันที่สิ้นสุด",
+    "dateRange": "ช่วงวันที่",
+    "selectDateRange": "เลือกวันที่",
+    "dateRangeValue": "{{from}} – {{to}}",
+    "clearDates": "ล้าง",
+    "applyDateRange": "ใช้",
+    "noMatchingFilters": "ไม่พบงานที่ตรงกับการค้นหาหรือช่วงวันที่ปัจจุบัน",
     "variantCount": {
       "one": "{{count}} ตัวเลือกสินค้า",
       "other": "{{count}} ตัวเลือกสินค้า"
@@ -257,6 +292,7 @@
     "runTask": "เรียกใช้งาน",
     "scheduleTask": "ตั้งเวลางาน",
     "runningTask": "กำลังเรียกใช้งาน...",
+    "concurrentLimitBanner": "มีงานกำลังรันอยู่แล้ว {{max}} งาน โปรดรอให้งานหนึ่งเสร็จ หรือตั้งเวลางานนี้ในภายหลัง",
     "schedulingTask": "กำลังตั้งเวลางาน...",
     "savePricingRules": "บันทึกกฎราคา",
     "pricingRulesSaved": "บันทึกกฎราคาแล้ว",
@@ -568,7 +604,10 @@
     "pickValidDate": "เลือกวันที่ถูกต้อง",
     "validAfterDays": "เลือกจำนวนวันที่ถูกต้อง",
     "uploadCsv": "กรุณาอัปโหลดไฟล์ CSV",
-    "revertMinGap": "เวลาที่ย้อนกลับต้องห่างจากการเปลี่ยนราคาอย่างน้อย 3 ชั่วโมง"
+    "revertMinGap": "เวลาที่ย้อนกลับต้องห่างจากการเปลี่ยนราคาอย่างน้อย 3 ชั่วโมง",
+    "concurrentLimit": "สามารถรันงานพร้อมกันได้สูงสุด 3 งาน โปรดรอให้งานหนึ่งเสร็จก่อนเริ่มงานใหม่",
+    "interrupted": "งานหยุดเพราะถูกขัดจังหวะ",
+    "createFailed": "สร้างงานไม่สำเร็จ"
   },
   "billing": {
     "redirectTitle": "กำลังไปยังการเรียกเก็บเงินของ Shopify",

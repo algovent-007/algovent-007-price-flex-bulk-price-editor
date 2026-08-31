@@ -1,4 +1,3 @@
-import styles from "./TaskProgressCard.module.css";
 import { translateError } from "../i18n/errors";
 import { useI18n } from "../i18n/I18nProvider";
 
@@ -7,6 +6,7 @@ function getStatusTone(status, failureCount = 0) {
   if (status === "completed") return "success";
   if (status === "failed") return "critical";
   if (status === "scheduled") return "info";
+  if (status === "paused") return "warning";
   if (status === "cancelled") return "warning";
   return "info";
 }
@@ -23,13 +23,13 @@ export function isTaskTerminal(status) {
   return ["completed", "failed", "cancelled", "rolled_back"].includes(status);
 }
 
-function getProgressFillClass(status) {
-  if (status === "failed") return styles.fillCritical;
-  if (status === "cancelled") return styles.fillCaution;
-  return "";
-}
-
-export default function TaskProgressCard({ task }) {
+export default function TaskProgressCard({
+  task,
+  onViewDetails,
+  onStop,
+  canViewDetails = false,
+  isStopping = false,
+}) {
   const { t } = useI18n();
   if (!task) return null;
 
@@ -38,13 +38,11 @@ export default function TaskProgressCard({ task }) {
     actionData.editType === "csv-all" || actionData.editType === "csv-direct";
   const processedCount = isCsvTask
     ? Number(task.processedItems ?? 0)
-    : Number(actionData.processedProductsCount ?? 0);
+    : Number(actionData.processedProductsCount ?? task.processedItems ?? 0);
   const totalCount = Number(task.totalItems || 0);
   const updatedProducts = Number(actionData.updatedProductsCount ?? 0);
   const successCount = Number(actionData.successCount ?? actionData.updatedVariantsCount ?? task.processedItems ?? 0);
   const failureCount = Number(actionData.failureCount ?? (task.status === "failed" ? 1 : 0));
-  const evaluatedCount = Number(actionData.evaluatedVariantsCount ?? 0);
-  const noChangeCount = Number(actionData.noChangeCount ?? 0);
   const skippedCount = Number(actionData.skippedCount ?? 0);
   const hasVariantSummary = actionData.evaluatedVariantsCount != null;
   const warnings = Array.isArray(actionData.warnings) ? actionData.warnings : [];
@@ -71,36 +69,70 @@ export default function TaskProgressCard({ task }) {
             <s-heading>{t("progress.title")}</s-heading>
             <s-text color="subdued">{task.name}</s-text>
           </s-stack>
-          <s-badge tone={getStatusTone(task.status, failureCount)}>{statusLabel}</s-badge>
+          <s-stack direction="inline" gap="small" alignItems="center">
+            {onViewDetails && canViewDetails ? (
+              <s-button variant="secondary" onClick={onViewDetails}>
+                {t("progress.details")}
+              </s-button>
+            ) : null}
+            {isRunning && onStop ? (
+              <s-button
+                tone="critical"
+                variant="secondary"
+                onClick={onStop}
+                loading={isStopping}
+                disabled={isStopping}
+              >
+                {t("progress.stop")}
+              </s-button>
+            ) : null}
+            <s-badge tone={getStatusTone(task.status, failureCount)}>{statusLabel}</s-badge>
+          </s-stack>
         </s-stack>
 
-        <div className={styles.progressBlock}>
-          <s-text color="subdued">
-            {isRunning
-              ? totalCount > 0
-                ? t("progress.runningWithCounts", {
-                    processed: processedCount,
-                    total: totalCount,
-                    unit: unitLabel,
-                    percent: progressValue,
-                  })
-                : t("progress.running")
-              : t("progress.percentComplete", { percent: progressValue })}
-          </s-text>
+        <s-stack direction="block" gap="small">
+          <s-stack direction="inline" gap="small" alignItems="center">
+            {isIndeterminate ? (
+              <s-spinner accessibilityLabel={t("progress.ariaLabel", { name: task.name })} />
+            ) : null}
+            <span style={{ color: "var(--p-color-text-secondary, #616161)" }}>
+              {isRunning
+                ? totalCount > 0
+                  ? t("progress.runningWithCounts", {
+                      processed: processedCount,
+                      total: totalCount,
+                      unit: unitLabel,
+                      percent: progressValue,
+                    })
+                  : t("progress.running")
+                : t("progress.percentComplete", { percent: progressValue })}
+            </span>
+          </s-stack>
           <div
-            className={`${styles.track} ${isIndeterminate ? styles.indeterminate : ""}`}
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={isIndeterminate ? undefined : progressValue}
             aria-label={t("progress.ariaLabel", { name: task.name })}
+            style={{
+              background: "var(--p-color-bg-fill-tertiary, #e3e3e3)",
+              borderRadius: 999,
+              height: 10,
+              overflow: "hidden",
+              width: "100%",
+            }}
           >
             <div
-              className={`${styles.fill} ${getProgressFillClass(task.status)}`}
-              style={isIndeterminate ? undefined : { width: `${progressValue}%` }}
+              style={{
+                background: "var(--p-color-bg-fill-success, #008060)",
+                borderRadius: 999,
+                height: "100%",
+                transition: "width 200ms ease",
+                width: `${isIndeterminate ? 0 : progressValue}%`,
+              }}
             />
           </div>
-        </div>
+        </s-stack>
 
         <s-grid gridTemplateColumns="repeat(auto-fit, minmax(140px, 1fr))" gap="base">
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
@@ -108,52 +140,28 @@ export default function TaskProgressCard({ task }) {
               <s-text color="subdued">
                 {t(isCsvTask ? "progress.variantsProcessed" : "progress.productsProcessed")}
               </s-text>
-              <s-text type="strong">
-                {processedCount} / {totalCount}
-              </s-text>
+              <strong>{processedCount} / {totalCount}</strong>
             </s-stack>
           </s-box>
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="small-100">
               <s-text color="subdued">{t("progress.productsUpdated")}</s-text>
-              <s-text type="strong">{updatedProducts}</s-text>
+              <strong>{updatedProducts}</strong>
             </s-stack>
           </s-box>
           <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
             <s-stack direction="block" gap="small-100">
               <s-text color="subdued">{t("progress.successfulVariants")}</s-text>
-              <s-text type="strong" tone="success">{successCount}</s-text>
-            </s-stack>
-          </s-box>
-          <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
-            <s-stack direction="block" gap="small-100">
-              <s-text color="subdued">{t("progress.failures")}</s-text>
-              <s-text type="strong" tone={failureCount > 0 ? "critical" : undefined}>
-                {failureCount}
-              </s-text>
+              <strong style={{ color: "var(--p-color-text-success, #008060)" }}>{successCount}</strong>
             </s-stack>
           </s-box>
           {hasVariantSummary ? (
-            <>
-              <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
-                <s-stack direction="block" gap="small-100">
-                  <s-text color="subdued">{t("progress.variantsEvaluated")}</s-text>
-                  <s-text type="strong">{evaluatedCount}</s-text>
-                </s-stack>
-              </s-box>
-              <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
-                <s-stack direction="block" gap="small-100">
-                  <s-text color="subdued">{t("progress.noChangeVariants")}</s-text>
-                  <s-text type="strong">{noChangeCount}</s-text>
-                </s-stack>
-              </s-box>
-              <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
-                <s-stack direction="block" gap="small-100">
-                  <s-text color="subdued">{t("progress.skippedVariants")}</s-text>
-                  <s-text type="strong">{skippedCount}</s-text>
-                </s-stack>
-              </s-box>
-            </>
+            <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+              <s-stack direction="block" gap="small-100">
+                <s-text color="subdued">{t("progress.skippedVariants")}</s-text>
+                <strong>{skippedCount}</strong>
+              </s-stack>
+            </s-box>
           ) : null}
         </s-grid>
 
